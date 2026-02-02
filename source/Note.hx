@@ -213,9 +213,10 @@ class Note extends FlxSprite
 			}
 			else
 			{
-				if (strumTime > Conductor.songPosition - Conductor.safeZoneOffset)
+				var songPos:Float = Conductor.getInterpolatedPosition();
+				if (strumTime > songPos - Conductor.safeZoneOffset)
 				{ // The * 0.5 is so that it's easier to hit them too late, instead of too early
-					if (strumTime < Conductor.songPosition + (Conductor.safeZoneOffset * 0.5))
+					if (strumTime < songPos + (Conductor.safeZoneOffset * 0.5))
 						canBeHit = true;
 				}
 				else
@@ -229,7 +230,7 @@ class Note extends FlxSprite
 		{
 			canBeHit = false;
 
-			if (strumTime <= Conductor.songPosition)
+			if (strumTime <= Conductor.getInterpolatedPosition())
 				wasGoodHit = true;
 		}
 

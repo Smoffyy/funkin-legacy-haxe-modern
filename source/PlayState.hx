@@ -2103,7 +2103,7 @@ class PlayState extends MusicBeatState
 			}
 		}
 
-		while (unspawnNotes[0] != null && unspawnNotes[0].strumTime - Conductor.songPosition < 1800 / SONG.speed)
+		while (unspawnNotes[0] != null && unspawnNotes[0].strumTime - Conductor.getInterpolatedPosition() < 1800 / SONG.speed)
 		{
 			var dunceNote:Note = unspawnNotes[0];
 			notes.add(dunceNote);
@@ -2132,7 +2132,9 @@ class PlayState extends MusicBeatState
 
 				if (PreferencesMenu.getPref('downscroll'))
 				{
-					daNote.y = (strumLine.y + (Conductor.songPosition - daNote.strumTime) * (0.45 * FlxMath.roundDecimal(SONG.speed, 2)));
+					// Use interpolated song position for smooth note movement (idk why this wasnt implemented before.)
+					var songPos:Float = Conductor.getInterpolatedPosition();
+					daNote.y = (strumLine.y + (songPos - daNote.strumTime) * (0.45 * FlxMath.roundDecimal(SONG.speed, 2)));
 
 					if (daNote.isSustainNote)
 					{
@@ -2155,7 +2157,9 @@ class PlayState extends MusicBeatState
 				}
 				else
 				{
-					daNote.y = (strumLine.y - (Conductor.songPosition - daNote.strumTime) * (0.45 * FlxMath.roundDecimal(SONG.speed, 2)));
+					// Use interpolated song position for smooth 60+ FPS note movement
+					var songPos:Float = Conductor.getInterpolatedPosition();
+					daNote.y = (strumLine.y - (songPos - daNote.strumTime) * (0.45 * FlxMath.roundDecimal(SONG.speed, 2)));
 
 					if (daNote.isSustainNote
 						&& (!daNote.mustPress || (daNote.wasGoodHit || (daNote.prevNote.wasGoodHit && !daNote.canBeHit)))

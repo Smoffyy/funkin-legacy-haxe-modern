@@ -1,6 +1,8 @@
 package;
 
 import Song.SwagSong;
+import flixel.FlxG;
+import openfl.Lib;
 
 /**
  * ...
@@ -24,12 +26,36 @@ class Conductor
 	public static var offset:Float = 0;
 
 	public static var safeFrames:Int = 10;
-	public static var safeZoneOffset:Float = (safeFrames / 60) * 1000; // is calculated in create(), is safeFrames in milliseconds
+	public static var safeZoneOffset:Float = (safeFrames / 60) * 1000;
 
 	public static var bpmChangeMap:Array<BPMChangeEvent> = [];
 
+	// Interpolation variables
+	private static var lastAudioTime:Float = 0;
+	private static var lastFrameTime:Float = 0;
+
 	public function new()
 	{
+	}
+
+	/**
+	 * Get interpolated song position for smooth note movement at any FPS
+	 */
+	public static function getInterpolatedPosition():Float
+	{
+		if (FlxG.sound.music != null && FlxG.sound.music.playing)
+		{
+			// Check if the music time has actually moved since the last check (ikk)
+			if (FlxG.sound.music.time != lastAudioTime)
+			{
+				lastAudioTime = FlxG.sound.music.time;
+				lastFrameTime = Lib.getTimer();
+			}
+			
+			// Return the last known audio time plus the real time passed since then
+			return lastAudioTime + (Lib.getTimer() - lastFrameTime);
+		}
+		return songPosition;
 	}
 
 	public static function mapBPMChanges(song:SwagSong)
