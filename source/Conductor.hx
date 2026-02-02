@@ -33,28 +33,58 @@ class Conductor
 	// Interpolation variables
 	private static var lastAudioTime:Float = 0;
 	private static var lastFrameTime:Float = 0;
+	private static var interpolationStarted:Bool = false; // Track if interpolation has been initialized
 
 	public function new()
 	{
 	}
 
-	/**
-	 * Get interpolated song position for smooth note movement at any FPS
-	 */
+	// Reset all timing variables - MUST be called when starting a new song
+	public static function reset():Void
+	{
+		lastAudioTime = 0;
+		lastFrameTime = 0;
+		lastSongPos = 0;
+		songPosition = 0;
+		interpolationStarted = false; // Reset interpolation flag
+	}
+
+	 // Get interpolated song position for smooth note movement at any FPS
+	 // COMPLETELY REWRITTEN for robustness
+
 	public static function getInterpolatedPosition():Float
 	{
+		// Safety check: if music exists and is playing
 		if (FlxG.sound.music != null && FlxG.sound.music.playing)
 		{
-			// Check if the music time has actually moved since the last check (ikk)
-			if (FlxG.sound.music.time != lastAudioTime)
+			var currentMusicTime:Float = FlxG.sound.music.time;
+			var currentTimer:Float = Lib.getTimer();
+			
+			// Initialize interpolation on first music update
+			if (!interpolationStarted || currentMusicTime != lastAudioTime)
 			{
-				lastAudioTime = FlxG.sound.music.time;
-				lastFrameTime = Lib.getTimer();
+				lastAudioTime = currentMusicTime;
+				lastFrameTime = currentTimer;
+				interpolationStarted = true;
+				return currentMusicTime; // Return actual music time on initialization
 			}
 			
-			// Return the last known audio time plus the real time passed since then
-			return lastAudioTime + (Lib.getTimer() - lastFrameTime);
+			// Calculate time elapsed since last audio update
+			var timeSinceLastUpdate:Float = currentTimer - lastFrameTime;
+			
+			// Safety check: if too much time has passed, something went wrong - resync
+			if (timeSinceLastUpdate > 100) // More than 100ms is suspicious
+			{
+				lastAudioTime = currentMusicTime;
+				lastFrameTime = currentTimer;
+				return currentMusicTime;
+			}
+			
+			// Return interpolated position
+			return lastAudioTime + timeSinceLastUpdate;
 		}
+		
+		// Fallback to songPosition when music isn't playing
 		return songPosition;
 	}
 

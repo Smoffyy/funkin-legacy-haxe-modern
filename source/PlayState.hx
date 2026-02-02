@@ -185,6 +185,7 @@ class PlayState extends MusicBeatState
 
 		Conductor.mapBPMChanges(SONG);
 		Conductor.changeBPM(SONG.bpm);
+		Conductor.reset(); // Reset all timing variables
 
 		foregroundSprites = new FlxTypedGroup<BGSprite>();
 
@@ -2109,6 +2110,11 @@ class PlayState extends MusicBeatState
 
 		while (unspawnNotes[0] != null && unspawnNotes[0].strumTime - Conductor.getInterpolatedPosition() < 1800 / SONG.speed)
 		{
+			// Don't spawn notes if position is negative (before song start)
+			// This prevents all notes from spawning at once on startup
+			if (Conductor.getInterpolatedPosition() < 0 && !startingSong)
+				break;
+				
 			var dunceNote:Note = unspawnNotes[0];
 			notes.add(dunceNote);
 

@@ -230,7 +230,14 @@ class Note extends FlxSprite
 		{
 			canBeHit = false;
 
-			if (strumTime <= Conductor.getInterpolatedPosition())
+			// Add safety check to prevent early hits
+			var currentPos:Float = Conductor.getInterpolatedPosition();
+			
+			// Only mark as hit if:
+			// 1. The note's time has passed
+			// 2. The position is positive (music has started)
+			// 3. Position isn't unreasonably large (sanity check)
+			if (strumTime <= currentPos && currentPos >= 0 && currentPos < strumTime + 5000)
 				wasGoodHit = true;
 		}
 
