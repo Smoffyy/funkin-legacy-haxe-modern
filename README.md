@@ -34,11 +34,15 @@ First, you need to install Haxe and HaxeFlixel. I'm too lazy to write and keep u
 
 Other installations you'd need are the additional libraries, a fully updated list will be in `Project.xml` in the project root. Currently, these are all of the things you need to install:
 ```
-flixel
-flixel-addons
-flixel-ui
-hscript
-newgrounds
+haxelib install flixel
+haxelib install flixel-addons
+haxelib install flixel-ui
+haxelib install hscript
+haxelib install newgrounds
+haxelib git polymod https://github.com/larsiusprime/polymod.git
+haxelib git discord_rpc https://github.com/Aidan63/linc_discord-rpc
+haxelib run lime setup
+haxelib install polymod 1.8.0
 ```
 So for each of those type `haxelib install [library]` so shit like `haxelib install newgrounds`
 
