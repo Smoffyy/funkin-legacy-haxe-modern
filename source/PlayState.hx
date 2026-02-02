@@ -84,7 +84,7 @@ class PlayState extends MusicBeatState
 
 	private var strumLineNotes:FlxTypedGroup<FlxSprite>;
 	private var playerStrums:FlxTypedGroup<FlxSprite>;
-	private var opponentStrums:FlxTypedGroup<FlxSprite>; // NEW: Opponent strums group
+	private var opponentStrums:FlxTypedGroup<FlxSprite>; // Opponent strums group
 
 	private var camZooming:Bool = false;
 	private var curSong:String = "";
@@ -793,7 +793,7 @@ class PlayState extends MusicBeatState
 		add(grpNoteSplashes);
 
 		playerStrums = new FlxTypedGroup<FlxSprite>();
-		opponentStrums = new FlxTypedGroup<FlxSprite>(); // NEW: Initialize opponent strums group
+		opponentStrums = new FlxTypedGroup<FlxSprite>(); // Initialize opponent strums group
 
 		generateSong();
 
@@ -1763,7 +1763,7 @@ class PlayState extends MusicBeatState
 
 			if (player == 1)
 				playerStrums.add(babyArrow);
-			else // NEW: Add to opponent strums if player == 0
+			else // Add to opponent strums if player == 0
 				opponentStrums.add(babyArrow);
 
 			babyArrow.animation.play('static');
