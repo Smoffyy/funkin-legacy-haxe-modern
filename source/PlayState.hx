@@ -1556,6 +1556,7 @@ class PlayState extends MusicBeatState
 			FlxG.sound.playMusic(Paths.inst(SONG.song), 1, false);
 		FlxG.sound.music.onComplete = endSong;
 		vocals.play();
+		vocals.volume = 1;
 
 		#if discord_rpc
 		// Song duration in a float, useful for the time left feature
