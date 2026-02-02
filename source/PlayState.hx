@@ -2220,6 +2220,26 @@ class PlayState extends MusicBeatState
 						}
 					});
 
+					// Health drain
+					// Only drain if health is above 25% (0.5 on 0-2 scale)
+					if (health > 0.5)
+					{
+						if (!daNote.isSustainNote)
+						{
+							// Regular notes drain more (just a tiny bit)
+							health -= 0.015;
+						}
+						else
+						{
+							// Sustain notes drain less per tick
+							health -= 0.005;
+						}
+						
+						// Safety for minimum health.
+						if (health < 0.5)
+							health = 0.5;
+					}
+
 					dad.holdTimer = 0;
 
 					if (SONG.needsVoices)

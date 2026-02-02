@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - High FPS Support, unlike the original version.
 - Compiled with Haxe 4.3.7, latest version.
 - Opponent Note Strum. (Aesthetic)
+- Opponent can health drain, (like actual rapping!)
+- Dynamic sync for charting.
 
 ### Changed
 - Alot of files that were out-dated, compiled to the new version.
