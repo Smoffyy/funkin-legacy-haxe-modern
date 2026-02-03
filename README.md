@@ -1,4 +1,10 @@
-# Friday Night Funkin
+# Friday Night Funkin' Legacy Refreshed!
+
+This is a rework of the branch of the specific legacy branch of [Funkin!](https://github.com/FunkinCrew/Funkin/tree/legacy/0.2.x), this is a fan-made engine to optimize and modernize the original code which was originally written in Haxe 4.1.5, which now is able to run with the newest/latest versions of Haxe! Theres alot more to come, and I will continue to be working on this as a side-project of mine.
+
+
+# Old ReadMe
+## Friday Night Funkin
 
 This is the repository for Friday Night Funkin, a game originally made for Ludum Dare 47 "Stuck In a Loop".
 
@@ -8,7 +14,7 @@ Support the project on the itch.io page: https://ninja-muffin24.itch.io/funkin
 
 IF YOU MAKE A MOD AND DISTRIBUTE A MODIFIED / RECOMPILED VERSION, YOU MUST OPEN SOURCE YOUR MOD AS WELL
 
-## Credits / shoutouts
+### Credits / shoutouts
 
 - [ninjamuffin99 (me!)](https://twitter.com/ninja_muffin99) - Programmer
 - [PhantomArcade3K](https://twitter.com/phantomarcade3k) and [Evilsk8r](https://twitter.com/evilsk8r) - Art
@@ -16,7 +22,7 @@ IF YOU MAKE A MOD AND DISTRIBUTE A MODIFIED / RECOMPILED VERSION, YOU MUST OPEN 
 
 This game was made with love to Newgrounds and its community. Extra love to Tom Fulp.
 
-## Build instructions
+### Build instructions
 
 THESE INSTRUCTIONS ARE FOR COMPILING THE GAME'S SOURCE CODE!!!
 
