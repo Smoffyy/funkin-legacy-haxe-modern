@@ -2478,10 +2478,13 @@ class PlayState extends MusicBeatState
 
 		if (isSick)
 		{
-			var noteSplash:NoteSplash = grpNoteSplashes.recycle(NoteSplash);
-			noteSplash.setupNoteSplash(daNote.x, daNote.y, daNote.noteData);
-			// new NoteSplash(daNote.x, daNote.y, daNote.noteData);
-			grpNoteSplashes.add(noteSplash);
+			// pref
+			if (PreferencesMenu.getPref('note-splashes'))
+			{
+				var noteSplash:NoteSplash = grpNoteSplashes.recycle(NoteSplash);
+				noteSplash.setupNoteSplash(daNote.x, daNote.y, daNote.noteData);
+				grpNoteSplashes.add(noteSplash);
+			}
 		}
 
 		// Only add the score if you're not on practice mode
@@ -2858,52 +2861,59 @@ class PlayState extends MusicBeatState
 			noteMiss(3);
 	} */
 
-	function goodNoteHit(note:Note):Void
-	{
-		if (!note.wasGoodHit)
-		{
-			if (!note.isSustainNote)
-			{
-				combo += 1;
-				popUpScore(note.strumTime, note);
-			}
+function goodNoteHit(note:Note):Void
+    {
+        if (!note.wasGoodHit)
+        {
+            if (!note.isSustainNote)
+            {
+                combo += 1;
+                popUpScore(note.strumTime, note);
 
-			if (note.noteData >= 0)
-				health += 0.023;
-			else
-				health += 0.004;
+                if (PreferencesMenu.getPref('note-splashes'))
+                {
+                    var splash:NoteSplash = grpNoteSplashes.recycle(NoteSplash);
+                    splash.setupNoteSplash(note.x, note.y, note.noteData);
+                    grpNoteSplashes.add(splash);
+                }
+            }
 
-			switch (note.noteData)
-			{
-				case 0:
-					boyfriend.playAnim('singLEFT', true);
-				case 1:
-					boyfriend.playAnim('singDOWN', true);
-				case 2:
-					boyfriend.playAnim('singUP', true);
-				case 3:
-					boyfriend.playAnim('singRIGHT', true);
-			}
+            if (note.noteData >= 0)
+                health += 0.023;
+            else
+                health += 0.004;
 
-			playerStrums.forEach(function(spr:FlxSprite)
-			{
-				if (Math.abs(note.noteData) == spr.ID)
-				{
-					spr.animation.play('confirm', true);
-				}
-			});
+            switch (note.noteData)
+            {
+                case 0:
+                    boyfriend.playAnim('singLEFT', true);
+                case 1:
+                    boyfriend.playAnim('singDOWN', true);
+                case 2:
+                    boyfriend.playAnim('singUP', true);
+                case 3:
+                    boyfriend.playAnim('singRIGHT', true);
+            }
 
-			note.wasGoodHit = true;
-			vocals.volume = 1;
+            playerStrums.forEach(function(spr:FlxSprite)
+            {
+                if (Math.abs(note.noteData) == spr.ID)
+                {
+                    spr.animation.play('confirm', true);
+                }
+            });
 
-			if (!note.isSustainNote)
-			{
-				note.kill();
-				notes.remove(note, true);
-				note.destroy();
-			}
-		}
-	}
+            note.wasGoodHit = true;
+            vocals.volume = 1;
+
+            if (!note.isSustainNote)
+            {
+                note.kill();
+                notes.remove(note, true);
+                note.destroy();
+            }
+        }
+    }
 
 	var fastCarCanDrive:Bool = true;
 
