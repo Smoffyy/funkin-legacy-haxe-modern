@@ -14,6 +14,10 @@ import openfl.media.Video;
 import openfl.net.NetConnection;
 import openfl.net.NetStream;
 
+#if windows
+import hxwindowmode.WindowColorMode;
+#end
+
 class Main extends Sprite
 {
 	var gameWidth:Int = 1280; // Width of the game in pixels (might be less / more in actual pixels depending on your zoom).
@@ -21,15 +25,13 @@ class Main extends Sprite
 	var initialState:Class<FlxState> = TitleState; // The FlxState the game starts with.
 	var zoom:Float = -1; // If -1, zoom is automatically calculated to fit the window dimensions.
 	#if web
-	var framerate:Int = 60; // How many frames per second the game should run at.
+	var framerate:Int = 60;
 	#else
-	var framerate:Int = 144; // How many frames per second the game should run at.
-
+	var framerate:Int = 360;
 	#end
-	var skipSplash:Bool = true; // Whether to skip the flixel splash screen that appears in release mode.
-	var startFullscreen:Bool = false; // Whether to start the game in fullscreen on desktop targets
 
-	// You can pretty much ignore everything from here on - your code should go in your states.
+	var skipSplash:Bool = true;
+	var startFullscreen:Bool = false;
 
 	public static function main():Void
 	{
@@ -56,6 +58,13 @@ class Main extends Sprite
 		{
 			removeEventListener(Event.ADDED_TO_STAGE, init);
 		}
+
+		#if windows
+		// Pure black
+		WindowColorMode.setWindowBorderColor([0, 0, 0], true, true);
+		//WindowColorMode.setDarkMode();
+		WindowColorMode.redrawWindowHeader();
+		#end
 
 		setupGame();
 	}
@@ -84,58 +93,19 @@ class Main extends Sprite
 		initialState = TitleState;
 		#end
 
-		addChild(new FlxGame(gameWidth, gameHeight, initialState, framerate, framerate, skipSplash, startFullscreen));
+		addChild(new FlxGame(
+			gameWidth,
+			gameHeight,
+			initialState,
+			framerate,
+			framerate,
+			skipSplash,
+			startFullscreen
+		));
 
 		#if !mobile
 		fpsCounter = new FPS(10, 3, 0xFFFFFF);
 		addChild(fpsCounter);
 		#end
-		/* 
-			video = new Video();
-			addChild(video);
-
-			var netConnection = new NetConnection();
-			netConnection.connect(null);
-
-			netStream = new NetStream(netConnection);
-			netStream.client = {onMetaData: client_onMetaData};
-			netStream.addEventListener(AsyncErrorEvent.ASYNC_ERROR, netStream_onAsyncError);
-
-			#if (js && html5)
-			overlay = new Sprite();
-			overlay.graphics.beginFill(0, 0.5);
-			overlay.graphics.drawRect(0, 0, 560, 320);
-			overlay.addEventListener(MouseEvent.MOUSE_DOWN, overlay_onMouseDown);
-			overlay.buttonMode = true;
-			addChild(overlay);
-
-			netConnection.addEventListener(NetStatusEvent.NET_STATUS, netConnection_onNetStatus);
-			#else
-			netStream.play("assets/preload/music/dredd.mp4");
-			#end 
-		 */
 	}
-	/* 
-		private function client_onMetaData(metaData:Dynamic)
-		{
-			video.attachNetStream(netStream);
-
-			video.width = video.videoWidth;
-			video.height = video.videoHeight;
-		}
-
-		private function netStream_onAsyncError(event:AsyncErrorEvent):Void
-		{
-			trace("Error loading video");
-		}
-
-		private function netConnection_onNetStatus(event:NetStatusEvent):Void
-		{
-		}
-
-		private function overlay_onMouseDown(event:MouseEvent):Void
-		{
-			netStream.play("assets/preload/music/dredd.mp4");
-		}
-	 */
 }

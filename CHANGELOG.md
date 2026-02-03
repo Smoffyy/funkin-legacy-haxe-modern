@@ -7,13 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.2.7.2] - 2026-02-1
 ### Added
 - High FPS Support, unlike the original version.
-- Compiled with Haxe 4.3.7, latest version.
+- (MAJOR) Compiled with **Haxe 4.3.7**, latest version. Amazing isnt it?
 - Opponent Note Strum. (Aesthetic)
 - Opponent can health drain, (like actual rapping!)
 - Dynamic sync for charting.
 
 ### Changed
 - Alot of files that were out-dated, compiled to the new version.
+- Title bar is now black instead of white.
 
 ## [Unreleased]
 ### Added
