@@ -46,8 +46,11 @@ class MainMenuState extends MusicBeatState
 		DiscordClient.changePresence("In the Menus", null);
 		#end
 
-		transIn = FlxTransitionableState.defaultTransIn;
-		transOut = FlxTransitionableState.defaultTransOut;
+        FlxTransitionableState.defaultTransIn.duration = 0.3;
+        FlxTransitionableState.defaultTransOut.duration = 0.3;
+
+        transIn  = FlxTransitionableState.defaultTransIn;
+        transOut = FlxTransitionableState.defaultTransOut;
 
 		if (!FlxG.sound.music.playing)
 		{
@@ -90,68 +93,53 @@ class MainMenuState extends MusicBeatState
 			FlxFlicker.flicker(magenta, 1.1, 0.15, false, true);
 		});
 
-		menuItems.enabled = false; // disable for intro
-		menuItems.createItem('story mode', function() startExitState(new StoryMenuState()));
-		menuItems.createItem('freeplay', function() startExitState(new FreeplayState()));
-		// addMenuItem('options', function () startExitState(new OptionMenu()));
-		#if CAN_OPEN_LINKS
-		var hasPopupBlocker = #if web true #else false #end;
+        menuItems.enabled = true;
 
-		if (VideoState.seenVideo)
-			menuItems.createItem('kickstarter', selectDonate, hasPopupBlocker);
-		else
-			menuItems.createItem('donate', selectDonate, hasPopupBlocker);
-		#end
-		menuItems.createItem('options', function() startExitState(new OptionsState()));
-		// #if newgrounds
-		// 	if (NGio.isLoggedIn)
-		// 		menuItems.createItem("logout", selectLogout);
-		// 	else
-		// 		menuItems.createItem("login", selectLogin);
-		// #end
+        // Create menu items
+        menuItems.createItem('story mode', function() startExitState(new StoryMenuState()));
+        menuItems.createItem('freeplay', function() startExitState(new FreeplayState()));
+        menuItems.createItem('options', function() startExitState(new OptionsState()));
 
-		// center vertically
-		var spacing = 160;
-		var top = (FlxG.height - (spacing * (menuItems.length - 1))) / 2;
-		for (i in 0...menuItems.length)
-		{
-			var menuItem = menuItems.members[i];
-			menuItem.x = FlxG.width / 2;
-			menuItem.y = top + spacing * i;
-		}
+        #if CAN_OPEN_LINKS
+        var hasPopupBlocker = #if web true #else false #end;
+        if (VideoState.seenVideo)
+            menuItems.createItem('kickstarter', selectDonate, hasPopupBlocker);
+        else
+            menuItems.createItem('donate', selectDonate, hasPopupBlocker);
+        #end
 
-		FlxG.cameras.reset(new SwagCamera());
-		FlxG.camera.follow(camFollow, null, 0.06);
-		// FlxG.camera.setScrollBounds(bg.x, bg.x + bg.width, bg.y, bg.y + bg.height * 1.2);
+        // Center menu vertically
+        var spacing = 160;
+        var top = (FlxG.height - (spacing * (menuItems.length - 1))) / 2;
+        for (i in 0...menuItems.length)
+        {
+            var menuItem = menuItems.members[i];
+            menuItem.x = FlxG.width / 2;
+            menuItem.y = top + spacing * i;
+        }
+
+        FlxG.cameras.reset(new SwagCamera());
+        FlxG.camera.follow(camFollow, null, 0.06);
 
 		var versionShit:FlxText = new FlxText(5, FlxG.height - 18, 0, "v" + Application.current.meta.get('version'), 12);
 		versionShit.scrollFactor.set();
 		versionShit.setFormat("VCR OSD Mono", 16, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 		add(versionShit);
 
-		versionShit.text += 'dev - (v0.2.8) Legacy Ported!';
+        versionShit.text += 'dev - (v0.2.8) Legacy Ported!';
 
-		// NG.core.calls.event.logEvent('swag').send();
+        super.create();
+    }
 
-		super.create();
-	}
+    override function finishTransIn()
+    {
+        super.finishTransIn();
+    }
 
-	override function finishTransIn()
-	{
-		super.finishTransIn();
-
-		menuItems.enabled = true;
-
-		// #if newgrounds
-		// if (NGio.savedSessionFailed)
-		// 	showSavedSessionFailed();
-		// #end
-	}
-
-	function onMenuItemChange(selected:MenuItem)
-	{
-		camFollow.setPosition(selected.getGraphicMidpoint().x, selected.getGraphicMidpoint().y);
-	}
+    function onMenuItemChange(selected:MenuItem)
+    {
+        camFollow.setPosition(selected.getGraphicMidpoint().x, selected.getGraphicMidpoint().y);
+    }
 
 	#if CAN_OPEN_LINKS
 	function selectDonate()
@@ -216,18 +204,17 @@ class MainMenuState extends MusicBeatState
 	}
 	#end
 
-	public function openPrompt(prompt:Prompt, onClose:Void->Void)
-	{
-		menuItems.enabled = false;
-		prompt.closeCallback = function()
-		{
-			menuItems.enabled = true;
-			if (onClose != null)
-				onClose();
-		}
+    public function openPrompt(prompt:Prompt, onClose:Void->Void)
+    {
+        menuItems.enabled = false;
+        prompt.closeCallback = function()
+        {
+            menuItems.enabled = true;
+            if (onClose != null) onClose();
+        }
 
-		openSubState(prompt);
-	}
+        openSubState(prompt);
+    }
 
 	function startExitState(state:FlxState)
 	{
@@ -245,20 +232,15 @@ class MainMenuState extends MusicBeatState
 			}
 		});
 
-		new FlxTimer().start(duration, function(_) FlxG.switchState(state));
-	}
+        new FlxTimer().start(duration, function(_) FlxG.switchState(state));
+    }
 
-	override function update(elapsed:Float)
-	{
-		// FlxG.camera.followLerp = CoolUtil.camLerpShit(0.06);
+    override function update(elapsed:Float)
+    {
+        if (FlxG.sound.music.volume < 0.8)
+            FlxG.sound.music.volume += 0.5 * FlxG.elapsed;
 
-		if (FlxG.sound.music.volume < 0.8)
-		{
-			FlxG.sound.music.volume += 0.5 * FlxG.elapsed;
-		}
-
-		if (_exiting)
-			menuItems.enabled = false;
+        if (_exiting) menuItems.enabled = false;
 
 		if (controls.BACK && menuItems.enabled && !menuItems.busy)
 		{
