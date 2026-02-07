@@ -138,8 +138,6 @@ class PlayState extends MusicBeatState
 	var songScore:Int = 0;
 	var scoreTxt:FlxText;
 
-	var cpuControlled:Bool = false;
-
 	var grpNoteSplashes:FlxTypedGroup<NoteSplash>;
 
 	public static var campaignScore:Int = 0;
@@ -1875,11 +1873,6 @@ class PlayState extends MusicBeatState
 		#if !debug
 		perfectMode = false;
 		#end
-
-    	#if debug
-    	if (FlxG.keys.justPressed.THREE)
-    	    cpuControlled = !cpuControlled;
-    	#end
 
 		// do this BEFORE super.update() so songPosition is accurate
 		if (startingSong)
