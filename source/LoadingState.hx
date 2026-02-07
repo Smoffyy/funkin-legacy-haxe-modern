@@ -56,14 +56,31 @@ class LoadingState extends MusicBeatState
 		{
 			callbacks = new MultiCallback(onLoad);
 			var introComplete = callbacks.add("introComplete");
+			
+			// Use cache manager for faster loading
 			checkLoadSong(getSongPath());
 			if (PlayState.SONG.needsVoices)
 				checkLoadSong(getVocalPath());
+				
 			checkLibrary("shared");
 			if (PlayState.storyWeek > 0)
 				checkLibrary("week" + PlayState.storyWeek);
 			else
 				checkLibrary("tutorial");
+			
+			// Pre-cache stage assets based on song
+			try {
+				var stageAssets = stageFromSong(PlayState.SONG.song);
+				if (stageAssets != null)
+				{
+					AssetCacheManager.preCacheStageAssets(stageAssets);
+				}
+			} catch (e:Dynamic) {}
+			
+			// Pre-cache character assets
+			try {
+				AssetCacheManager.preCacheCharacters([PlayState.SONG.player1, PlayState.SONG.player2]);
+			} catch (e:Dynamic) {}
 
 			var fadeTime = 0.5;
 			FlxG.camera.fade(FlxG.camera.bgColor, fadeTime, true);
@@ -77,10 +94,6 @@ class LoadingState extends MusicBeatState
 		{
 			var library = Assets.getLibrary("songs");
 			var symbolPath = path.split(":").pop();
-			// @:privateAccess
-			// library.types.set(symbolPath, SOUND);
-			// @:privateAccess
-			// library.pathGroups.set(symbolPath, [library.__cacheBreak(symbolPath)]);
 			var callback = callbacks.add("song:" + path);
 			Assets.loadSound(path).onComplete(function(_)
 			{
@@ -110,13 +123,7 @@ class LoadingState extends MusicBeatState
 	{
 		super.beatHit();
 
-		// logo.animation.play('bump');
 		danceLeft = !danceLeft;
-		/* 
-			if (danceLeft)
-				gfDance.animation.play('danceRight');
-			else
-				gfDance.animation.play('danceLeft'); */
 	}
 
 	var targetShit:Float = 0;
@@ -127,15 +134,11 @@ class LoadingState extends MusicBeatState
 
 		funkay.setGraphicSize(Std.int(FlxMath.lerp(FlxG.width * 0.88, funkay.width, 0.9)));
 		funkay.updateHitbox();
-		// funkay.updateHitbox();
 
 		if (controls.ACCEPT)
 		{
 			funkay.setGraphicSize(Std.int(funkay.width + 60));
 			funkay.updateHitbox();
-			// funkay.setGraphicSize(0, Std.int(funkay.height + 50));
-			// funkay.updateHitbox();
-			// funkay.screenCenter();
 		}
 
 		if (callbacks != null)
@@ -275,6 +278,29 @@ class LoadingState extends MusicBeatState
 		});
 
 		return promise.future;
+	}
+
+	static function stageFromSong(songName:String):String
+	{
+		switch (songName.toLowerCase())
+		{
+			case 'bopeebo' | 'fresh' | 'dadbattle':
+				return 'dad';
+			case 'spookeez' | 'monster' | 'south':
+				return 'spooky';
+			case 'pico' | 'blammed' | 'philly':
+				return 'philly';
+			case 'milf' | 'satin-panties' | 'high':
+				return 'limo';
+			case 'cocoa' | 'eggnog' | 'winter-horrorland':
+				return 'mall';
+			case 'senpai' | 'roses' | 'thorns':
+				return 'school';
+			case 'ugh' | 'guns' | 'stress':
+				return 'tank';
+			default:
+				return 'dad';
+		}
 	}
 }
 

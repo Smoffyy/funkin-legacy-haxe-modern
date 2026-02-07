@@ -51,6 +51,11 @@ class FreeplayState extends MusicBeatState
     private var iconArray:Array<HealthIcon> = [];
     var bg:FlxSprite;
     var scoreBG:FlxSprite;
+    
+    // Cache preload tracking
+    private var preloadingQueue:Array<String> = [];
+    private var currentPreloadIndex:Int = 0;
+    private var isPreloading:Bool = false;
 
     override function create()
     {
@@ -134,6 +139,9 @@ class FreeplayState extends MusicBeatState
 
         changeSelection();
         changeDiff();
+        
+        // Initialize cache manager
+        AssetCacheManager.initialize();
 
         super.create();
     }
@@ -203,11 +211,20 @@ class FreeplayState extends MusicBeatState
         if (accepted)
         {
             var poop:String = Highscore.formatSong(songs[curSelected].songName.toLowerCase(), curDifficulty);
+            
+            // Load song - will be automatically cached by Song.loadFromJson()
             PlayState.SONG = Song.loadFromJson(poop, songs[curSelected].songName.toLowerCase());
             PlayState.isStoryMode = false;
             PlayState.storyDifficulty = curDifficulty;
 
             PlayState.storyWeek = songs[curSelected].week;
+            
+            // Pre-cache song audio immediately before playing
+            AssetCacheManager.preCacheSongAudio(songs[curSelected].songName, PlayState.SONG.needsVoices);
+            
+            // Pre-cache characters
+            AssetCacheManager.preCacheCharacters([PlayState.SONG.player1, PlayState.SONG.player2]);
+            
             LoadingState.loadAndSwitchState(new PlayState());
         }
     }

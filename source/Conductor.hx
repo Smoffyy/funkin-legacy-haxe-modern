@@ -4,10 +4,6 @@ import Song.SwagSong;
 import flixel.FlxG;
 import openfl.Lib;
 
-/**
- * ...
- * @author
- */
 
 typedef BPMChangeEvent =
 {
@@ -33,24 +29,26 @@ class Conductor
 	// Interpolation variables
 	private static var lastAudioTime:Float = 0;
 	private static var lastFrameTime:Float = 0;
-	private static var interpolationStarted:Bool = false; // Track if interpolation has been initialized
+	private static var interpolationStarted:Bool = false;
+	
+	// Cache for BPM maps
+	private static var bpmMapCache:Map<String, Array<BPMChangeEvent>> = new Map<String, Array<BPMChangeEvent>>();
 
 	public function new()
 	{
 	}
 
-	// Reset all timing variables - MUST be called when starting a new song
+	/**
+	 * Reset all timing variables - MUST be called when starting a new song
+	 */
 	public static function reset():Void
 	{
 		lastAudioTime = 0;
 		lastFrameTime = 0;
 		lastSongPos = 0;
 		songPosition = 0;
-		interpolationStarted = false; // Reset interpolation flag
+		interpolationStarted = false;
 	}
-
-	 // Get interpolated song position for smooth note movement at any FPS
-	 // COMPLETELY REWRITTEN for robustness
 
 	public static function getInterpolatedPosition():Float
 	{
@@ -66,14 +64,14 @@ class Conductor
 				lastAudioTime = currentMusicTime;
 				lastFrameTime = currentTimer;
 				interpolationStarted = true;
-				return currentMusicTime; // Return actual music time on initialization
+				return currentMusicTime;
 			}
 			
 			// Calculate time elapsed since last audio update
 			var timeSinceLastUpdate:Float = currentTimer - lastFrameTime;
 			
 			// Safety check: if too much time has passed, something went wrong - resync
-			if (timeSinceLastUpdate > 100) // More than 100ms is suspicious
+			if (timeSinceLastUpdate > 100)
 			{
 				lastAudioTime = currentMusicTime;
 				lastFrameTime = currentTimer;
@@ -90,6 +88,15 @@ class Conductor
 
 	public static function mapBPMChanges(song:SwagSong)
 	{
+		// Check cache first
+		var cacheKey:String = song.song.toLowerCase();
+		if (bpmMapCache.exists(cacheKey))
+		{
+			bpmChangeMap = bpmMapCache.get(cacheKey).copy();
+			trace("[Conductor] Loaded BPM map from cache for: " + song.song);
+			return;
+		}
+		
 		bpmChangeMap = [];
 
 		var curBPM:Float = song.bpm;
@@ -112,14 +119,30 @@ class Conductor
 			totalSteps += deltaSteps;
 			totalPos += ((60 / curBPM) * 1000 / 4) * deltaSteps;
 		}
-		trace("new BPM map BUDDY " + bpmChangeMap);
+		
+		// Cache the BPM map
+		bpmMapCache.set(cacheKey, bpmChangeMap.copy());
+		
+		trace("[Conductor] Mapped BPM changes for: " + song.song);
 	}
 
+	/**
+	 * Change current BPM and update timing variables
+	 */
 	public static function changeBPM(newBpm:Float)
 	{
 		bpm = newBpm;
 
 		crochet = ((60 / bpm) * 1000);
 		stepCrochet = crochet / 4;
+	}
+	
+	/**
+	 * Clear BPM cache (use when switching songs)
+	 */
+	public static function clearBPMCache():Void
+	{
+		bpmMapCache.clear();
+		trace("[Conductor] BPM cache cleared");
 	}
 }

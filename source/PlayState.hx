@@ -166,6 +166,9 @@ class PlayState extends MusicBeatState
 		if (FlxG.sound.music != null)
 			FlxG.sound.music.stop();
 
+		// Use asset cache manager for pre-cached audio
+		AssetCacheManager.preCacheSongAudio(PlayState.SONG.song, PlayState.SONG.needsVoices);
+		
 		FlxG.sound.cache(Paths.inst(PlayState.SONG.song));
 		FlxG.sound.cache(Paths.voices(PlayState.SONG.song));
 
@@ -3170,4 +3173,16 @@ function goodNoteHit(note:Note):Void
 	}
 
 	var curLight:Int = 0;
+	
+	/**
+	 * Clean up caches when exiting play state
+	 */
+	override public function destroy():Void
+	{
+		// Clear caches when leaving play state to free memory
+		AssetCacheManager.clearBitmapCache();
+		Conductor.clearBPMCache();
+		
+		super.destroy();
+	}
 }
