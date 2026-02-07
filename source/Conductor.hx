@@ -71,7 +71,7 @@ class Conductor
 			var timeSinceLastUpdate:Float = currentTimer - lastFrameTime;
 			
 			// Safety check: if too much time has passed, something went wrong - resync
-			if (timeSinceLastUpdate > 100)
+			if (timeSinceLastUpdate > 1000)
 			{
 				lastAudioTime = currentMusicTime;
 				lastFrameTime = currentTimer;
