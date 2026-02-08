@@ -220,7 +220,7 @@ class FreeplayState extends MusicBeatState
             PlayState.storyWeek = songs[curSelected].week;
             
             // Pre-cache song audio immediately before playing
-            AssetCacheManager.preCacheSongAudio(songs[curSelected].songName, PlayState.SONG.needsVoices);
+            AssetCacheManager.preCacheSongAudio(songs[curSelected].songName, PlayState.SONG.needsVoices, curDifficulty);
             
             // Pre-cache characters
             AssetCacheManager.preCacheCharacters([PlayState.SONG.player1, PlayState.SONG.player2]);
@@ -234,8 +234,8 @@ class FreeplayState extends MusicBeatState
         curDifficulty += change;
 
         if (curDifficulty < 0)
-            curDifficulty = 2;
-        if (curDifficulty > 2)
+            curDifficulty = 3;
+        if (curDifficulty > 3)
             curDifficulty = 0;
 
         intendedScore = Highscore.getScore(songs[curSelected].songName, curDifficulty);
@@ -267,7 +267,7 @@ class FreeplayState extends MusicBeatState
         var loadJob = function() {
             try {
                 // Using openfl.utils.Assets.getSound
-                var instToPlay:Sound = Assets.getSound(Paths.inst(currentSongName));
+                var instToPlay:Sound = Assets.getSound(Paths.inst(currentSongName, curDifficulty));
                 
                 if (songs[curSelected] != null && songs[curSelected].songName == currentSongName)
                 {
@@ -282,7 +282,7 @@ class FreeplayState extends MusicBeatState
 
         sys.thread.Thread.create(loadJob);
         #else
-        FlxG.sound.playMusic(Paths.inst(songs[curSelected].songName), 0);
+        FlxG.sound.playMusic(Paths.inst(songs[curSelected].songName, curDifficulty), 0);
         #end
         #end
 

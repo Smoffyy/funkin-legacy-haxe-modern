@@ -79,12 +79,12 @@ class AssetCacheManager
 		}
 	}
 	
-	public static function preCacheSongAudio(songName:String, ?needsVoices:Bool = true):Void
+	public static function preCacheSongAudio(songName:String, ?needsVoices:Bool = true, ?difficulty:Int = 1):Void
 	{
 		try
 		{
-			var instPath:String = Paths.inst(songName);
-			var vocalPath:String = Paths.voices(songName);
+			var instPath:String = Paths.inst(songName, difficulty);
+			var vocalPath:String = Paths.voices(songName, difficulty);
 			
 			// Cache instrumental
 			FlxG.sound.cache(instPath);

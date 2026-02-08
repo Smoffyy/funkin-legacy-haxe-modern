@@ -167,10 +167,10 @@ class PlayState extends MusicBeatState
 			FlxG.sound.music.stop();
 
 		// Use asset cache manager for pre-cached audio
-		AssetCacheManager.preCacheSongAudio(PlayState.SONG.song, PlayState.SONG.needsVoices);
+		AssetCacheManager.preCacheSongAudio(PlayState.SONG.song, PlayState.SONG.needsVoices, PlayState.storyDifficulty);
 		
-		FlxG.sound.cache(Paths.inst(PlayState.SONG.song));
-		FlxG.sound.cache(Paths.voices(PlayState.SONG.song));
+		FlxG.sound.cache(Paths.inst(PlayState.SONG.song, PlayState.storyDifficulty));
+		FlxG.sound.cache(Paths.voices(PlayState.SONG.song, PlayState.storyDifficulty));
 
 		// var gameCam:FlxCamera = FlxG.camera;
 		camGame = new SwagCamera();
@@ -1559,7 +1559,7 @@ class PlayState extends MusicBeatState
 		previousFrameTime = FlxG.game.ticks;
 
 		if (!paused)
-			FlxG.sound.playMusic(Paths.inst(SONG.song), 1, false);
+			FlxG.sound.playMusic(Paths.inst(SONG.song, storyDifficulty), 1, false);
 		FlxG.sound.music.onComplete = endSong;
 		vocals.play();
 
@@ -1582,7 +1582,7 @@ class PlayState extends MusicBeatState
 		curSong = songData.song;
 
 		if (SONG.needsVoices)
-			vocals = new FlxSound().loadEmbedded(Paths.voices(SONG.song));
+			vocals = new FlxSound().loadEmbedded(Paths.voices(SONG.song, storyDifficulty));
 		else
 			vocals = new FlxSound();
 
@@ -2397,12 +2397,13 @@ class PlayState extends MusicBeatState
 			else
 			{
 				var difficulty:String = "";
-
+	
 				if (storyDifficulty == 0)
 					difficulty = '-easy';
-
-				if (storyDifficulty == 2)
+				else if (storyDifficulty == 2)
 					difficulty = '-hard';
+				else if (storyDifficulty == 3)
+					difficulty = '-expert';
 
 				trace('LOADING NEXT SONG');
 				trace(storyPlaylist[0].toLowerCase() + difficulty);
