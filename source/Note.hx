@@ -55,7 +55,7 @@ class Note extends FlxSprite
 		this.prevNote = prevNote;
 		isSustainNote = sustainNote;
 
-		x += 50;
+		// X position will be set in PlayState based on whether it's player or opponent
 		// MAKE SURE ITS DEFINITELY OFF SCREEN?
 		y -= 2000;
 		this.strumTime = strumTime;

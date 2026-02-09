@@ -1639,13 +1639,23 @@ class PlayState extends MusicBeatState
 					sustainNote.mustPress = gottaHitNote;
 
 					if (sustainNote.mustPress)
-						sustainNote.x += FlxG.width / 2; // general offset
+					{
+						sustainNote.x += FlxG.width / 2; // Move to right half
+					}
+					
+					// Apply centering offset for both sides
+					sustainNote.x += (FlxG.width / 2 - Note.swagWidth * 4) / 2;
 				}
 
 				swagNote.mustPress = gottaHitNote;
 
 				if (swagNote.mustPress)
-					swagNote.x += FlxG.width / 2; // general offset
+				{
+					swagNote.x += FlxG.width / 2; // Move to right half
+				}
+				
+				// Apply centering offset for both sides
+				swagNote.x += (FlxG.width / 2 - Note.swagWidth * 4) / 2;
 			}
 		}
 
@@ -1771,8 +1781,19 @@ class PlayState extends MusicBeatState
 				opponentStrums.add(babyArrow);
 
 			babyArrow.animation.play('static');
-			babyArrow.x += 50;
-			babyArrow.x += ((FlxG.width / 2) * player);
+			
+			// Center the arrows properly on both sides
+			if (player == 1)
+			{
+				// Player arrows on the right side
+				babyArrow.x += FlxG.width / 2;
+				babyArrow.x += (FlxG.width / 2 - Note.swagWidth * 4) / 2;
+			}
+			else
+			{
+				// Opponent arrows on the left side  
+				babyArrow.x += (FlxG.width / 2 - Note.swagWidth * 4) / 2;
+			}
 
 			strumLineNotes.add(babyArrow);
 		}

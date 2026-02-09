@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Opponent can health drain, (like actual rapping!)
 - Dynamic sync for charting.
 - More Options.
+- Psych Charting Compatibility!
 
 ### Changed
 - Alot of files that were out-dated, compiled to the new version.
