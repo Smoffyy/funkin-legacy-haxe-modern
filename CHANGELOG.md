@@ -4,7 +4,7 @@ All notable changes will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.2.7.2] - 2026-02-1
+## [1.0.0] - 2026-02-10
 ### Added
 - High FPS Support, unlike the original version.
 - (MAJOR) Compiled with **Haxe 4.3.7**, latest version. Amazing isnt it?
@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - More Options.
 - Psych Charting Compatibility!
 - Press F1 to hide HUD except notes!
+- New Expert Difficulty. (Configurable)
 
 ### Changed
 - Alot of files that were out-dated, compiled to the new version.
