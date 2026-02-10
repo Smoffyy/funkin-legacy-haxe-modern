@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dynamic sync for charting.
 - More Options.
 - Psych Charting Compatibility!
+- Press F1 to hide HUD except notes!
 
 ### Changed
 - Alot of files that were out-dated, compiled to the new version.
