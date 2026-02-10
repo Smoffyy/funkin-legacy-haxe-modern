@@ -91,6 +91,7 @@ class PlayState extends MusicBeatState
 
 	private var gfSpeed:Int = 1;
 	private var health:Float = 1;
+	private var displayHealth:Float = 1; // Smooth health display
 	private var combo:Int = 0;
 
 	private var healthBarBG:FlxSprite;
@@ -137,6 +138,13 @@ class PlayState extends MusicBeatState
 	var talking:Bool = true;
 	var songScore:Int = 0;
 	var scoreTxt:FlxText;
+	
+	var misses:Int = 0;
+	var accuracy:Float = 0.00;
+	var totalNotesHit:Float = 0;
+	var totalNotes:Int = 0;
+	
+	var hudVisible:Bool = true; // Toggle for HUD visibility
 
 	var grpNoteSplashes:FlxTypedGroup<NoteSplash>;
 
@@ -824,24 +832,25 @@ class PlayState extends MusicBeatState
 
 		FlxG.fixedTimestep = false;
 
-		healthBarBG = new FlxSprite(0, FlxG.height * 0.9).loadGraphic(Paths.image('healthBar'));
+		healthBarBG = new FlxSprite(0, FlxG.height * 0.9).makeGraphic(Std.int(FlxG.width * 0.6), 20, 0xFF000000);
 		healthBarBG.screenCenter(X);
 		healthBarBG.scrollFactor.set();
+		healthBarBG.alpha = 0.6;
 		add(healthBarBG);
 
 		if (PreferencesMenu.getPref('downscroll'))
 			healthBarBG.y = FlxG.height * 0.1;
 
 		healthBar = new FlxBar(healthBarBG.x + 4, healthBarBG.y + 4, RIGHT_TO_LEFT, Std.int(healthBarBG.width - 8), Std.int(healthBarBG.height - 8), this,
-			'health', 0, 2);
+			'displayHealth', 0, 2);
 		healthBar.scrollFactor.set();
-		healthBar.createFilledBar(0xFFFF0000, 0xFF66FF33);
-		// healthBar
+		// Color will be set after icons are loaded
 		add(healthBar);
 
-		scoreTxt = new FlxText(healthBarBG.x + healthBarBG.width - 190, healthBarBG.y + 30, 0, "", 20);
-		scoreTxt.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, RIGHT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+		scoreTxt = new FlxText(0, healthBarBG.y + 25, FlxG.width, "", 20);
+		scoreTxt.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 		scoreTxt.scrollFactor.set();
+		scoreTxt.borderSize = 2;
 		add(scoreTxt);
 
 		iconP1 = new HealthIcon(SONG.player1, true);
@@ -851,6 +860,9 @@ class PlayState extends MusicBeatState
 		iconP2 = new HealthIcon(SONG.player2, false);
 		iconP2.y = healthBar.y - (iconP2.height / 2);
 		add(iconP2);
+		
+		// Update health bar colors to match icons
+		healthBar.createFilledBar(iconP2.iconColor, iconP1.iconColor);
 
 		grpNoteSplashes.cameras = [camHUD];
 		strumLineNotes.cameras = [camHUD];
@@ -1469,6 +1481,8 @@ class PlayState extends MusicBeatState
 	{
 		inCutscene = false;
 		camHUD.visible = true;
+		
+		displayHealth = health;
 
 		generateStaticArrows(0);
 		generateStaticArrows(1);
@@ -1677,6 +1691,14 @@ class PlayState extends MusicBeatState
 	function sortNotes(order:Int = FlxSort.ASCENDING, Obj1:Note, Obj2:Note)
 	{
 		return FlxSort.byValues(order, Obj1.strumTime, Obj2.strumTime);
+	}
+	
+	function truncateFloat(number:Float, precision:Int):Float
+	{
+		var num = number;
+		num = num * Math.pow(10, precision);
+		num = Math.round(num) / Math.pow(10, precision);
+		return num;
 	}
 
 	// ^ These two sorts also look cute together ^
@@ -1950,7 +1972,7 @@ class PlayState extends MusicBeatState
 
 		super.update(elapsed);
 
-		scoreTxt.text = "Score:" + songScore;
+		scoreTxt.text = "Score: " + songScore + " | Misses: " + misses + " | Accuracy: " + truncateFloat(accuracy, 2) + "%";
 
 		if (controls.PAUSE && startedCountdown && canPause)
 		{
@@ -1989,9 +2011,22 @@ class PlayState extends MusicBeatState
 
 		if (FlxG.keys.justPressed.NINE)
 			iconP1.swapOldIcon();
+		
+		// F1 to toggle HUD visibility
+		if (FlxG.keys.justPressed.F1)
+		{
+			hudVisible = !hudVisible;
+			healthBar.visible = hudVisible;
+			healthBarBG.visible = hudVisible;
+			iconP1.visible = hudVisible;
+			iconP2.visible = hudVisible;
+			scoreTxt.visible = hudVisible;
+		}
 
 		// FlxG.watch.addQuick('VOL', vocals.amplitudeLeft);
 		// FlxG.watch.addQuick('VOLRight', vocals.amplitudeRight);
+
+		displayHealth = FlxMath.lerp(displayHealth, health, 1.0);
 
 		iconP1.setGraphicSize(Std.int(FlxMath.lerp(150, iconP1.width, 0.85)));
 		iconP2.setGraphicSize(Std.int(FlxMath.lerp(150, iconP2.width, 0.85)));
@@ -2302,6 +2337,16 @@ class PlayState extends MusicBeatState
 					{
 						health -= 0.0475;
 						vocals.volume = 0;
+						misses++; // Track actual note misses here
+						
+						// Update accuracy for missed notes
+						if (!daNote.isSustainNote)
+						{
+							totalNotes++;
+							// Don't add to totalNotesHit (miss = 0 value)
+							accuracy = totalNotes > 0 ? (totalNotesHit / totalNotes) * 100 : 0;
+						}
+						
 						killCombo();
 					}
 
@@ -2481,25 +2526,35 @@ class PlayState extends MusicBeatState
 		var daRating:String = "sick";
 
 		var isSick:Bool = true;
+		
+		// Track accuracy
+		totalNotes++;
+		var hitValue:Float = 1.0; // Default for sick
 
 		if (noteDiff > Conductor.safeZoneOffset * 0.9)
 		{
 			daRating = 'shit';
 			score = 50;
+			hitValue = 0.25;
 			isSick = false; // shitty copypaste on this literally just because im lazy and tired lol!
 		}
 		else if (noteDiff > Conductor.safeZoneOffset * 0.75)
 		{
 			daRating = 'bad';
 			score = 100;
+			hitValue = 0.5;
 			isSick = false;
 		}
 		else if (noteDiff > Conductor.safeZoneOffset * 0.2)
 		{
 			daRating = 'good';
 			score = 200;
+			hitValue = 0.75;
 			isSick = false;
 		}
+		
+		totalNotesHit += hitValue;
+		accuracy = (totalNotesHit / totalNotes) * 100;
 
 		if (isSick)
 		{
@@ -2542,6 +2597,8 @@ class PlayState extends MusicBeatState
 		rating.acceleration.y = 550;
 		rating.velocity.y -= FlxG.random.int(140, 175);
 		rating.velocity.x -= FlxG.random.int(0, 10);
+		
+		rating.visible = hudVisible; // Respect HUD visibility toggle
 
 		add(rating);
 
@@ -2591,6 +2648,8 @@ class PlayState extends MusicBeatState
 		comboSpr.acceleration.y = 600;
 		comboSpr.velocity.y -= 150;
 		comboSpr.velocity.x += FlxG.random.int(1, 10);
+		
+		comboSpr.visible = hudVisible; // Respect HUD visibility toggle
 
 		add(comboSpr);
 
@@ -2647,6 +2706,8 @@ class PlayState extends MusicBeatState
 			numScore.acceleration.y = FlxG.random.int(200, 300);
 			numScore.velocity.y -= FlxG.random.int(140, 160);
 			numScore.velocity.x = FlxG.random.float(-5, 5);
+			
+			numScore.visible = hudVisible; // Respect HUD visibility toggle
 
 			add(numScore);
 

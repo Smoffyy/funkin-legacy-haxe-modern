@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Alot of files that were out-dated, compiled to the new version.
 - Title bar is now black instead of white.
+- Centered Grey Notes
+- Proper Health color, score, and more!
 
 ## [Unreleased]
 ### Added
