@@ -1,11 +1,8 @@
+# Default
 export/
 .vscode/
 APIStuff.hx
 .DS_STORE
 
+# Test scripts
 PsychConverterTest.hx
-guns-expert.json
-Voices-Expert.mp3
-Voices-Expert.ogg
-Inst-Expert.mp3
-Inst-Expert.ogg
