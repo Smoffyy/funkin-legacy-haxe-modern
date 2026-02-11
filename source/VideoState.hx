@@ -65,7 +65,7 @@ class VideoState extends MusicBeatState
 		FlxG.removeChild(video);
 
 		TitleState.initialized = false;
-		FlxG.switchState(new TitleState());
+		FlxG.switchState(()->new TitleState());
 	}
 
 	private function client_onMetaData(metaData:Dynamic)

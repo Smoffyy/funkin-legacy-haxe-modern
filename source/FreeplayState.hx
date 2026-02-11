@@ -205,7 +205,7 @@ class FreeplayState extends MusicBeatState
         if (controls.BACK)
         {
             FlxG.sound.play(Paths.sound('cancelMenu'));
-            FlxG.switchState(new MainMenuState());
+            FlxG.switchState(()->new MainMenuState());
         }
 
         if (accepted)
@@ -225,7 +225,7 @@ class FreeplayState extends MusicBeatState
             // Pre-cache characters
             AssetCacheManager.preCacheCharacters([PlayState.SONG.player1, PlayState.SONG.player2]);
             
-            LoadingState.loadAndSwitchState(new PlayState());
+            LoadingState.loadAndSwitchState(()->new PlayState());
         }
     }
 

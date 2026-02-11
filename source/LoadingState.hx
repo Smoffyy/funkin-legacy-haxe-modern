@@ -18,7 +18,7 @@ class LoadingState extends MusicBeatState
 {
 	inline static var MIN_TIME = 1.0;
 
-	var target:FlxState;
+	var targetFactory:Void->FlxState;
 	var stopMusic = false;
 	var callbacks:MultiCallback;
 
@@ -27,10 +27,10 @@ class LoadingState extends MusicBeatState
 	var loadBar:FlxSprite;
 	var funkay:FlxSprite;
 
-	function new(target:FlxState, stopMusic:Bool)
+	function new(targetFactory:Void->FlxState, stopMusic:Bool)
 	{
 		super();
-		this.target = target;
+		this.targetFactory = targetFactory;
 		this.stopMusic = stopMusic;
 	}
 
@@ -160,7 +160,7 @@ class LoadingState extends MusicBeatState
 		if (stopMusic && FlxG.sound.music != null)
 			FlxG.sound.music.stop();
 
-		FlxG.switchState(target);
+		FlxG.switchState(()->targetFactory());
 	}
 
 	static function getSongPath()
@@ -173,12 +173,12 @@ class LoadingState extends MusicBeatState
 		return Paths.voices(PlayState.SONG.song, PlayState.storyDifficulty);
 	}
 
-	inline static public function loadAndSwitchState(target:FlxState, stopMusic = false)
+	inline static public function loadAndSwitchState(targetFactory:Void->FlxState, stopMusic = false)
 	{
-		FlxG.switchState(getNextState(target, stopMusic));
+		FlxG.switchState(getNextState(targetFactory, stopMusic));
 	}
 
-	static function getNextState(target:FlxState, stopMusic = false):FlxState
+	static function getNextState(targetFactory:Void->FlxState, stopMusic = false):Void->FlxState
 	{
 		Paths.setCurrentLevel("week" + PlayState.storyWeek);
 		#if NO_PRELOAD_ALL
@@ -187,12 +187,12 @@ class LoadingState extends MusicBeatState
 			&& isLibraryLoaded("shared");
 
 		if (!loaded)
-			return new LoadingState(target, stopMusic);
+			return ()->new LoadingState(targetFactory, stopMusic);
 		#end
 		if (stopMusic && FlxG.sound.music != null)
 			FlxG.sound.music.stop();
 
-		return target;
+		return targetFactory;
 	}
 
 	#if NO_PRELOAD_ALL

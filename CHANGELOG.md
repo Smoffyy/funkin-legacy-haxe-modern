@@ -4,23 +4,23 @@ All notable changes will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0] - 2026-02-10
+## [1.0.0] - 2026-02-11 (Haxe Modern Edition)
 ### Added
-- High FPS Support, unlike the original version.
-- (MAJOR) Compiled with **Haxe 4.3.7**, latest version. Amazing isnt it?
-- Opponent Note Strum. (Aesthetic)
-- Opponent can health drain, (like actual rapping!)
-- Dynamic sync for charting.
-- More Options.
-- Psych Charting Compatibility!
-- Press F1 to hide HUD except notes!
-- New Expert Difficulty. (Configurable)
+- Recompiled for Haxe 4.3.7 (latest version) ⭐
+- High FPS Support
+- Opponent Note Strum (Aesthetic)
+- Opponent health drain mechanics
+- Dynamic sync for charting
+- Additional options menu improvements
+- Psych Charting Compatibility
+- F1 key to hide HUD (except notes)
+- New Expert Difficulty (Configurable)
 
 ### Changed
-- Alot of files that were out-dated, compiled to the new version.
-- Title bar is now black instead of white.
-- Centered Grey Notes
-- Proper Health color, score, and more!
+- Updated all outdated files for Haxe 4.3.7 compatibility
+- Title bar color (now black)
+- Centered grey notes
+- Improved health color and score display
 
 ## [Unreleased]
 ### Added

@@ -1984,7 +1984,7 @@ class PlayState extends MusicBeatState
 			if (FlxG.random.bool(0.1))
 			{
 				// gitaroo man easter egg
-				FlxG.switchState(new GitarooPause());
+				FlxG.switchState(()->new GitarooPause());
 			}
 			else
 			{
@@ -2002,7 +2002,7 @@ class PlayState extends MusicBeatState
 
 		if (FlxG.keys.justPressed.SEVEN)
 		{
-			FlxG.switchState(new ChartingState());
+			FlxG.switchState(()->new ChartingState());
 
 			#if discord_rpc
 			DiscordClient.changePresence("Chart Editor", null, null, true);
@@ -2053,7 +2053,7 @@ class PlayState extends MusicBeatState
 			iconP2.animation.curAnim.curFrame = 0;
 
 		/* if (FlxG.keys.justPressed.NINE)
-			FlxG.switchState(new Charting()); */
+			FlxG.switchState(()->new Charting()); */
 
 		#if debug
 		if (FlxG.keys.justPressed.ONE)
@@ -2065,11 +2065,11 @@ class PlayState extends MusicBeatState
 				 CTRL+SHIFT+8 for gf   */
 			if (FlxG.keys.pressed.SHIFT)
 				if (FlxG.keys.pressed.CONTROL)
-					FlxG.switchState(new AnimationDebug(gf.curCharacter));
+					FlxG.switchState(()->new AnimationDebug(gf.curCharacter));
 				else 
-					FlxG.switchState(new AnimationDebug(SONG.player1));
+					FlxG.switchState(()->new AnimationDebug(SONG.player1));
 			else
-				FlxG.switchState(new AnimationDebug(SONG.player2));
+				FlxG.switchState(()->new AnimationDebug(SONG.player2));
 		}
 		if (FlxG.keys.justPressed.PAGEUP)
 			changeSection(1);
@@ -2108,7 +2108,7 @@ class PlayState extends MusicBeatState
 					gfSpeed = 1;
 				case 163:
 					// FlxG.sound.music.stop();
-					// FlxG.switchState(new TitleState());
+					// FlxG.switchState(()->new TitleState());
 			}
 		}
 
@@ -2119,7 +2119,7 @@ class PlayState extends MusicBeatState
 				case 128, 129, 130:
 					vocals.volume = 0;
 					// FlxG.sound.music.stop();
-					// FlxG.switchState(new PlayState());
+					// FlxG.switchState(()->new PlayState());
 			}
 		}
 		// better streaming of shit
@@ -2443,9 +2443,9 @@ class PlayState extends MusicBeatState
 				switch (PlayState.storyWeek)
 				{
 					case 7:
-						FlxG.switchState(new VideoState());
+						FlxG.switchState(()->new VideoState());
 					default:
-						FlxG.switchState(new StoryMenuState());
+						FlxG.switchState(()->new StoryMenuState());
 				}
 
 				// if ()
@@ -2493,7 +2493,7 @@ class PlayState extends MusicBeatState
 					{
 						// no camFollow so it centers on horror tree
 						SONG = Song.loadFromJson(storyPlaylist[0].toLowerCase() + difficulty, storyPlaylist[0]);
-						LoadingState.loadAndSwitchState(new PlayState());
+						LoadingState.loadAndSwitchState(()->new PlayState());
 					});
 				}
 				else
@@ -2501,7 +2501,7 @@ class PlayState extends MusicBeatState
 					prevCamFollow = camFollow;
 
 					SONG = Song.loadFromJson(storyPlaylist[0].toLowerCase() + difficulty, storyPlaylist[0]);
-					LoadingState.loadAndSwitchState(new PlayState());
+					LoadingState.loadAndSwitchState(()->new PlayState());
 				}
 			}
 		}
@@ -2509,7 +2509,7 @@ class PlayState extends MusicBeatState
 		{
 			trace('WENT BACK TO FREEPLAY??');
 			// unloadAssets();
-			FlxG.switchState(new FreeplayState());
+			FlxG.switchState(()->new FreeplayState());
 		}
 	}
 

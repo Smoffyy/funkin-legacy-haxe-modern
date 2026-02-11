@@ -96,9 +96,9 @@ class MainMenuState extends MusicBeatState
         menuItems.enabled = true;
 
         // Create menu items
-        menuItems.createItem('story mode', function() startExitState(new StoryMenuState()));
-        menuItems.createItem('freeplay', function() startExitState(new FreeplayState()));
-        menuItems.createItem('options', function() startExitState(new OptionsState()));
+        menuItems.createItem('story mode', function() startExitState(()->new StoryMenuState()));
+        menuItems.createItem('freeplay', function() startExitState(()->new FreeplayState()));
+        menuItems.createItem('options', function() startExitState(()->new OptionsState()));
 
         #if CAN_OPEN_LINKS
         var hasPopupBlocker = #if web true #else false #end;
@@ -216,7 +216,7 @@ class MainMenuState extends MusicBeatState
         openSubState(prompt);
     }
 
-	function startExitState(state:FlxState)
+	function startExitState(stateFactory:Void->FlxState)
 	{
 		menuItems.enabled = false; // disable for exit
 		var duration = 0.4;
@@ -232,7 +232,7 @@ class MainMenuState extends MusicBeatState
 			}
 		});
 
-        new FlxTimer().start(duration, function(_) FlxG.switchState(state));
+        new FlxTimer().start(duration, function(_) FlxG.switchState(()->stateFactory()));
     }
 
     override function update(elapsed:Float)
@@ -245,7 +245,7 @@ class MainMenuState extends MusicBeatState
 		if (controls.BACK && menuItems.enabled && !menuItems.busy)
 		{
 			FlxG.sound.play(Paths.sound('cancelMenu'));
-			FlxG.switchState(new TitleState());
+			FlxG.switchState(()->new TitleState());
 		}
 
 		super.update(elapsed);
