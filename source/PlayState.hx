@@ -832,14 +832,14 @@ class PlayState extends MusicBeatState
 
 		FlxG.fixedTimestep = false;
 
-		healthBarBG = new FlxSprite(0, FlxG.height * 0.9).makeGraphic(Std.int(FlxG.width * 0.6), 20, 0xFF000000);
+		healthBarBG = new FlxSprite(0, FlxG.height * 0.9 - 5).makeGraphic(Std.int(FlxG.width * 0.6), 20, 0xFF000000);
 		healthBarBG.screenCenter(X);
 		healthBarBG.scrollFactor.set();
 		healthBarBG.alpha = 0.6;
 		add(healthBarBG);
 
 		if (PreferencesMenu.getPref('downscroll'))
-			healthBarBG.y = FlxG.height * 0.1;
+			healthBarBG.y = FlxG.height * 0.1 - 5;
 
 		healthBar = new FlxBar(healthBarBG.x + 4, healthBarBG.y + 4, RIGHT_TO_LEFT, Std.int(healthBarBG.width - 8), Std.int(healthBarBG.height - 8), this,
 			'displayHealth', 0, 2);
@@ -847,7 +847,7 @@ class PlayState extends MusicBeatState
 		// Color will be set after icons are loaded
 		add(healthBar);
 
-		scoreTxt = new FlxText(0, healthBarBG.y + 25, FlxG.width, "", 20);
+		scoreTxt = new FlxText(0, healthBarBG.y + 30, FlxG.width, "", 20);
 		scoreTxt.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 		scoreTxt.scrollFactor.set();
 		scoreTxt.borderSize = 2;
@@ -2036,8 +2036,14 @@ class PlayState extends MusicBeatState
 
 		var iconOffset:Int = 26;
 
-		iconP1.x = healthBar.x + (healthBar.width * (FlxMath.remapToRange(healthBar.percent, 0, 100, 100, 0) * 0.01) - iconOffset);
-		iconP2.x = healthBar.x + (healthBar.width * (FlxMath.remapToRange(healthBar.percent, 0, 100, 100, 0) * 0.01)) - (iconP2.width - iconOffset);
+		var targetP1X = healthBar.x + (healthBar.width * (FlxMath.remapToRange(healthBar.percent, 0, 100, 100, 0) * 0.01) - iconOffset);
+		var targetP2X = healthBar.x + (healthBar.width * (FlxMath.remapToRange(healthBar.percent, 0, 100, 100, 0) * 0.01)) - (iconP2.width - iconOffset);
+
+		FlxTween.cancelTweensOf(iconP1, ["x"]);
+		FlxTween.cancelTweensOf(iconP2, ["x"]);
+		
+		FlxTween.tween(iconP1, {x: targetP1X}, 0.15, {ease: FlxEase.quadOut});
+		FlxTween.tween(iconP2, {x: targetP2X}, 0.15, {ease: FlxEase.quadOut});
 
 		if (health > 2)
 			health = 2;
