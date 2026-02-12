@@ -1,0 +1,81 @@
+name: Build and Release FNF Haxe
+
+# Trigger on version tags like v1.0.0
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build Friday Night Funkin' for all platforms
+    runs-on: windows-latest
+
+    strategy:
+      matrix:
+        platform: [windows, html5, linux]
+    
+    steps:
+    - name: Check out source
+      uses: actions/checkout@v5
+
+    - name: Setup Haxe & Lime
+      run: |
+        choco install haxe -y
+        refreshenv
+        haxelib setup
+        haxelib install haxelib.json --always
+        haxelib run lime setup
+
+    - name: Build Game
+      run: |
+        if [ "${{ matrix.platform }}" == "windows" ]; then
+          lime test windows -release
+        elif [ "${{ matrix.platform }}" == "html5" ]; then
+          lime test html5 -release
+        elif [ "${{ matrix.platform }}" == "linux" ]; then
+          lime test linux -release
+        fi
+
+    - name: Prepare output artifacts
+      run: |
+        mkdir build_output
+        if [ "${{ matrix.platform }}" == "windows" ]; then
+          copy export\release\windows\* build_output /Y
+          powershell Compress-Archive -Path build_output\* -DestinationPath fnf-windows-${{ github.ref_name }}.zip
+        elif [ "${{ matrix.platform }}" == "html5" ]; then
+          cp -r export/release/html5/* build_output/
+          zip -r fnf-html5-${{ github.ref_name }}.zip build_output/*
+        elif [ "${{ matrix.platform }}" == "linux" ]; then
+          cp -r export/release/linux/* build_output/
+          zip -r fnf-linux-${{ github.ref_name }}.zip build_output/*
+        fi
+
+    - name: Create GitHub Release (only once)
+      if: matrix.platform == 'windows'  # only run this for first job
+      id: create_release
+      uses: ncipollo/release-action@v1
+      with:
+        tag: ${{ github.ref }}
+        name: Release ${{ github.ref_name }}
+        draft: false
+        prerelease: false
+
+    - name: Upload Release Asset
+      run: |
+        if [ "${{ matrix.platform }}" == "windows" ]; then
+          ASSET="fnf-windows-${{ github.ref_name }}.zip"
+        elif [ "${{ matrix.platform }}" == "html5" ]; then
+          ASSET="fnf-html5-${{ github.ref_name }}.zip"
+        elif [ "${{ matrix.platform }}" == "linux" ]; then
+          ASSET="fnf-linux-${{ github.ref_name }}.zip"
+        fi
+      uses: ncipollo/upload-release-asset@v1
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: $ASSET
+        asset_name: $ASSET
+        asset_content_type: application/zip
