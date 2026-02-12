@@ -4,7 +4,7 @@ on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch: # optional manual trigger
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -12,65 +12,64 @@ permissions:
 jobs:
   build:
     name: Build FNF (matrix)
+    runs-on: ${{ matrix.runs-on }}
     strategy:
-      matrix:
-        platform: [windows, linux, html5]
       fail-fast: false
-    runs-on: ${{ matrix.platform == 'windows' && 'windows-2025' || 'ubuntu-latest' }}
+      matrix:
+        include:
+          - platform: windows
+            runs-on: windows-2025
+          - platform: linux
+            runs-on: ubuntu-latest
+          - platform: html5
+            runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
 
-      # ------------------------
-      # Setup Haxe
-      # ------------------------
-      - name: Setup Haxe (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          Invoke-WebRequest -Uri https://haxe.org/website-content/downloads/4.3.0/downloads/haxe-4.3.0-windows.exe -OutFile haxe-installer.exe
-          Start-Process -Wait -FilePath .\haxe-installer.exe -ArgumentList "/S"
-          Remove-Item haxe-installer.exe
-          haxelib setup
-          haxelib install haxelib.json --always
-          haxelib run lime setup
+      - name: Setup Haxe (use maintained action)
+        uses: krdlab/setup-haxe@v2
+        with:
+          haxe-version: '4.3.7' # stable as of 2025-05-09; change if you prefer a different version. :contentReference[oaicite:2]{index=2}
 
-      - name: Setup Haxe (Linux / HTML5)
-        if: runner.os != 'Windows'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y haxe haxe-haxelib zip unzip || true
-          haxelib setup || true
-          haxelib install haxelib.json --always || true
-          haxelib run lime setup || true
-
-      # ------------------------
-      # Build the game
-      # ------------------------
-      - name: Build game
+      - name: Ensure haxelib, lime/openfl deps
         shell: bash
         run: |
-          echo "Building for platform: ${{ matrix.platform }}"
+          # Install haxelib packages declared in haxelib.json (safe to run on all runners)
+          haxelib setup || true
+          haxelib install haxelib.json --always || true
+          # lime/openfl setup (some projects need this)
+          haxelib run lime setup || true
+          haxelib run openfl setup || true
+
+      - name: Build for ${{ matrix.platform }}
+        id: build_step
+        shell: bash
+        run: |
+          echo "Platform = ${{ matrix.platform }}"
           if [ "${{ matrix.platform }}" = "windows" ]; then
+            # On a Windows runner, this bash step runs in Git for Windows shell;
+            # Use lime to build the windows target. If you prefer PowerShell, we can split steps.
             lime test windows -release
           elif [ "${{ matrix.platform }}" = "html5" ]; then
             lime test html5 -release
           elif [ "${{ matrix.platform }}" = "linux" ]; then
             lime test linux -release
+          else
+            echo "Unknown platform: ${{ matrix.platform }}"
+            exit 1
           fi
 
-      # ------------------------
-      # Package output
-      # ------------------------
-      - name: Package build output
+      - name: Package build output (zip)
         shell: bash
         run: |
           TAG=${{ github.ref_name }}
           OUTDIR=release_artifacts
-          mkdir -p $OUTDIR
+          mkdir -p "$OUTDIR"
           PLATFORM=${{ matrix.platform }}
 
+          # detect source build folders (adjust if your repo outputs somewhere else)
           if [ "$PLATFORM" = "windows" ]; then
             SRC="export/release/windows"
           elif [ "$PLATFORM" = "html5" ]; then
@@ -80,19 +79,17 @@ jobs:
           fi
 
           if [ -d "$SRC" ]; then
+            rm -rf temp_package || true
             mkdir -p temp_package
-            cp -r $SRC/* temp_package/
+            cp -r "$SRC"/* temp_package/ || true
             ZIPNAME="$OUTDIR/fnf-$PLATFORM-$TAG.zip"
             zip -r "$ZIPNAME" temp_package/* || (ls -la temp_package && exit 1)
             rm -rf temp_package
             echo "Packaged $ZIPNAME"
           else
-            echo "Warning: Build folder $SRC does not exist, skipping packaging."
+            echo "Warning: expected build folder $SRC not found; skipping package for $PLATFORM"
           fi
 
-      # ------------------------
-      # Upload artifact
-      # ------------------------
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
@@ -110,7 +107,7 @@ jobs:
           path: ./release_artifacts
 
       - name: List downloaded artifacts
-        run: ls -R ./release_artifacts || true
+        run: ls -al ./release_artifacts || true
 
       - name: Create GitHub Release
         id: create_release
@@ -121,7 +118,7 @@ jobs:
           draft: false
           prerelease: false
 
-      - name: Upload all builds to release
+      - name: Upload all zips to Release (glob)
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
