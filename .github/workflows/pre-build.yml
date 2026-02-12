@@ -4,7 +4,7 @@ on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch: # optional: allows manual trigger
+  workflow_dispatch: # optional manual trigger
 
 permissions:
   contents: write
@@ -15,18 +15,23 @@ jobs:
     strategy:
       matrix:
         platform: [windows, linux, html5]
-    runs-on: ${{ matrix.platform == 'windows' && 'windows-latest' || 'ubuntu-latest' }}
+      fail-fast: false
+    runs-on: ${{ matrix.platform == 'windows' && 'windows-2025' || 'ubuntu-latest' }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
 
+      # ------------------------
+      # Setup Haxe
+      # ------------------------
       - name: Setup Haxe (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          choco install haxe -y
-          refreshenv
+          Invoke-WebRequest -Uri https://haxe.org/website-content/downloads/4.3.0/downloads/haxe-4.3.0-windows.exe -OutFile haxe-installer.exe
+          Start-Process -Wait -FilePath .\haxe-installer.exe -ArgumentList "/S"
+          Remove-Item haxe-installer.exe
           haxelib setup
           haxelib install haxelib.json --always
           haxelib run lime setup
@@ -40,6 +45,9 @@ jobs:
           haxelib install haxelib.json --always || true
           haxelib run lime setup || true
 
+      # ------------------------
+      # Build the game
+      # ------------------------
       - name: Build game
         shell: bash
         run: |
@@ -52,6 +60,9 @@ jobs:
             lime test linux -release
           fi
 
+      # ------------------------
+      # Package output
+      # ------------------------
       - name: Package build output
         shell: bash
         run: |
@@ -69,16 +80,20 @@ jobs:
           fi
 
           if [ -d "$SRC" ]; then
-            ZIPNAME="$OUTDIR/fnf-$PLATFORM-$TAG.zip"
+            mkdir -p temp_package
             cp -r $SRC/* temp_package/
-            zip -r $ZIPNAME temp_package/* || (ls -la temp_package && exit 1)
+            ZIPNAME="$OUTDIR/fnf-$PLATFORM-$TAG.zip"
+            zip -r "$ZIPNAME" temp_package/* || (ls -la temp_package && exit 1)
             rm -rf temp_package
             echo "Packaged $ZIPNAME"
           else
             echo "Warning: Build folder $SRC does not exist, skipping packaging."
           fi
 
-      - name: Upload artifact
+      # ------------------------
+      # Upload artifact
+      # ------------------------
+      - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: fnf-${{ matrix.platform }}-${{ github.ref_name }}
