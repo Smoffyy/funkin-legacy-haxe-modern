@@ -20,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated all outdated files for Haxe 4.3.7 compatibility
 - Title bar color (now black)
 - Centered grey notes
-- Improved health color and score display
+- Improved health color and score display, healthbar movement
 
 ## [Unreleased]
 ### Added
