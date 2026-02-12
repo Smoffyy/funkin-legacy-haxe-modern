@@ -121,12 +121,15 @@ class MainMenuState extends MusicBeatState
         FlxG.cameras.reset(new SwagCamera());
         FlxG.camera.follow(camFollow, null, 0.06);
 
-		var versionShit:FlxText = new FlxText(5, FlxG.height - 18, 0, "v" + Application.current.meta.get('version'), 12);
+		var versionShit:FlxText = new FlxText(5, FlxG.height - 35, 0, "v" + Application.current.meta.get('version') + " Legacy Modern", 12);
 		versionShit.scrollFactor.set();
 		versionShit.setFormat("VCR OSD Mono", 16, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 		add(versionShit);
-
-        versionShit.text += 'dev - (v0.2.8) Legacy Ported!';
+			
+		var legacyText:FlxText = new FlxText(5, FlxG.height - 18, 0, "Funkin' (v0.2.8)", 12);
+		legacyText.scrollFactor.set();
+		legacyText.setFormat("VCR OSD Mono", 16, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+		add(legacyText);
 
         super.create();
     }
