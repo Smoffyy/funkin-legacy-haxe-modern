@@ -29,10 +29,10 @@ jobs:
           haxelib run lime setup
       
       - name: Setup Lime
-        run: haxelib run lime setup
+        run: haxelib run lime setup -alias -y
       
-      - name: Build Windows release
-        run: lime build windows --release
+      - name: Build Windows
+        run: haxelib run lime test windows
       
       - name: Prepare artifacts
         shell: bash
@@ -72,10 +72,10 @@ jobs:
           haxelib run lime setup
       
       - name: Setup Lime
-        run: haxelib run lime setup
+        run: haxelib run lime setup -alias -y
       
-      - name: Build Linux release
-        run: lime build linux --release
+      - name: Build Linux
+        run: haxelib run lime test linux
       
       - name: Prepare artifacts
         run: |
@@ -106,13 +106,12 @@ jobs:
         run: |
           haxelib setup
           haxelib install haxelib.json --always
-          haxelib run lime setup
       
       - name: Setup Lime
-        run: haxelib run lime setup
+        run: haxelib run lime setup -alias -y
       
-      - name: Build HTML5 release
-        run: lime build html5 --release
+      - name: Build HTML5
+        run: haxelib run lime test html5
       
       - name: Prepare artifacts
         run: |
