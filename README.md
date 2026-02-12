@@ -1,8 +1,32 @@
-# Friday Night Funkin' Legacy — Modern Haxe Edition
+# Friday Night Funkin' Legacy — Modern Haxe Edition!
 
 A modernized version of [Funkin Legacy](https://github.com/FunkinCrew/Funkin/tree/legacy/0.2.x) compatible with the latest Haxe releases. The original code was built with Haxe 4.1.5 and now compiles cleanly on current versions!
 
 ![alt text](logo.png)
+
+### Credits / shoutouts (Original Creators)
+#### Programming
+- [ninjamuffin99](https://twitter.com/ninja_muffin99) - Lead Programmer
+- [EliteMasterEric](https://twitter.com/EliteMasterEric) - Programmer
+- [MtH](https://twitter.com/emmnyaa) - Charting and Additional Programming
+- [GeoKureli](https://twitter.com/Geokureli/) - Additional Programming
+- [ZackDroid](https://x.com/ZackDroidCoder) - Lead Mobile Programmer
+- [MAJigsaw77](https://github.com/MAJigsaw77) - Mobile Programmer
+- [Karim-Akra](https://x.com/KarimAkra_0) - Mobile Programmer
+- [Sector_5](https://github.com/sector-a) - Mobile Programmer
+- [Luckydog7](https://github.com/luckydog7) - Mobile Programmer
+#### Art / Animation / UI
+- [PhantomArcade3K](https://twitter.com/phantomarcade3k) - Artist and Animator
+- [Evilsk8r](https://twitter.com/evilsk8r) - Art
+- [Moawling](https://twitter.com/moawko) - Week 6 Pixel Art
+- [IvanAlmighty](https://twitter.com/IvanA1mighty) - Misc UI Design
+#### Music
+- [Kawaisprite](https://twitter.com/kawaisprite) - Musician
+- [BassetFilms](https://twitter.com/Bassetfilms) - Music for "Monster", Additional Character Design
+#### Special Thanks
+- [Tom Fulp](https://twitter.com/tomfulp) - For being a great guy and for Newgrounds
+- [JohnnyUtah](https://twitter.com/JohnnyUtahNG/) - Voice of Tankman
+- [L0Litsmonica](https://twitter.com/L0Litsmonica) - Voice of Mommy Mearest
 
 ## Prerequisites
 
