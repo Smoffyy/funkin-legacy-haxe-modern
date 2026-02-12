@@ -1,0 +1,49 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'  # Triggers on version tags like v1.0.0
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    name: Build Windows
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Haxe
+        uses: krdlab/setup-haxe@v2
+        with:
+          haxe-version: 4.3.7
+      
+      - name: Install HaxeFlixel and dependencies
+        run: |
+          haxelib setup
+          haxelib install haxelib.json --always
+          haxelib run lime setup
+      
+      - name: Setup Lime
+        run: haxelib run lime setup -alias -y
+      
+      - name: Build Windows
+        run: haxelib run lime build windows
+      
+      - name: Prepare artifacts
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          cp -r export/release/windows/bin/* artifacts/
+          cd artifacts
+          powershell -Command "Compress-Archive -Path * -DestinationPath '../funkin-windows.zip'"
+      
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: funkin-windows-${{ github.ref_name }}.zip
