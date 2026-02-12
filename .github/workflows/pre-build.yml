@@ -32,7 +32,7 @@ jobs:
         run: haxelib run lime setup -alias -y
       
       - name: Build Windows
-        run: haxelib run lime test windows
+        run: haxelib run lime build windows
       
       - name: Prepare artifacts
         shell: bash
@@ -47,80 +47,3 @@ jobs:
         with:
           files: funkin-windows.zip
 
-  build-linux:
-    name: Build Linux
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Setup Haxe
-        uses: krdlab/setup-haxe@v2
-        with:
-          haxe-version: 4.3.7
-      
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libgl1-mesa-dev libx11-dev libxext-dev libxinerama-dev libxrandr-dev libxcursor-dev
-      
-      - name: Install HaxeFlixel and dependencies
-        run: |
-          haxelib setup
-          haxelib install haxelib.json --always
-          haxelib run lime setup
-      
-      - name: Setup Lime
-        run: haxelib run lime setup -alias -y
-      
-      - name: Build Linux
-        run: haxelib run lime test linux
-      
-      - name: Prepare artifacts
-        run: |
-          mkdir -p artifacts
-          cp -r export/release/linux/bin/* artifacts/
-          cd artifacts
-          tar -czf ../funkin-linux.tar.gz *
-      
-      - name: Upload to Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: funkin-linux.tar.gz
-
-  build-html5:
-    name: Build HTML5
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Setup Haxe
-        uses: krdlab/setup-haxe@v2
-        with:
-          haxe-version: 4.3.7
-      
-      - name: Install HaxeFlixel and dependencies
-        run: |
-          haxelib setup
-          haxelib install haxelib.json --always
-      
-      - name: Setup Lime
-        run: haxelib run lime setup -alias -y
-      
-      - name: Build HTML5
-        run: haxelib run lime test html5
-      
-      - name: Prepare artifacts
-        run: |
-          mkdir -p artifacts
-          cp -r export/release/html5/bin/* artifacts/
-          cd artifacts
-          zip -r ../funkin-html5.zip *
-      
-      - name: Upload to Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: funkin-html5.zip
