@@ -3,7 +3,7 @@ name: Build and Release
 on:
   push:
     tags:
-      - 'v*.*.*'  # Triggers on version tags like v1.0.0e
+      - 'v*.*.*'  # Triggers on version tags like v1.0.0
 
 permissions:
   contents: write
@@ -27,6 +27,9 @@ jobs:
           haxelib setup
           haxelib install haxelib.json --always
           haxelib run lime setup
+      
+      - name: Setup Lime
+        run: haxelib run lime setup
       
       - name: Build Windows release
         run: lime build windows --release
@@ -68,6 +71,9 @@ jobs:
           haxelib install haxelib.json --always
           haxelib run lime setup
       
+      - name: Setup Lime
+        run: haxelib run lime setup
+      
       - name: Build Linux release
         run: lime build linux --release
       
@@ -101,6 +107,9 @@ jobs:
           haxelib setup
           haxelib install haxelib.json --always
           haxelib run lime setup
+      
+      - name: Setup Lime
+        run: haxelib run lime setup
       
       - name: Build HTML5 release
         run: lime build html5 --release
