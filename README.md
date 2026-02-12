@@ -2,7 +2,7 @@
 
 A modernized version of [Funkin Legacy](https://github.com/FunkinCrew/Funkin/tree/legacy/0.2.x) compatible with the latest Haxe releases. The original code was built with Haxe 4.1.5 and now compiles cleanly on current versions!
 
-![Friday Night Funkin!](assets\preload\images\logo.png)
+![alt text](logo.png)
 
 ## Prerequisites
 
