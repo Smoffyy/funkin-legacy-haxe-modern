@@ -4,32 +4,24 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch: # optional: allows manual trigger
 
 permissions:
   contents: write
 
 jobs:
   build:
-    name: Build (matrix)
+    name: Build FNF (matrix)
     strategy:
       matrix:
-        include:
-          - platform: windows
-            runs-on: windows-latest
-          - platform: linux
-            runs-on: ubuntu-latest
-          - platform: html5
-            runs-on: ubuntu-latest
-    runs-on: ${{ matrix.runs-on }}
+        platform: [windows, linux, html5]
+    runs-on: ${{ matrix.platform == 'windows' && 'windows-latest' || 'ubuntu-latest' }}
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v5
 
-      # -------------------------
-      # Setup Haxe & haxelib deps
-      # -------------------------
-      - name: Setup Haxe on Windows
+      - name: Setup Haxe (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
@@ -39,77 +31,59 @@ jobs:
           haxelib install haxelib.json --always
           haxelib run lime setup
 
-      - name: Setup Haxe on Linux
+      - name: Setup Haxe (Linux / HTML5)
         if: runner.os != 'Windows'
         run: |
           sudo apt-get update
-          # On some runners Haxe packages are available; adjust if you need a custom installer
-          sudo apt-get install -y haxe haxe-haxelib || true
+          sudo apt-get install -y haxe haxe-haxelib zip unzip || true
           haxelib setup || true
           haxelib install haxelib.json --always || true
           haxelib run lime setup || true
 
-      # -------------------------
-      # Build step (per platform)
-      # -------------------------
-      - name: Build for ${{ matrix.platform }}
+      - name: Build game
         shell: bash
         run: |
+          echo "Building for platform: ${{ matrix.platform }}"
           if [ "${{ matrix.platform }}" = "windows" ]; then
-            # On windows the default shell is PowerShell but this step runs on the runner's shell;
-            # you can also create a windows-specific step with shell: pwsh if needed.
             lime test windows -release
           elif [ "${{ matrix.platform }}" = "html5" ]; then
             lime test html5 -release
           elif [ "${{ matrix.platform }}" = "linux" ]; then
             lime test linux -release
-          else
-            echo "Unknown platform: ${{ matrix.platform }}"
-            exit 1
           fi
 
-      # -------------------------
-      # Package into a zip
-      # -------------------------
-      - name: Package build output (zip)
+      - name: Package build output
         shell: bash
         run: |
           TAG=${{ github.ref_name }}
-          OUTNAME="fnf-${{ matrix.platform }}-${TAG}.zip"
-          mkdir -p packaged
-          if [ "${{ matrix.platform }}" = "windows" ]; then
-            # windows export path; adjust if necessary
-            # use powershell compression on windows runners; on linux ubuntu runner try to use cp
-            if [ -d "export/release/windows" ]; then
-              cp -r export/release/windows/* packaged/
-            elif [ -d "export/release/windows/$TAG" ]; then
-              cp -r export/release/windows/$TAG/* packaged/
-            else
-              echo "Warning: windows output not found; listing export/release:"
-              ls -R export/release || true
-            fi
-          elif [ "${{ matrix.platform }}" = "html5" ]; then
-            cp -r export/release/html5/* packaged/ || echo "Warning: html5 output not present."
-          else
-            cp -r export/release/linux/* packaged/ || echo "Warning: linux output not present."
-          fi
-          # create zip
-          zip -r "${OUTNAME}" packaged/* || (ls -la packaged && exit 1)
-          # show the file
-          ls -la "${OUTNAME}"
+          OUTDIR=release_artifacts
+          mkdir -p $OUTDIR
+          PLATFORM=${{ matrix.platform }}
 
-      # -------------------------
-      # Upload packaged zip as artifact
-      # -------------------------
-      - name: Upload build artifact
+          if [ "$PLATFORM" = "windows" ]; then
+            SRC="export/release/windows"
+          elif [ "$PLATFORM" = "html5" ]; then
+            SRC="export/release/html5"
+          elif [ "$PLATFORM" = "linux" ]; then
+            SRC="export/release/linux"
+          fi
+
+          if [ -d "$SRC" ]; then
+            ZIPNAME="$OUTDIR/fnf-$PLATFORM-$TAG.zip"
+            cp -r $SRC/* temp_package/
+            zip -r $ZIPNAME temp_package/* || (ls -la temp_package && exit 1)
+            rm -rf temp_package
+            echo "Packaged $ZIPNAME"
+          else
+            echo "Warning: Build folder $SRC does not exist, skipping packaging."
+          fi
+
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: fnf-${{ matrix.platform }}-${{ github.ref_name }}
-          path: fnf-${{ matrix.platform }}-${{ github.ref_name }}.zip
+          path: release_artifacts/fnf-${{ matrix.platform }}-${{ github.ref_name }}.zip
 
-  # -------------------------
-  # Release job: create release & upload assets
-  # -------------------------
   release:
     name: Create Release & Upload Assets
     needs: build
@@ -132,29 +106,10 @@ jobs:
           draft: false
           prerelease: false
 
-      - name: Upload Windows asset (if present)
-        if: ${{ always() && (files('./release_artifacts/*fnf-windows*') != '') }}
-        uses: ncipollo/upload-release-asset@v1
+      - name: Upload all builds to release
+        uses: svenstaro/upload-release-action@v2
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./release_artifacts/fnf-windows-${{ github.ref_name }}.zip
-          asset_name: fnf-windows-${{ github.ref_name }}.zip
-          asset_content_type: application/zip
-
-      - name: Upload HTML5 asset (if present)
-        if: ${{ always() && (files('./release_artifacts/*fnf-html5*') != '') }}
-        uses: ncipollo/upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./release_artifacts/fnf-html5-${{ github.ref_name }}.zip
-          asset_name: fnf-html5-${{ github.ref_name }}.zip
-          asset_content_type: application/zip
-
-      - name: Upload Linux asset (if present)
-        if: ${{ always() && (files('./release_artifacts/*fnf-linux*') != '') }}
-        uses: ncipollo/upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./release_artifacts/fnf-linux-${{ github.ref_name }}.zip
-          asset_name: fnf-linux-${{ github.ref_name }}.zip
-          asset_content_type: application/zip
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: "release_artifacts/*.zip"
+          file_glob: true
+          tag: ${{ github.ref }}
