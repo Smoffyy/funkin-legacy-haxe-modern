@@ -19,7 +19,7 @@ import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.group.FlxGroup;
 import flixel.math.FlxMath;
 import flixel.math.FlxPoint;
-import flixel.system.FlxSound;
+import flixel.sound.FlxSound;
 import flixel.text.FlxText;
 import flixel.ui.FlxButton;
 import flixel.ui.FlxSpriteButton;
@@ -78,6 +78,8 @@ class ChartingState extends MusicBeatState
 
 	var vocals:FlxSound;
 
+	var curDifficulty:Int = -1;
+
 	var leftIcon:HealthIcon;
 	var rightIcon:HealthIcon;
 
@@ -124,6 +126,9 @@ class ChartingState extends MusicBeatState
 			};
 		}
 
+		// Get difficulty from PlayState if available, default to -1 (regular)
+		curDifficulty = PlayState.storyDifficulty;
+
 		FlxG.mouse.visible = true;
 		FlxG.save.bind('funkin', 'ninjamuffin99');
 
@@ -135,7 +140,7 @@ class ChartingState extends MusicBeatState
 
 		updateGrid();
 
-		loadSong(_song.song);
+		loadSong(_song.song, curDifficulty);
 		Conductor.changeBPM(_song.bpm);
 		Conductor.mapBPMChanges(_song);
 
@@ -206,7 +211,7 @@ class ChartingState extends MusicBeatState
 
 		var reloadSong:FlxButton = new FlxButton(saveButton.x + saveButton.width + 10, saveButton.y, "Reload Audio", function()
 		{
-			loadSong(_song.song);
+			loadSong(_song.song, curDifficulty);
 		});
 
 		var reloadSongJson:FlxButton = new FlxButton(reloadSong.x, saveButton.y + 30, "Reload JSON", function()
@@ -343,7 +348,7 @@ class ChartingState extends MusicBeatState
 		UI_box.addGroup(tab_group_note);
 	}
 
-	function loadSong(daSong:String):Void
+	function loadSong(daSong:String, ?difficulty:Int = -1):Void
 	{
 		if (FlxG.sound.music != null)
 		{
@@ -351,10 +356,10 @@ class ChartingState extends MusicBeatState
 			// vocals.stop();
 		}
 
-		FlxG.sound.playMusic(Paths.inst(daSong), 0.6);
+		FlxG.sound.playMusic(Paths.inst(daSong, difficulty), 0.6);
 
 		// WONT WORK FOR TUTORIAL OR TEST SONG!!! REDO LATER
-		vocals = new FlxSound().loadEmbedded(Paths.voices(daSong));
+		vocals = new FlxSound().loadEmbedded(Paths.voices(daSong, difficulty));
 		FlxG.sound.list.add(vocals);
 
 		FlxG.sound.music.pause();
@@ -550,7 +555,7 @@ class ChartingState extends MusicBeatState
 			PlayState.SONG = _song;
 			FlxG.sound.music.stop();
 			vocals.stop();
-			FlxG.switchState(new PlayState());
+			FlxG.switchState(()->new PlayState());
 		}
 
 		if (FlxG.keys.justPressed.E)
@@ -1038,7 +1043,7 @@ class ChartingState extends MusicBeatState
 	function loadJson(song:String):Void
 	{
 		PlayState.SONG = Song.loadFromJson(song.toLowerCase(), song.toLowerCase());
-		LoadingState.loadAndSwitchState(new ChartingState());
+		LoadingState.loadAndSwitchState(()->new ChartingState());
 	}
 
 	function loadAutosave():Void

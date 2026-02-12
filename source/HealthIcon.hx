@@ -1,6 +1,7 @@
 package;
 
 import flixel.FlxSprite;
+import flixel.util.FlxColor;
 
 using StringTools;
 
@@ -13,6 +14,8 @@ class HealthIcon extends FlxSprite
 
 	var char:String = '';
 	var isPlayer:Bool = false;
+	
+	public var iconColor:FlxColor = 0xFF66FF33;
 
 	public function new(char:String = 'bf', isPlayer:Bool = false)
 	{
@@ -51,7 +54,65 @@ class HealthIcon extends FlxSprite
 			}
 			animation.play(newChar);
 			char = newChar;
+			
+			// Extract dominant color from the icon
+			extractIconColor();
 		}
+	}
+	
+	function extractIconColor():Void
+	{
+		if (pixels == null)
+		{
+			iconColor = 0xFF66FF33; // Default color
+			return;
+		}
+		
+		// Sample pixels from the icon to find the dominant color
+		var colorMap:Map<Int, Int> = new Map<Int, Int>();
+		var mostCommonColor:Int = 0;
+		var highestCount:Int = 0;
+		
+		// Sample every 4th pixel for performance (icons are 150x150)
+		for (x in 0...Std.int(frameWidth))
+		{
+			for (y in 0...Std.int(frameHeight))
+			{
+				if (x % 4 == 0 && y % 4 == 0) // Sample 1/16th of pixels
+				{
+					var pixel:Int = pixels.getPixel32(x, y);
+					var alpha:Int = (pixel >> 24) & 0xFF;
+					
+					// Skip transparent pixels
+					if (alpha < 128)
+						continue;
+					
+					// Skip very dark or very light colors
+					var color:FlxColor = pixel;
+					var brightness:Float = (color.red + color.green + color.blue) / 3;
+					if (brightness < 50 || brightness > 230)
+						continue;
+					
+					// Count this color
+					if (!colorMap.exists(pixel))
+						colorMap.set(pixel, 0);
+					
+					colorMap.set(pixel, colorMap.get(pixel) + 1);
+					
+					if (colorMap.get(pixel) > highestCount)
+					{
+						highestCount = colorMap.get(pixel);
+						mostCommonColor = pixel;
+					}
+				}
+			}
+		}
+		
+		// If we found a good color, use it. Otherwise use default
+		if (highestCount > 0)
+			iconColor = mostCommonColor;
+		else
+			iconColor = 0xFF66FF33; // Default green
 	}
 
 	override function update(elapsed:Float)

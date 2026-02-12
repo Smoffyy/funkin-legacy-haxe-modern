@@ -55,7 +55,7 @@ class Note extends FlxSprite
 		this.prevNote = prevNote;
 		isSustainNote = sustainNote;
 
-		x += 50;
+		// X position will be set in PlayState based on whether it's player or opponent
 		// MAKE SURE ITS DEFINITELY OFF SCREEN?
 		y -= 2000;
 		this.strumTime = strumTime;
@@ -213,9 +213,10 @@ class Note extends FlxSprite
 			}
 			else
 			{
-				if (strumTime > Conductor.songPosition - Conductor.safeZoneOffset)
+				var songPos:Float = Conductor.getInterpolatedPosition();
+				if (strumTime > songPos - Conductor.safeZoneOffset)
 				{ // The * 0.5 is so that it's easier to hit them too late, instead of too early
-					if (strumTime < Conductor.songPosition + (Conductor.safeZoneOffset * 0.5))
+					if (strumTime < songPos + (Conductor.safeZoneOffset * 0.5))
 						canBeHit = true;
 				}
 				else
@@ -229,7 +230,14 @@ class Note extends FlxSprite
 		{
 			canBeHit = false;
 
-			if (strumTime <= Conductor.songPosition)
+			// Add safety check to prevent early hits
+			var currentPos:Float = Conductor.getInterpolatedPosition();
+			
+			// Only mark as hit if:
+			// 1. The note's time has passed
+			// 2. The position is positive (music has started)
+			// 3. Position isn't unreasonably large (sanity check)
+			if (strumTime <= currentPos && currentPos >= 0 && currentPos < strumTime + 5000)
 				wasGoodHit = true;
 		}
 

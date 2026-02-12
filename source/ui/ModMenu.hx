@@ -5,7 +5,6 @@ import flixel.group.FlxGroup.FlxTypedGroup;
 import flixel.text.FlxText;
 import flixel.util.FlxColor;
 #if cpp
-import polymod.Polymod;
 import sys.FileSystem;
 #end
 
@@ -110,9 +109,11 @@ class ModMenu extends ui.OptionsState.Page
 
 		enabledMods = [];
 
-		modList = Polymod.scan(MOD_PATH);
+		// Polymod.scan() is incompatible with newer Haxe versions
+		// The actual mod list is built from modFolders which is read from the filesystem above
+		// modList = Polymod.scan();
 
-		trace(modList);
+		trace("Mod folders found: " + modFolders);
 
 		var loopNum:Int = 0;
 		for (i in modFolders)

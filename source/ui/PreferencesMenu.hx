@@ -32,10 +32,12 @@ class PreferencesMenu extends ui.OptionsState.Page
 
 		createPrefItem('naughtyness', 'censor-naughty', true);
 		createPrefItem('downscroll', 'downscroll', false);
-		createPrefItem('flashing menu', 'flashing-menu', true);
+		createPrefItem('flashing menu', 'flashing-menu', false);
 		createPrefItem('Camera Zooming on Beat', 'camera-zoom', true);
 		createPrefItem('FPS Counter', 'fps-counter', true);
 		createPrefItem('Auto Pause', 'auto-pause', false);
+		createPrefItem('Note Splashes', 'note-splashes', true);
+		createPrefItem("New Input (Ghost Tapping)", "new-input", false);
 
 		camFollow = new FlxObject(FlxG.width / 2, 0, 140, 70);
 		if (items != null)
@@ -67,11 +69,13 @@ class PreferencesMenu extends ui.OptionsState.Page
 	{
 		preferenceCheck('censor-naughty', true);
 		preferenceCheck('downscroll', false);
-		preferenceCheck('flashing-menu', true);
+		preferenceCheck('flashing-menu', false);
 		preferenceCheck('camera-zoom', true);
 		preferenceCheck('fps-counter', true);
 		preferenceCheck('auto-pause', false);
 		preferenceCheck('master-volume', 1);
+		preferenceCheck('note-splashes', true);
+		preferenceCheck('new-input', false);
 
 		#if muted
 		setPref('master-volume', 0);

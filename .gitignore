@@ -1,4 +1,8 @@
+# Default
 export/
 .vscode/
-APIStuff.hx
+#APIStuff.hx
 .DS_STORE
+
+# Test scripts
+PsychConverterTest.hx

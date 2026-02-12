@@ -4,6 +4,24 @@ All notable changes will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - 2026-02-11 (Haxe Modern Edition)
+### Added
+- Recompiled for Haxe 4.3.7 (latest version) ⭐
+- High FPS Support
+- Opponent Note Strum (Aesthetic)
+- Opponent health drain mechanics
+- Dynamic sync for charting
+- Additional options menu improvements
+- Psych Charting Compatibility
+- F1 key to hide HUD (except notes)
+- New Expert Difficulty (Configurable)
+
+### Changed
+- Updated all outdated files for Haxe 4.3.7 compatibility
+- Title bar color (now black)
+- Centered grey notes
+- Improved health color and score display, healthbar movement
+
 ## [Unreleased]
 ### Added
 - TANKMAN! 3 NEW SONGS BY KAWAISPRITE (UGH, GUNS, STRESS)! Charting help by MtH!
