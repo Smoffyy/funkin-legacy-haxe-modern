@@ -152,6 +152,8 @@ class PlayState extends MusicBeatState
 
 	var defaultCamZoom:Float = 1.05;
 
+	var healthWarningActive:Bool = false;
+
 	// how big to stretch the pixel art assets
 	public static var daPixelZoom:Float = 6;
 
@@ -1974,6 +1976,17 @@ class PlayState extends MusicBeatState
 
 		scoreTxt.text = "Score: " + songScore + " | Misses: " + misses + " | Accuracy: " + truncateFloat(accuracy, 2) + "%";
 
+		if (healthWarningActive && health < 0.35)
+		{
+			// Low health warning
+			var healthPulse:Float = Math.sin(FlxG.sound.music.time / 100) * 0.3 + 0.7;
+			healthBar.color = FlxColor.interpolate(0xFFFF0000, 0xFFFFFFFF, healthPulse);
+		}
+		else
+		{
+			healthBar.color = 0xFFFFFFFF;
+		}
+
 		if (controls.PAUSE && startedCountdown && canPause)
 		{
 			persistentUpdate = false;
@@ -2912,6 +2925,10 @@ class PlayState extends MusicBeatState
 		vocals.volume = 0;
 		FlxG.sound.play(Paths.soundRandom('missnote', 1, 3), FlxG.random.float(0.1, 0.2));
 
+		checkCharacterReaction("Miss");
+		
+		healthWarningActive = true;
+
 		/* boyfriend.stunned = true;
 
 		// get stunned for 5 seconds
@@ -2963,6 +2980,9 @@ function goodNoteHit(note:Note):Void
                 combo += 1;
                 popUpScore(note.strumTime, note);
 
+                // CHARACTER REACTION SYSTEM
+                checkCharacterReaction("Good");
+
                 if (PreferencesMenu.getPref('note-splashes'))
                 {
                     var splash:NoteSplash = grpNoteSplashes.recycle(NoteSplash);
@@ -2975,6 +2995,15 @@ function goodNoteHit(note:Note):Void
                 health += 0.023;
             else
                 health += 0.004;
+
+            if (health < 0.35)
+            {
+                healthWarningActive = true;
+            }
+            else
+            {
+                healthWarningActive = false;
+            }
 
             switch (note.noteData)
             {
@@ -3263,6 +3292,70 @@ function goodNoteHit(note:Note):Void
 	}
 
 	var curLight:Int = 0;
+	// WIP character reaction system, will expand on this a lot more.
+	function checkCharacterReaction(rating:String):Void
+	{
+		switch (rating)
+		{
+			case "Perfect":
+				// BF celebrates on perfect hits
+				if (FlxG.random.bool(15))
+				{
+					boyfriend.playAnim('hey', true);
+				}
+				// Dad reacts positively occasionally
+				if (FlxG.random.bool(10))
+				{
+					if (!dad.animation.curAnim.name.startsWith("sing"))
+						dad.playAnim('cheer', true);
+				}
+			
+			case "Great":
+				// Neutral reaction, continue normally
+			
+			case "Good" | "Bad":
+				// Slightly disappointed reaction
+				if (FlxG.random.bool(20) && dad.curCharacter != 'gf')
+				{
+					// Dad might gesture disapprovingly
+					if (dad.animation.curAnim != null && dad.animation.curAnim.name == 'idle')
+					{
+						dad.playAnim('idle', true);
+					}
+				}
+			
+			case "Miss":
+				// Dad celebrates your miss!
+				if (dad.animation.curAnim != null && !dad.animation.curAnim.name.startsWith("sing"))
+				{
+					dad.playAnim('cheer', true);
+				}
+				// CONFIGURABLE Screen shake on miss
+				if (PreferencesMenu.getPref('screen-shake-miss'))
+				{
+					FlxG.camera.shake(0.005, 0.2);
+				}
+		}
+	}
+
+	function enhanceSustainNoteVisuals(note:Note):Void
+	{
+		if (PreferencesMenu.getPref('enhanced-sustain'))
+		{
+			if (note.isSustainNote)
+			{
+				// Add glow to sustain notes
+				note.alpha = 0.95;
+				note.color = 0xFFFFFFFF;
+				
+				// Smooth animation for sustain notes
+				if (!note.animation.curAnim.name.contains('hold'))
+				{
+					note.animation.play('hold', true);
+				}
+			}
+		}
+	}
 	
 	/**
 	 * Clean up caches when exiting play state
