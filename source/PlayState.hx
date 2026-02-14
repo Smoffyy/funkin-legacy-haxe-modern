@@ -1974,6 +1974,17 @@ class PlayState extends MusicBeatState
 
 		scoreTxt.text = "Score: " + songScore + " | Misses: " + misses + " | Accuracy: " + truncateFloat(accuracy, 2) + "%";
 
+		// Healthbar effect
+		if (PreferencesMenu.getPref('health-bar-warning') && health < 0.35)
+		{
+			var healthPulse:Float = Math.sin(FlxG.sound.music.time / 100) * 0.3 + 0.7;
+			healthBar.color = FlxColor.interpolate(0xFFFF0000, 0xFFFFFFFF, healthPulse);
+		}
+		else
+		{
+			healthBar.color = 0xFFFFFFFF;
+		}
+
 		if (controls.PAUSE && startedCountdown && canPause)
 		{
 			persistentUpdate = false;
@@ -2911,6 +2922,12 @@ class PlayState extends MusicBeatState
 
 		vocals.volume = 0;
 		FlxG.sound.play(Paths.soundRandom('missnote', 1, 3), FlxG.random.float(0.1, 0.2));
+
+		// shake on miss
+		if (PreferencesMenu.getPref('screen-shake-miss'))
+		{
+			FlxG.camera.shake(0.005, 0.2);
+		}
 
 		/* boyfriend.stunned = true;
 

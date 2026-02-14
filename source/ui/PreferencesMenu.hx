@@ -38,6 +38,8 @@ class PreferencesMenu extends ui.OptionsState.Page
 		createPrefItem('Auto Pause', 'auto-pause', false);
 		createPrefItem('Note Splashes', 'note-splashes', true);
 		createPrefItem("New Input (Ghost Tapping)", "new-input", false);
+		createPrefItem('Screen Shake on Miss', 'screen-shake-miss', true);
+		createPrefItem('Health Bar Warning', 'health-bar-warning', true);
 
 		camFollow = new FlxObject(FlxG.width / 2, 0, 140, 70);
 		if (items != null)
@@ -76,6 +78,8 @@ class PreferencesMenu extends ui.OptionsState.Page
 		preferenceCheck('master-volume', 1);
 		preferenceCheck('note-splashes', true);
 		preferenceCheck('new-input', false);
+		preferenceCheck('screen-shake-miss', true);
+		preferenceCheck('health-bar-warning', true);
 
 		#if muted
 		setPref('master-volume', 0);
