@@ -86,6 +86,17 @@ class PlayState extends MusicBeatState
 	private var playerStrums:FlxTypedGroup<FlxSprite>;
 	private var opponentStrums:FlxTypedGroup<FlxSprite>; // Opponent strums group
 
+	// Arrow Wobble stuff
+	private var strumWobbleTweens:Map<Int, FlxTween> = new Map();
+	private var strumReturnTweens:Map<Int, FlxTween> = new Map();
+	private var strumOriginalScales:Map<Int, FlxPoint> = new Map();
+	private var strumWobbleIntensity:Float = 0.15;
+	private var strumWobbleDuration:Float = 0.1;
+	private var strumReturnDuration:Float = 0.07;
+	private var strumVerticalCompression:Float = 0.5;
+	private var wobbleIntensityOnHit:Float = 0.18;
+	private var wobbleIntensityOnPress:Float = 0.15;
+
 	private var camZooming:Bool = false;
 	private var curSong:String = "";
 
@@ -2293,6 +2304,9 @@ class PlayState extends MusicBeatState
 						if (Math.abs(daNote.noteData) == spr.ID)
 						{
 							spr.animation.play('confirm', true);
+							// wobble for opponent strumssss
+							if (PreferencesMenu.getPref('arrow-wobble'))
+								applyStrumWobble(spr.ID, wobbleIntensityOnHit, true);
 						}
 					});
 
@@ -2896,7 +2910,12 @@ class PlayState extends MusicBeatState
 		playerStrums.forEach(function(spr:FlxSprite)
 		{
 			if (pressArray[spr.ID] && spr.animation.curAnim.name != 'confirm')
+			{
 				spr.animation.play('pressed');
+				// wobble on presss
+				if (PreferencesMenu.getPref('arrow-wobble'))
+					applyStrumWobble(spr.ID, wobbleIntensityOnPress);
+			}
 			if (!holdArray[spr.ID])
 				spr.animation.play('static');
 
@@ -3010,6 +3029,9 @@ function goodNoteHit(note:Note):Void
                 if (Math.abs(note.noteData) == spr.ID)
                 {
                     spr.animation.play('confirm', true);
+                    // wobble on hitt
+                    if (PreferencesMenu.getPref('arrow-wobble'))
+                        applyStrumWobble(spr.ID, wobbleIntensityOnHit);
                 }
             });
 
@@ -3282,10 +3304,102 @@ function goodNoteHit(note:Note):Void
 	var curLight:Int = 0;
 	
 	/**
+	 * Applies a wobble/stretch effect to arrow strums
+	 * @param strumID The strum arrow ID to apply the wobble to
+	 * @param customIntensity Optional custom intensity override
+	 * @param isOpponent Whether this is for opponent strums
+	 */
+	function applyStrumWobble(strumID:Int, ?customIntensity:Float, ?isOpponent:Bool = false):Void
+	{
+		var targetStrum:FlxSprite = null;
+		var strumGroup:FlxTypedGroup<FlxSprite> = isOpponent ? opponentStrums : playerStrums;
+		
+		// Find the strum sprite with matching ID
+		strumGroup.forEach(function(spr:FlxSprite)
+		{
+			if (spr.ID == strumID)
+				targetStrum = spr;
+		});
+		
+		if (targetStrum == null)
+			return;
+		
+		// Use custom intensity if provided, otherwise use default
+		var intensity = customIntensity != null ? customIntensity : strumWobbleIntensity;
+		
+		// Kill any existing tweens on this strum to avoid conflicts
+		if (strumWobbleTweens.exists(strumID))
+		{
+			strumWobbleTweens.get(strumID).cancel();
+		}
+		if (strumReturnTweens.exists(strumID))
+		{
+			strumReturnTweens.get(strumID).cancel();
+		}
+		
+		// Store original scale if not already stored
+		if (!strumOriginalScales.exists(strumID))
+		{
+			strumOriginalScales.set(strumID, new FlxPoint(targetStrum.scale.x, targetStrum.scale.y));
+		}
+		
+		// Get the original scale
+		var originalScale = strumOriginalScales.get(strumID);
+		var originalScaleX = originalScale.x;
+		var originalScaleY = originalScale.y;
+		
+		// Reset to original scale before applying wobble
+		targetStrum.scale.set(originalScaleX, originalScaleY);
+		
+		// Create wobble tween - stretch and squash
+		var wobbleTween:FlxTween = FlxTween.tween(targetStrum.scale, {
+			x: originalScaleX * (1 + intensity),
+			y: originalScaleY * (1 - intensity * strumVerticalCompression)
+		}, strumWobbleDuration, {
+			ease: FlxEase.quartOut,
+			onComplete: function(tween:FlxTween)
+			{
+				// Bounce back tween - return to normal
+				var returnTween:FlxTween = FlxTween.tween(targetStrum.scale, {
+					x: originalScaleX,
+					y: originalScaleY
+				}, strumReturnDuration, {
+					ease: FlxEase.quintOut,
+					onComplete: function(tween:FlxTween)
+					{
+						strumWobbleTweens.remove(strumID);
+						strumReturnTweens.remove(strumID);
+					}
+				});
+				
+				strumReturnTweens.set(strumID, returnTween);
+			}
+		});
+		
+		strumWobbleTweens.set(strumID, wobbleTween);
+	}
+
+	/**
 	 * Clean up caches when exiting play state
 	 */
 	override public function destroy():Void
 	{
+		for (strumID in strumWobbleTweens.keys())
+		{
+			strumWobbleTweens.get(strumID).cancel();
+		}
+		for (strumID in strumReturnTweens.keys())
+		{
+			strumReturnTweens.get(strumID).cancel();
+		}
+		
+		for (strumID in strumOriginalScales.keys())
+		{
+			var scale = strumOriginalScales.get(strumID);
+			if (scale != null)
+				scale.put();
+		}
+		
 		// Clear caches when leaving play state to free memory
 		AssetCacheManager.clearBitmapCache();
 		Conductor.clearBPMCache();
