@@ -4,6 +4,18 @@ All notable changes will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2026-02-14 (Haxe Modern Edition)
+### Added
+- Note wobble (toggle)
+
+### Changed
+- Optimized entire PlayState.hx, note logic, and more!
+
+## [1.0.1] - 2026-02-13 (Haxe Modern Edition)
+### Added
+- Screenshake on miss
+- Healthbar blink on low health
+
 ## [1.0.0] - 2026-02-11 (Haxe Modern Edition)
 ### Added
 - Recompiled for Haxe 4.3.7 (latest version) ⭐
