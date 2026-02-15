@@ -86,7 +86,7 @@ class PlayState extends MusicBeatState
 	private var playerStrums:FlxTypedGroup<FlxSprite>;
 	private var opponentStrums:FlxTypedGroup<FlxSprite>; // Opponent strums group
 
-	// Arrow Wobble stuff
+	// Wobble effect
 	private var strumWobbleTweens:Map<Int, FlxTween> = new Map();
 	private var strumReturnTweens:Map<Int, FlxTween> = new Map();
 	private var strumOriginalScales:Map<Int, FlxPoint> = new Map();
@@ -2299,16 +2299,17 @@ class PlayState extends MusicBeatState
 					}
 
 					// Animate opponent strums when opponent hits notes
-					opponentStrums.forEach(function(spr:FlxSprite)
+					var oppNoteID = daNote.noteData;
+					for (spr in opponentStrums)
 					{
-						if (Math.abs(daNote.noteData) == spr.ID)
+						if (spr.ID == oppNoteID)
 						{
 							spr.animation.play('confirm', true);
-							// wobble for opponent strumssss
 							if (PreferencesMenu.getPref('arrow-wobble'))
 								applyStrumWobble(spr.ID, wobbleIntensityOnHit, true);
+							break; // Found it, exit early
 						}
-					});
+					}
 
 					// Health drain
 					// Only drain if health is above 25% (0.5 on 0-2 scale)
@@ -2816,8 +2817,11 @@ class PlayState extends MusicBeatState
 			controls.NOTE_RIGHT_R
 		];
 
+		// Check if any hold is pressed
+		var anyHold:Bool = holdArray[0] || holdArray[1] || holdArray[2] || holdArray[3];
+		
 		// HOLDS, check for sustain notes
-		if (holdArray.contains(true) && /*!boyfriend.stunned && */ generatedMusic)
+		if (anyHold && generatedMusic)
 		{
 			notes.forEachAlive(function(daNote:Note)
 			{
@@ -2826,8 +2830,11 @@ class PlayState extends MusicBeatState
 			});
 		}
 
+		// Check if any press is pressed
+		var anyPress:Bool = pressArray[0] || pressArray[1] || pressArray[2] || pressArray[3];
+		
 		// PRESSES, check for note hits
-		if (pressArray.contains(true) && /*!boyfriend.stunned && */ generatedMusic)
+		if (anyPress && generatedMusic)
 		{
 			boyfriend.holdTimer = 0;
 
@@ -2844,13 +2851,12 @@ class PlayState extends MusicBeatState
 						for (coolNote in possibleNotes)
 						{
 							if (coolNote.noteData == daNote.noteData && Math.abs(daNote.strumTime - coolNote.strumTime) < 10)
-							{ // if it's the same note twice at < 10ms distance, just delete it
-								// EXCEPT u cant delete it in this loop cuz it fucks with the collection lol
+							{
 								dumbNotes.push(daNote);
 								break;
 							}
 							else if (coolNote.noteData == daNote.noteData && daNote.strumTime < coolNote.strumTime)
-							{ // if daNote is earlier than existing note (coolNote), replace
+							{
 								possibleNotes.remove(coolNote);
 								possibleNotes.push(daNote);
 								break;
@@ -2865,9 +2871,9 @@ class PlayState extends MusicBeatState
 				}
 			});
 
+			// Clean up duplicate notes
 			for (note in dumbNotes)
 			{
-				FlxG.log.add("killing dumb ass note at " + note.strumTime);
 				note.kill();
 				notes.remove(note, true);
 				note.destroy();
@@ -2875,12 +2881,12 @@ class PlayState extends MusicBeatState
 
 			possibleNotes.sort((a, b) -> Std.int(a.strumTime - b.strumTime));
 
-			if (perfectMode)
+			if (perfectMode && possibleNotes.length > 0)
 				goodNoteHit(possibleNotes[0]);
 			else if (possibleNotes.length > 0)
 			{
 				for (shit in 0...pressArray.length)
-				{ // if a direction is hit that shouldn't be
+				{
 					if (pressArray[shit] && !directionList.contains(shit))
 						noteMiss(shit);
 				}
@@ -2899,7 +2905,21 @@ class PlayState extends MusicBeatState
 			}
 		}
 
-		if (boyfriend.holdTimer > Conductor.stepCrochet * 4 * 0.001 && !holdArray.contains(true))
+		// RELEASES - wobble when releasing sustain notes
+		var anyRelease:Bool = releaseArray[0] || releaseArray[1] || releaseArray[2] || releaseArray[3];
+		if (anyRelease && generatedMusic && PreferencesMenu.getPref('arrow-wobble'))
+		{
+			for (i in 0...releaseArray.length)
+			{
+				if (releaseArray[i])
+				{
+					// Apply wobble to player strum on release
+					applyStrumWobble(i, wobbleIntensityOnPress * 0.75, false);
+				}
+			}
+		}
+
+		if (boyfriend.holdTimer > Conductor.stepCrochet * 4 * 0.001 && !anyHold)
 		{
 			if (boyfriend.animation.curAnim.name.startsWith('sing') && !boyfriend.animation.curAnim.name.endsWith('miss'))
 			{
@@ -2907,16 +2927,18 @@ class PlayState extends MusicBeatState
 			}
 		}
 
-		playerStrums.forEach(function(spr:FlxSprite)
+		// Optimize strum animation - use for loop instead of forEach
+		for (spr in playerStrums)
 		{
-			if (pressArray[spr.ID] && spr.animation.curAnim.name != 'confirm')
+			var noteID = spr.ID;
+			if (pressArray[noteID] && spr.animation.curAnim.name != 'confirm')
 			{
 				spr.animation.play('pressed');
-				// wobble on presss
 				if (PreferencesMenu.getPref('arrow-wobble'))
-					applyStrumWobble(spr.ID, wobbleIntensityOnPress);
+					applyStrumWobble(noteID, wobbleIntensityOnPress, false);
 			}
-			if (!holdArray[spr.ID])
+			
+			if (!holdArray[noteID])
 				spr.animation.play('static');
 
 			if (spr.animation.curAnim.name == 'confirm' && !curStage.startsWith('school'))
@@ -2927,12 +2949,11 @@ class PlayState extends MusicBeatState
 			}
 			else
 				spr.centerOffsets();
-		});
+		}
 	}
 
 	function noteMiss(direction:Int = 1):Void
 	{
-		// whole function used to be encased in if (!boyfriend.stunned)
 		health -= 0.04;
 		killCombo();
 
@@ -2942,31 +2963,14 @@ class PlayState extends MusicBeatState
 		vocals.volume = 0;
 		FlxG.sound.play(Paths.soundRandom('missnote', 1, 3), FlxG.random.float(0.1, 0.2));
 
-		// shake on miss
+		// shake on miss - check pref once
 		if (PreferencesMenu.getPref('screen-shake-miss'))
-		{
 			FlxG.camera.shake(0.005, 0.2);
-		}
 
-		/* boyfriend.stunned = true;
-
-		// get stunned for 5 seconds
-		new FlxTimer().start(5 / 60, function(tmr:FlxTimer)
-		{
-			boyfriend.stunned = false;
-		}); */
-
-		switch (direction)
-		{
-			case 0:
-				boyfriend.playAnim('singLEFTmiss', true);
-			case 1:
-				boyfriend.playAnim('singDOWNmiss', true);
-			case 2:
-				boyfriend.playAnim('singUPmiss', true);
-			case 3:
-				boyfriend.playAnim('singRIGHTmiss', true);
-		}
+		// Optimize: use direct animation string instead of switch for miss
+		var missAnims = ['singLEFTmiss', 'singDOWNmiss', 'singUPmiss', 'singRIGHTmiss'];
+		if (direction >= 0 && direction < 4)
+			boyfriend.playAnim(missAnims[direction], true);
 	}
 
 	/* not used anymore lol
@@ -2991,61 +2995,63 @@ class PlayState extends MusicBeatState
 	} */
 
 function goodNoteHit(note:Note):Void
-    {
-        if (!note.wasGoodHit)
-        {
-            if (!note.isSustainNote)
-            {
-                combo += 1;
-                popUpScore(note.strumTime, note);
+{
+	if (!note.wasGoodHit)
+	{
+		if (!note.isSustainNote)
+		{
+			combo += 1;
+			popUpScore(note.strumTime, note);
 
-                if (PreferencesMenu.getPref('note-splashes'))
-                {
-                    var splash:NoteSplash = grpNoteSplashes.recycle(NoteSplash);
-                    splash.setupNoteSplash(note.x, note.y, note.noteData);
-                    grpNoteSplashes.add(splash);
-                }
-            }
+			if (PreferencesMenu.getPref('note-splashes'))
+			{
+				var splash:NoteSplash = grpNoteSplashes.recycle(NoteSplash);
+				splash.setupNoteSplash(note.x, note.y, note.noteData);
+				grpNoteSplashes.add(splash);
+			}
+		}
 
-            if (note.noteData >= 0)
-                health += 0.023;
-            else
-                health += 0.004;
+		if (note.noteData >= 0)
+			health += 0.023;
+		else
+			health += 0.004;
 
-            switch (note.noteData)
-            {
-                case 0:
-                    boyfriend.playAnim('singLEFT', true);
-                case 1:
-                    boyfriend.playAnim('singDOWN', true);
-                case 2:
-                    boyfriend.playAnim('singUP', true);
-                case 3:
-                    boyfriend.playAnim('singRIGHT', true);
-            }
+		switch (note.noteData)
+		{
+			case 0:
+				boyfriend.playAnim('singLEFT', true);
+			case 1:
+				boyfriend.playAnim('singDOWN', true);
+			case 2:
+				boyfriend.playAnim('singUP', true);
+			case 3:
+				boyfriend.playAnim('singRIGHT', true);
+		}
 
-            playerStrums.forEach(function(spr:FlxSprite)
-            {
-                if (Math.abs(note.noteData) == spr.ID)
-                {
-                    spr.animation.play('confirm', true);
-                    // wobble on hitt
-                    if (PreferencesMenu.getPref('arrow-wobble'))
-                        applyStrumWobble(spr.ID, wobbleIntensityOnHit);
-                }
-            });
+		// use for loop instead of forEach to reduce callback overhead
+		var noteID = note.noteData;
+		for (spr in playerStrums)
+		{
+			if (spr.ID == noteID)
+			{
+				spr.animation.play('confirm', true);
+				if (PreferencesMenu.getPref('arrow-wobble'))
+					applyStrumWobble(spr.ID, wobbleIntensityOnHit, false);
+				break; // Found the strum, can exit early
+			}
+		}
 
-            note.wasGoodHit = true;
-            vocals.volume = 1;
+		note.wasGoodHit = true;
+		vocals.volume = 1;
 
-            if (!note.isSustainNote)
-            {
-                note.kill();
-                notes.remove(note, true);
-                note.destroy();
-            }
-        }
-    }
+		if (!note.isSustainNote)
+		{
+			note.kill();
+			notes.remove(note, true);
+			note.destroy();
+		}
+	}
+}
 
 	var fastCarCanDrive:Bool = true;
 
@@ -3302,102 +3308,96 @@ function goodNoteHit(note:Note):Void
 	}
 
 	var curLight:Int = 0;
-	
-	/**
-	 * Applies a wobble/stretch effect to arrow strums
-	 * @param strumID The strum arrow ID to apply the wobble to
-	 * @param customIntensity Optional custom intensity override
-	 * @param isOpponent Whether this is for opponent strums
-	 */
-	function applyStrumWobble(strumID:Int, ?customIntensity:Float, ?isOpponent:Bool = false):Void
+
+	function applyStrumWobble(strumID:Int, intensity:Float, isOpponent:Bool):Void
 	{
 		var targetStrum:FlxSprite = null;
-		var strumGroup:FlxTypedGroup<FlxSprite> = isOpponent ? opponentStrums : playerStrums;
+		var strumGroup = isOpponent ? opponentStrums : playerStrums;
 		
-		// Find the strum sprite with matching ID
-		strumGroup.forEach(function(spr:FlxSprite)
+		// Find strum - early exit on found
+		for (spr in strumGroup)
 		{
 			if (spr.ID == strumID)
+			{
 				targetStrum = spr;
-		});
-		
-		if (targetStrum == null)
-			return;
-		
-		// Use custom intensity if provided, otherwise use default
-		var intensity = customIntensity != null ? customIntensity : strumWobbleIntensity;
-		
-		// Kill any existing tweens on this strum to avoid conflicts
-		if (strumWobbleTweens.exists(strumID))
-		{
-			strumWobbleTweens.get(strumID).cancel();
-		}
-		if (strumReturnTweens.exists(strumID))
-		{
-			strumReturnTweens.get(strumID).cancel();
+				break;
+			}
 		}
 		
-		// Store original scale if not already stored
+		if (targetStrum == null) return;
+		
+		// Cancel and clean up old tweens efficiently
+		var oldWobble = strumWobbleTweens.get(strumID);
+		if (oldWobble != null)
+		{
+			oldWobble.cancel();
+		}
+		
+		var oldReturn = strumReturnTweens.get(strumID);
+		if (oldReturn != null)
+		{
+			oldReturn.cancel();
+		}
+		
+		// Store original scale once
 		if (!strumOriginalScales.exists(strumID))
 		{
 			strumOriginalScales.set(strumID, new FlxPoint(targetStrum.scale.x, targetStrum.scale.y));
 		}
 		
-		// Get the original scale
-		var originalScale = strumOriginalScales.get(strumID);
-		var originalScaleX = originalScale.x;
-		var originalScaleY = originalScale.y;
+		var orig = strumOriginalScales.get(strumID);
+		var origX = orig.x;
+		var origY = orig.y;
 		
-		// Reset to original scale before applying wobble
-		targetStrum.scale.set(originalScaleX, originalScaleY);
+		// Reset to original scale BEFORE wobble
+		targetStrum.scale.set(origX, origY);
 		
-		// Create wobble tween - stretch and squash
-		var wobbleTween:FlxTween = FlxTween.tween(targetStrum.scale, {
-			x: originalScaleX * (1 + intensity),
-			y: originalScaleY * (1 - intensity * strumVerticalCompression)
-		}, strumWobbleDuration, {
-			ease: FlxEase.quartOut,
-			onComplete: function(tween:FlxTween)
-			{
-				// Bounce back tween - return to normal
-				var returnTween:FlxTween = FlxTween.tween(targetStrum.scale, {
-					x: originalScaleX,
-					y: originalScaleY
-				}, strumReturnDuration, {
-					ease: FlxEase.quintOut,
-					onComplete: function(tween:FlxTween)
-					{
-						strumWobbleTweens.remove(strumID);
-						strumReturnTweens.remove(strumID);
-					}
-				});
-				
-				strumReturnTweens.set(strumID, returnTween);
-			}
-		});
+		// Wobble out
+		var wobble = FlxTween.tween(targetStrum.scale, {
+			x: origX * (1 + intensity),
+			y: origY * (1 - intensity * strumVerticalCompression)
+		}, strumWobbleDuration, {ease: FlxEase.quartOut});
 		
-		strumWobbleTweens.set(strumID, wobbleTween);
+		strumWobbleTweens.set(strumID, wobble);
+		
+		// Return tween - MUST complete to return to original
+		wobble.onComplete = function(t:FlxTween):Void
+		{
+			targetStrum.scale.set(origX, origY);
+			
+			var ret = FlxTween.tween(targetStrum.scale, {x: origX, y: origY}, strumReturnDuration, {
+				ease: FlxEase.quintOut,
+				onComplete: function(t2:FlxTween):Void
+				{
+					targetStrum.scale.set(origX, origY);
+					strumWobbleTweens.remove(strumID);
+					strumReturnTweens.remove(strumID);
+				}
+			});
+			strumReturnTweens.set(strumID, ret);
+		};
 	}
-
+	
 	/**
 	 * Clean up caches when exiting play state
 	 */
 	override public function destroy():Void
 	{
-		for (strumID in strumWobbleTweens.keys())
+		for (id in strumWobbleTweens.keys())
 		{
-			strumWobbleTweens.get(strumID).cancel();
+			var t = strumWobbleTweens.get(id);
+			if (t != null) t.cancel();
 		}
-		for (strumID in strumReturnTweens.keys())
+		for (id in strumReturnTweens.keys())
 		{
-			strumReturnTweens.get(strumID).cancel();
+			var t = strumReturnTweens.get(id);
+			if (t != null) t.cancel();
 		}
 		
-		for (strumID in strumOriginalScales.keys())
+		for (id in strumOriginalScales.keys())
 		{
-			var scale = strumOriginalScales.get(strumID);
-			if (scale != null)
-				scale.put();
+			var pt = strumOriginalScales.get(id);
+			if (pt != null) pt.put();
 		}
 		
 		// Clear caches when leaving play state to free memory

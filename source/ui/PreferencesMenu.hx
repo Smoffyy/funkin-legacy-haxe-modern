@@ -40,7 +40,7 @@ class PreferencesMenu extends ui.OptionsState.Page
 		createPrefItem("New Input (Ghost Tapping)", "new-input", true);
 		createPrefItem('Screen Shake on Miss', 'screen-shake-miss', true);
 		createPrefItem('Health Bar Warning', 'health-bar-warning', true);
-		createPrefItem('Arrow Wobble Effect', 'arrow-wobble', true);
+		createPrefItem('Arrow Wobble Effect', 'arrow-wobble', false);
 
 		camFollow = new FlxObject(FlxG.width / 2, 0, 140, 70);
 		if (items != null)
@@ -81,7 +81,7 @@ class PreferencesMenu extends ui.OptionsState.Page
 		preferenceCheck('new-input', true);
 		preferenceCheck('screen-shake-miss', true);
 		preferenceCheck('health-bar-warning', true);
-		preferenceCheck('arrow-wobble', true);
+		preferenceCheck('arrow-wobble', false);
 
 		#if muted
 		setPref('master-volume', 0);
