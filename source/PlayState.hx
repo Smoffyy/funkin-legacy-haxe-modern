@@ -87,15 +87,17 @@ class PlayState extends MusicBeatState
 	private var opponentStrums:FlxTypedGroup<FlxSprite>; // Opponent strums group
 
 	// Wobble effect
-	private var strumWobbleTweens:Map<Int, FlxTween> = new Map();
-	private var strumReturnTweens:Map<Int, FlxTween> = new Map();
+	private var strumScaleTweens:Map<Int, FlxTween> = new Map();
+	private var strumAngleTweens:Map<Int, FlxTween> = new Map();
+	private var strumYTweens:Map<Int, FlxTween> = new Map();
 	private var strumOriginalScales:Map<Int, FlxPoint> = new Map();
-	private var strumWobbleIntensity:Float = 0.15;
-	private var strumWobbleDuration:Float = 0.1;
-	private var strumReturnDuration:Float = 0.07;
-	private var strumVerticalCompression:Float = 0.5;
-	private var wobbleIntensityOnHit:Float = 0.18;
-	private var wobbleIntensityOnPress:Float = 0.15;
+	private var strumOriginalY:Map<Int, Float> = new Map();
+	private var strumWobbleIntensity:Float = 0.14;
+	private var strumSquashFactor:Float = 0.35;
+	private var strumRotationIntensity:Float = 8.0;
+	private var strumBounceHeight:Float = 6.0;
+	private var wobbleIntensityOnHit:Float = 0.16;
+	private var wobbleIntensityOnPress:Float = 0.14;
 
 	private var camZooming:Bool = false;
 	private var curSong:String = "";
@@ -3314,7 +3316,6 @@ function goodNoteHit(note:Note):Void
 		var targetStrum:FlxSprite = null;
 		var strumGroup = isOpponent ? opponentStrums : playerStrums;
 		
-		// Find strum - early exit on found
 		for (spr in strumGroup)
 		{
 			if (spr.ID == strumID)
@@ -3326,56 +3327,206 @@ function goodNoteHit(note:Note):Void
 		
 		if (targetStrum == null) return;
 		
-		// Cancel and clean up old tweens efficiently
-		var oldWobble = strumWobbleTweens.get(strumID);
-		if (oldWobble != null)
+		if (strumScaleTweens.exists(strumID))
 		{
-			oldWobble.cancel();
+			var t = strumScaleTweens.get(strumID);
+			if (t != null) 
+			{
+				t.cancel();
+				strumScaleTweens.remove(strumID);
+			}
+		}
+		if (strumAngleTweens.exists(strumID))
+		{
+			var t = strumAngleTweens.get(strumID);
+			if (t != null) 
+			{
+				t.cancel();
+				strumAngleTweens.remove(strumID);
+			}
+		}
+		if (strumYTweens.exists(strumID))
+		{
+			var t = strumYTweens.get(strumID);
+			if (t != null) 
+			{
+				t.cancel();
+				strumYTweens.remove(strumID);
+			}
 		}
 		
-		var oldReturn = strumReturnTweens.get(strumID);
-		if (oldReturn != null)
-		{
-			oldReturn.cancel();
-		}
-		
-		// Store original scale once
 		if (!strumOriginalScales.exists(strumID))
 		{
 			strumOriginalScales.set(strumID, new FlxPoint(targetStrum.scale.x, targetStrum.scale.y));
+		}
+		if (!strumOriginalY.exists(strumID))
+		{
+			strumOriginalY.set(strumID, targetStrum.y);
 		}
 		
 		var orig = strumOriginalScales.get(strumID);
 		var origX = orig.x;
 		var origY = orig.y;
+		var baseY = strumOriginalY.get(strumID);
 		
-		// Reset to original scale BEFORE wobble
 		targetStrum.scale.set(origX, origY);
+		targetStrum.angle = 0;
+		targetStrum.y = baseY;
 		
-		// Wobble out
-		var wobble = FlxTween.tween(targetStrum.scale, {
-			x: origX * (1 + intensity),
-			y: origY * (1 - intensity * strumVerticalCompression)
-		}, strumWobbleDuration, {ease: FlxEase.quartOut});
+		var expandX = origX * (1.0 + intensity);
+		var squashY = origY * (1.0 - intensity * strumSquashFactor);
+		var rotationAmount = strumRotationIntensity * (strumID % 2 == 0 ? 1 : -1);
+		var bounceY = baseY - strumBounceHeight;
 		
-		strumWobbleTweens.set(strumID, wobble);
-		
-		// Return tween - MUST complete to return to original
-		wobble.onComplete = function(t:FlxTween):Void
-		{
-			targetStrum.scale.set(origX, origY);
-			
-			var ret = FlxTween.tween(targetStrum.scale, {x: origX, y: origY}, strumReturnDuration, {
-				ease: FlxEase.quintOut,
-				onComplete: function(t2:FlxTween):Void
+		var scaleOut = FlxTween.tween(targetStrum.scale, {
+			x: expandX,
+			y: squashY
+		}, 0.06, {
+			ease: FlxEase.backOut,
+			onComplete: function(_)
+			{
+				if (targetStrum == null) 
 				{
-					targetStrum.scale.set(origX, origY);
-					strumWobbleTweens.remove(strumID);
-					strumReturnTweens.remove(strumID);
+					strumScaleTweens.remove(strumID);
+					return;
 				}
-			});
-			strumReturnTweens.set(strumID, ret);
+				
+				var scaleBack = FlxTween.tween(targetStrum.scale, {
+					x: origX * 0.95,
+					y: origY * 1.05
+				}, 0.08, {
+					ease: FlxEase.quartOut,
+					onComplete: function(_)
+					{
+						if (targetStrum == null) 
+						{
+							strumScaleTweens.remove(strumID);
+							return;
+						}
+						
+						var scaleSettle = FlxTween.tween(targetStrum.scale, {
+							x: origX,
+							y: origY
+						}, 0.2, {
+							ease: FlxEase.elasticOut,
+							onComplete: function(_)
+							{
+								if (targetStrum != null)
+								{
+									targetStrum.scale.set(origX, origY);
+								}
+								strumScaleTweens.remove(strumID);
+							}
+						});
+						strumScaleTweens.set(strumID, scaleSettle);
+					}
+				});
+				strumScaleTweens.set(strumID, scaleBack);
+			}
+		});
+		strumScaleTweens.set(strumID, scaleOut);
+		
+		var angleOut = FlxTween.tween(targetStrum, {angle: rotationAmount}, 0.06, {
+			ease: FlxEase.backOut,
+			onComplete: function(_)
+			{
+				if (targetStrum == null) 
+				{
+					strumAngleTweens.remove(strumID);
+					return;
+				}
+				
+				var angleBack = FlxTween.tween(targetStrum, {angle: 0}, 0.25, {
+					ease: FlxEase.elasticOut,
+					onComplete: function(_)
+					{
+						if (targetStrum != null)
+						{
+							targetStrum.angle = 0;
+						}
+						strumAngleTweens.remove(strumID);
+					}
+				});
+				strumAngleTweens.set(strumID, angleBack);
+			}
+		});
+		strumAngleTweens.set(strumID, angleOut);
+		
+		var yDown = FlxTween.tween(targetStrum, {y: bounceY}, 0.05, {
+			ease: FlxEase.cubeOut,
+			onComplete: function(_)
+			{
+				if (targetStrum == null) 
+				{
+					strumYTweens.remove(strumID);
+					return;
+				}
+				
+				var yBounce = FlxTween.tween(targetStrum, {y: baseY + 2}, 0.08, {
+					ease: FlxEase.quartOut,
+					onComplete: function(_)
+					{
+						if (targetStrum == null) 
+						{
+							strumYTweens.remove(strumID);
+							return;
+						}
+						
+						var ySettle = FlxTween.tween(targetStrum, {y: baseY}, 0.15, {
+							ease: FlxEase.sineOut,
+							onComplete: function(_)
+							{
+								if (targetStrum != null)
+								{
+									targetStrum.y = baseY;
+								}
+								strumYTweens.remove(strumID);
+							}
+						});
+						strumYTweens.set(strumID, ySettle);
+					}
+				});
+				strumYTweens.set(strumID, yBounce);
+			}
+		});
+		strumYTweens.set(strumID, yDown);
+	}
+	
+	function resetStrumTransforms():Void
+	{
+		var resetStrum = function(strum:FlxSprite, strumID:Int)
+		{
+			if (strum == null) return;
+			
+			if (strumOriginalScales.exists(strumID))
+			{
+				var orig = strumOriginalScales.get(strumID);
+				strum.scale.set(orig.x, orig.y);
+			}
+			
+			if (strumOriginalY.exists(strumID))
+			{
+				strum.y = strumOriginalY.get(strumID);
+			}
+			
+			strum.angle = 0;
 		};
+		
+		if (playerStrums != null)
+		{
+			playerStrums.forEach(function(spr:FlxSprite)
+			{
+				resetStrum(spr, spr.ID);
+			});
+		}
+		
+		if (opponentStrums != null)
+		{
+			opponentStrums.forEach(function(spr:FlxSprite)
+			{
+				resetStrum(spr, spr.ID);
+			});
+		}
 	}
 	
 	/**
@@ -3383,16 +3534,27 @@ function goodNoteHit(note:Note):Void
 	 */
 	override public function destroy():Void
 	{
-		for (id in strumWobbleTweens.keys())
+		resetStrumTransforms();
+		
+		for (id in strumScaleTweens.keys())
 		{
-			var t = strumWobbleTweens.get(id);
+			var t = strumScaleTweens.get(id);
 			if (t != null) t.cancel();
 		}
-		for (id in strumReturnTweens.keys())
+		for (id in strumAngleTweens.keys())
 		{
-			var t = strumReturnTweens.get(id);
+			var t = strumAngleTweens.get(id);
 			if (t != null) t.cancel();
 		}
+		for (id in strumYTweens.keys())
+		{
+			var t = strumYTweens.get(id);
+			if (t != null) t.cancel();
+		}
+		
+		strumScaleTweens.clear();
+		strumAngleTweens.clear();
+		strumYTweens.clear();
 		
 		for (id in strumOriginalScales.keys())
 		{
@@ -3400,7 +3562,9 @@ function goodNoteHit(note:Note):Void
 			if (pt != null) pt.put();
 		}
 		
-		// Clear caches when leaving play state to free memory
+		strumOriginalScales.clear();
+		strumOriginalY.clear();
+		
 		AssetCacheManager.clearBitmapCache();
 		Conductor.clearBPMCache();
 		
