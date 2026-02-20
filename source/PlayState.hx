@@ -140,6 +140,7 @@ class PlayState extends MusicBeatState
 
 	var talking:Bool = true;
 	var songScore:Int = 0;
+	var displayedScore:Int = 0;
 	var scoreTxt:FlxText;
 	
 	var misses:Int = 0;
@@ -1976,7 +1977,17 @@ class PlayState extends MusicBeatState
 
 		super.update(elapsed);
 
-		scoreTxt.text = "Score: " + songScore + " | Misses: " + misses + " | Accuracy: " + truncateFloat(accuracy, 2) + "%";
+		if (displayedScore != songScore)
+		{
+			var diff:Int = songScore - displayedScore;
+			var step:Int = Std.int(Math.max(1, Math.abs(diff) * 0.15));
+			if (Math.abs(diff) <= step)
+				displayedScore = songScore;
+			else
+				displayedScore += (diff > 0 ? step : -step);
+		}
+
+		scoreTxt.text = "Score: " + displayedScore + " | Misses: " + misses + " | Accuracy: " + truncateFloat(accuracy, 2) + "%";
 
 		// Healthbar effect
 		if (PreferencesMenu.getPref('health-bar-warning') && health < 0.35)
