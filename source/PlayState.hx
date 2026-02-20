@@ -1479,6 +1479,7 @@ class PlayState extends MusicBeatState
 
 	var startTimer:FlxTimer = new FlxTimer();
 	var perfectMode:Bool = false;
+	var botplayMode:Bool = false;
 
 	function startCountdown():Void
 	{
@@ -2040,7 +2041,7 @@ class PlayState extends MusicBeatState
 		// FlxG.watch.addQuick('VOL', vocals.amplitudeLeft);
 		// FlxG.watch.addQuick('VOLRight', vocals.amplitudeRight);
 
-		displayHealth = FlxMath.lerp(displayHealth, health, 1.0);
+		displayHealth = FlxMath.lerp(displayHealth, health, 0.15);
 
 		iconP1.setGraphicSize(Std.int(FlxMath.lerp(150, iconP1.width, 0.85)));
 		iconP2.setGraphicSize(Std.int(FlxMath.lerp(150, iconP2.width, 0.85)));
@@ -2053,11 +2054,8 @@ class PlayState extends MusicBeatState
 		var targetP1X = healthBar.x + (healthBar.width * (FlxMath.remapToRange(healthBar.percent, 0, 100, 100, 0) * 0.01) - iconOffset);
 		var targetP2X = healthBar.x + (healthBar.width * (FlxMath.remapToRange(healthBar.percent, 0, 100, 100, 0) * 0.01)) - (iconP2.width - iconOffset);
 
-		FlxTween.cancelTweensOf(iconP1, ["x"]);
-		FlxTween.cancelTweensOf(iconP2, ["x"]);
-		
-		FlxTween.tween(iconP1, {x: targetP1X}, 0.15, {ease: FlxEase.quadOut});
-		FlxTween.tween(iconP2, {x: targetP2X}, 0.15, {ease: FlxEase.quadOut});
+		iconP1.x = FlxMath.lerp(iconP1.x, targetP1X, 0.15);
+		iconP2.x = FlxMath.lerp(iconP2.x, targetP2X, 0.15);
 
 		if (health > 2)
 			health = 2;
@@ -2078,6 +2076,11 @@ class PlayState extends MusicBeatState
 		#if debug
 		if (FlxG.keys.justPressed.ONE)
 			endSong();
+		if (FlxG.keys.justPressed.THREE)
+		{
+			botplayMode = !botplayMode;
+			trace('Botplay: ' + (botplayMode ? 'ENABLED' : 'DISABLED'));
+		}
 		if (FlxG.keys.justPressed.EIGHT)
 		{
 			/* 	 8 for opponent char
@@ -2196,17 +2199,16 @@ class PlayState extends MusicBeatState
 				
 			var dunceNote:Note = unspawnNotes[0];
 			notes.add(dunceNote);
-
-			var index:Int = unspawnNotes.indexOf(dunceNote);
 			unspawnNotes.shift();
 		}
 
 		if (generatedMusic)
 		{
+			var downscroll:Bool = PreferencesMenu.getPref('downscroll');
 			notes.forEachAlive(function(daNote:Note)
 			{
-				if ((PreferencesMenu.getPref('downscroll') && daNote.y < -daNote.height)
-					|| (!PreferencesMenu.getPref('downscroll') && daNote.y > FlxG.height))
+				if ((downscroll && daNote.y < -daNote.height)
+					|| (!downscroll && daNote.y > FlxG.height))
 				{
 					daNote.active = false;
 					daNote.visible = false;
@@ -2219,9 +2221,8 @@ class PlayState extends MusicBeatState
 
 				var strumLineMid = strumLine.y + Note.swagWidth / 2;
 
-				if (PreferencesMenu.getPref('downscroll'))
+				if (downscroll)
 				{
-					// Use interpolated song position for smooth note movement (idk why this wasnt implemented before.)
 					var songPos:Float = Conductor.getInterpolatedPosition();
 					daNote.y = (strumLine.y + (songPos - daNote.strumTime) * (0.45 * FlxMath.roundDecimal(SONG.speed, 2)));
 
@@ -2235,7 +2236,6 @@ class PlayState extends MusicBeatState
 						if ((!daNote.mustPress || (daNote.wasGoodHit || (daNote.prevNote.wasGoodHit && !daNote.canBeHit)))
 							&& daNote.y - daNote.offset.y * daNote.scale.y + daNote.height >= strumLineMid)
 						{
-							// clipRect is applied to graphic itself so use frame Heights
 							var swagRect:FlxRect = new FlxRect(0, 0, daNote.frameWidth, daNote.frameHeight);
 
 							swagRect.height = (strumLineMid - daNote.y) / daNote.scale.y;
@@ -2246,7 +2246,6 @@ class PlayState extends MusicBeatState
 				}
 				else
 				{
-					// Use interpolated song position for smooth 60+ FPS note movement
 					var songPos:Float = Conductor.getInterpolatedPosition();
 					daNote.y = (strumLine.y - (songPos - daNote.strumTime) * (0.45 * FlxMath.roundDecimal(SONG.speed, 2)));
 
@@ -2290,7 +2289,6 @@ class PlayState extends MusicBeatState
 							dad.playAnim('singRIGHT' + altAnim, true);
 					}
 
-					// Animate opponent strums when opponent hits notes
 					opponentStrums.forEach(function(spr:FlxSprite)
 					{
 						if (Math.abs(daNote.noteData) == spr.ID)
@@ -2300,22 +2298,17 @@ class PlayState extends MusicBeatState
 						}
 					});
 
-					// Health drain
-					// Only drain if health is above 25% (0.5 on 0-2 scale)
 					if (health > 0.5)
 					{
 						if (!daNote.isSustainNote)
 						{
-							// Regular notes drain more (just a tiny bit)
 							health -= 0.015;
 						}
 						else
 						{
-							// Sustain notes drain less per tick
 							health -= 0.005;
 						}
-						
-						// Safety for minimum health.
+
 						if (health < 0.5)
 							health = 0.5;
 					}
@@ -2330,19 +2323,10 @@ class PlayState extends MusicBeatState
 					daNote.destroy();
 				}
 
-				// WIP interpolation? Need to fix the pause issue
-				// daNote.y = (strumLine.y - (songTime - daNote.strumTime) * (0.45 * SONG.speed));
-
-				// removing this so whether the note misses or not is entirely up to Note class
-				// var noteMiss:Bool = daNote.y < -daNote.height;
-
-				// if (PreferencesMenu.getPref('downscroll'))
-					// noteMiss = daNote.y > FlxG.height;
-
 				if (daNote.isSustainNote && daNote.wasGoodHit)
 				{
-					if ((!PreferencesMenu.getPref('downscroll') && daNote.y < -daNote.height)
-						|| (PreferencesMenu.getPref('downscroll') && daNote.y > FlxG.height))
+					if ((!downscroll && daNote.y < -daNote.height)
+						|| (downscroll && daNote.y > FlxG.height))
 					{
 						daNote.active = false;
 						daNote.visible = false;
@@ -2358,16 +2342,14 @@ class PlayState extends MusicBeatState
 					{
 						health -= 0.0475;
 						vocals.volume = 0;
-						misses++; // Track actual note misses here
-						
-						// Update accuracy for missed notes
+						misses++;
+
 						if (!daNote.isSustainNote)
 						{
 							totalNotes++;
-							// Don't add to totalNotesHit (miss = 0 value)
 							accuracy = totalNotes > 0 ? (totalNotesHit / totalNotes) * 100 : 0;
 						}
-						
+
 						killCombo();
 					}
 
@@ -2819,7 +2801,6 @@ class PlayState extends MusicBeatState
 
 	private function keyShit():Void
 	{
-		// control arrays, order L D R U
 		var holdArray:Array<Bool> = [controls.NOTE_LEFT, controls.NOTE_DOWN, controls.NOTE_UP, controls.NOTE_RIGHT];
 		var pressArray:Array<Bool> = [
 			controls.NOTE_LEFT_P,
@@ -2833,6 +2814,26 @@ class PlayState extends MusicBeatState
 			controls.NOTE_UP_R,
 			controls.NOTE_RIGHT_R
 		];
+
+		if (botplayMode)
+		{
+			holdArray = [false, false, false, false];
+			pressArray = [false, false, false, false];
+			releaseArray = [false, false, false, false];
+
+			var songPos:Float = Conductor.getInterpolatedPosition();
+
+			notes.forEachAlive(function(daNote:Note)
+			{
+				if (daNote.mustPress && !daNote.tooLate && !daNote.wasGoodHit && daNote.canBeHit)
+				{
+					if (daNote.isSustainNote)
+						holdArray[daNote.noteData] = true;
+					else if (daNote.strumTime <= songPos)
+						pressArray[daNote.noteData] = true;
+				}
+			});
+		}
 
 		// HOLDS, check for sustain notes
 		if (holdArray.contains(true) && /*!boyfriend.stunned && */ generatedMusic)
@@ -2927,22 +2928,56 @@ class PlayState extends MusicBeatState
 
 		playerStrums.forEach(function(spr:FlxSprite)
 		{
-			if (pressArray[spr.ID] && spr.animation.curAnim.name != 'confirm')
-				spr.animation.play('pressed');
-			if (!holdArray[spr.ID])
-				spr.animation.play('static');
-
-			if (pressArray[spr.ID])
-				triggerStrumWobble(spr.ID, playerStrums, strumWobbleTweens);
-
-			if (spr.animation.curAnim.name == 'confirm' && !curStage.startsWith('school'))
+			if (botplayMode)
 			{
-				spr.centerOffsets();
-				spr.offset.x -= 13;
-				spr.offset.y -= 13;
+				if (pressArray[spr.ID] || holdArray[spr.ID])
+				{
+					if (spr.animation.curAnim.name != 'confirm')
+					{
+						spr.animation.play('confirm', true);
+						triggerStrumWobble(spr.ID, playerStrums, strumWobbleTweens);
+					}
+					spr.centerOffsets();
+					if (!curStage.startsWith('school'))
+					{
+						spr.offset.x -= 13;
+						spr.offset.y -= 13;
+					}
+				}
+				else if (spr.animation.curAnim.name == 'confirm' && !spr.animation.curAnim.finished)
+				{
+					spr.centerOffsets();
+					if (!curStage.startsWith('school'))
+					{
+						spr.offset.x -= 13;
+						spr.offset.y -= 13;
+					}
+				}
+				else
+				{
+					spr.animation.play('static');
+					spr.centerOffsets();
+				}
 			}
 			else
-				spr.centerOffsets();
+			{
+				if (pressArray[spr.ID] && spr.animation.curAnim.name != 'confirm')
+					spr.animation.play('pressed');
+				if (!holdArray[spr.ID])
+					spr.animation.play('static');
+
+				if (pressArray[spr.ID])
+					triggerStrumWobble(spr.ID, playerStrums, strumWobbleTweens);
+
+				if (spr.animation.curAnim.name == 'confirm' && !curStage.startsWith('school'))
+				{
+					spr.centerOffsets();
+					spr.offset.x -= 13;
+					spr.offset.y -= 13;
+				}
+				else
+					spr.centerOffsets();
+			}
 		});
 	}
 
@@ -3014,13 +3049,6 @@ function goodNoteHit(note:Note):Void
             {
                 combo += 1;
                 popUpScore(note.strumTime, note);
-
-                if (PreferencesMenu.getPref('note-splashes'))
-                {
-                    var splash:NoteSplash = grpNoteSplashes.recycle(NoteSplash);
-                    splash.setupNoteSplash(note.x, note.y, note.noteData);
-                    grpNoteSplashes.add(splash);
-                }
             }
 
             if (note.noteData >= 0)
