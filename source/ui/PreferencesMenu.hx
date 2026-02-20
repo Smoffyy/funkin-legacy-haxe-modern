@@ -37,10 +37,10 @@ class PreferencesMenu extends ui.OptionsState.Page
 		createPrefItem('FPS Counter', 'fps-counter', true);
 		createPrefItem('Auto Pause', 'auto-pause', false);
 		createPrefItem('Note Splashes', 'note-splashes', true);
-		createPrefItem("New Input (Ghost Tapping)", "new-input", true);
+		createPrefItem("New Input (Ghost Tapping)", "new-input", false);
 		createPrefItem('Screen Shake on Miss', 'screen-shake-miss', true);
 		createPrefItem('Health Bar Warning', 'health-bar-warning', true);
-		createPrefItem('Arrow Wobble Effect', 'arrow-wobble', false);
+		createPrefItem('Arrow Wobble', 'arrow-wobble', true);
 
 		camFollow = new FlxObject(FlxG.width / 2, 0, 140, 70);
 		if (items != null)
@@ -81,7 +81,7 @@ class PreferencesMenu extends ui.OptionsState.Page
 		preferenceCheck('new-input', true);
 		preferenceCheck('screen-shake-miss', true);
 		preferenceCheck('health-bar-warning', true);
-		preferenceCheck('arrow-wobble', false);
+		preferenceCheck('arrow-wobble', true);
 
 		#if muted
 		setPref('master-volume', 0);

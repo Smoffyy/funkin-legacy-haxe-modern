@@ -84,20 +84,10 @@ class PlayState extends MusicBeatState
 
 	private var strumLineNotes:FlxTypedGroup<FlxSprite>;
 	private var playerStrums:FlxTypedGroup<FlxSprite>;
-	private var opponentStrums:FlxTypedGroup<FlxSprite>; // Opponent strums group
+	private var opponentStrums:FlxTypedGroup<FlxSprite>;
 
-	// Wobble effect
-	private var strumScaleTweens:Map<Int, FlxTween> = new Map();
-	private var strumAngleTweens:Map<Int, FlxTween> = new Map();
-	private var strumYTweens:Map<Int, FlxTween> = new Map();
-	private var strumOriginalScales:Map<Int, FlxPoint> = new Map();
-	private var strumOriginalY:Map<Int, Float> = new Map();
-	private var strumWobbleIntensity:Float = 0.14;
-	private var strumSquashFactor:Float = 0.35;
-	private var strumRotationIntensity:Float = 8.0;
-	private var strumBounceHeight:Float = 6.0;
-	private var wobbleIntensityOnHit:Float = 0.16;
-	private var wobbleIntensityOnPress:Float = 0.14;
+	private var strumWobbleTweens:Array<FlxTween> = [null, null, null, null];
+	private var opponentWobbleTweens:Array<FlxTween> = [null, null, null, null];
 
 	private var camZooming:Bool = false;
 	private var curSong:String = "";
@@ -2301,17 +2291,14 @@ class PlayState extends MusicBeatState
 					}
 
 					// Animate opponent strums when opponent hits notes
-					var oppNoteID = daNote.noteData;
-					for (spr in opponentStrums)
+					opponentStrums.forEach(function(spr:FlxSprite)
 					{
-						if (spr.ID == oppNoteID)
+						if (Math.abs(daNote.noteData) == spr.ID)
 						{
 							spr.animation.play('confirm', true);
-							if (PreferencesMenu.getPref('arrow-wobble'))
-								applyStrumWobble(spr.ID, wobbleIntensityOnHit, true);
-							break; // Found it, exit early
+							triggerStrumWobble(spr.ID, opponentStrums, opponentWobbleTweens);
 						}
-					}
+					});
 
 					// Health drain
 					// Only drain if health is above 25% (0.5 on 0-2 scale)
@@ -2802,6 +2789,34 @@ class PlayState extends MusicBeatState
 		}
 	}
 
+	function triggerStrumWobble(noteData:Int, strumGroup:FlxTypedGroup<FlxSprite>, wobbleTweens:Array<FlxTween>):Void
+	{
+		if (!PreferencesMenu.getPref('arrow-wobble'))
+			return;
+
+		strumGroup.forEach(function(spr:FlxSprite)
+		{
+			if (spr.ID == noteData)
+			{
+				if (wobbleTweens[noteData] != null)
+				{
+					wobbleTweens[noteData].cancel();
+					wobbleTweens[noteData] = null;
+					spr.angle = 0;
+				}
+
+				spr.angle = 12;
+				wobbleTweens[noteData] = FlxTween.tween(spr, {angle: 0}, 0.3, {
+					ease: FlxEase.elasticOut,
+					onComplete: function(t:FlxTween)
+					{
+						wobbleTweens[noteData] = null;
+					}
+				});
+			}
+		});
+	}
+
 	private function keyShit():Void
 	{
 		// control arrays, order L D R U
@@ -2819,11 +2834,8 @@ class PlayState extends MusicBeatState
 			controls.NOTE_RIGHT_R
 		];
 
-		// Check if any hold is pressed
-		var anyHold:Bool = holdArray[0] || holdArray[1] || holdArray[2] || holdArray[3];
-		
 		// HOLDS, check for sustain notes
-		if (anyHold && generatedMusic)
+		if (holdArray.contains(true) && /*!boyfriend.stunned && */ generatedMusic)
 		{
 			notes.forEachAlive(function(daNote:Note)
 			{
@@ -2832,11 +2844,8 @@ class PlayState extends MusicBeatState
 			});
 		}
 
-		// Check if any press is pressed
-		var anyPress:Bool = pressArray[0] || pressArray[1] || pressArray[2] || pressArray[3];
-		
 		// PRESSES, check for note hits
-		if (anyPress && generatedMusic)
+		if (pressArray.contains(true) && /*!boyfriend.stunned && */ generatedMusic)
 		{
 			boyfriend.holdTimer = 0;
 
@@ -2853,12 +2862,13 @@ class PlayState extends MusicBeatState
 						for (coolNote in possibleNotes)
 						{
 							if (coolNote.noteData == daNote.noteData && Math.abs(daNote.strumTime - coolNote.strumTime) < 10)
-							{
+							{ // if it's the same note twice at < 10ms distance, just delete it
+								// EXCEPT u cant delete it in this loop cuz it fucks with the collection lol
 								dumbNotes.push(daNote);
 								break;
 							}
 							else if (coolNote.noteData == daNote.noteData && daNote.strumTime < coolNote.strumTime)
-							{
+							{ // if daNote is earlier than existing note (coolNote), replace
 								possibleNotes.remove(coolNote);
 								possibleNotes.push(daNote);
 								break;
@@ -2873,9 +2883,9 @@ class PlayState extends MusicBeatState
 				}
 			});
 
-			// Clean up duplicate notes
 			for (note in dumbNotes)
 			{
+				FlxG.log.add("killing dumb ass note at " + note.strumTime);
 				note.kill();
 				notes.remove(note, true);
 				note.destroy();
@@ -2883,12 +2893,12 @@ class PlayState extends MusicBeatState
 
 			possibleNotes.sort((a, b) -> Std.int(a.strumTime - b.strumTime));
 
-			if (perfectMode && possibleNotes.length > 0)
+			if (perfectMode)
 				goodNoteHit(possibleNotes[0]);
 			else if (possibleNotes.length > 0)
 			{
 				for (shit in 0...pressArray.length)
-				{
+				{ // if a direction is hit that shouldn't be
 					if (pressArray[shit] && !directionList.contains(shit))
 						noteMiss(shit);
 				}
@@ -2907,21 +2917,7 @@ class PlayState extends MusicBeatState
 			}
 		}
 
-		// RELEASES - wobble when releasing sustain notes
-		var anyRelease:Bool = releaseArray[0] || releaseArray[1] || releaseArray[2] || releaseArray[3];
-		if (anyRelease && generatedMusic && PreferencesMenu.getPref('arrow-wobble'))
-		{
-			for (i in 0...releaseArray.length)
-			{
-				if (releaseArray[i])
-				{
-					// Apply wobble to player strum on release
-					applyStrumWobble(i, wobbleIntensityOnPress * 0.75, false);
-				}
-			}
-		}
-
-		if (boyfriend.holdTimer > Conductor.stepCrochet * 4 * 0.001 && !anyHold)
+		if (boyfriend.holdTimer > Conductor.stepCrochet * 4 * 0.001 && !holdArray.contains(true))
 		{
 			if (boyfriend.animation.curAnim.name.startsWith('sing') && !boyfriend.animation.curAnim.name.endsWith('miss'))
 			{
@@ -2929,19 +2925,15 @@ class PlayState extends MusicBeatState
 			}
 		}
 
-		// Optimize strum animation - use for loop instead of forEach
-		for (spr in playerStrums)
+		playerStrums.forEach(function(spr:FlxSprite)
 		{
-			var noteID = spr.ID;
-			if (pressArray[noteID] && spr.animation.curAnim.name != 'confirm')
-			{
+			if (pressArray[spr.ID] && spr.animation.curAnim.name != 'confirm')
 				spr.animation.play('pressed');
-				if (PreferencesMenu.getPref('arrow-wobble'))
-					applyStrumWobble(noteID, wobbleIntensityOnPress, false);
-			}
-			
-			if (!holdArray[noteID])
+			if (!holdArray[spr.ID])
 				spr.animation.play('static');
+
+			if (pressArray[spr.ID])
+				triggerStrumWobble(spr.ID, playerStrums, strumWobbleTweens);
 
 			if (spr.animation.curAnim.name == 'confirm' && !curStage.startsWith('school'))
 			{
@@ -2951,11 +2943,12 @@ class PlayState extends MusicBeatState
 			}
 			else
 				spr.centerOffsets();
-		}
+		});
 	}
 
 	function noteMiss(direction:Int = 1):Void
 	{
+		// whole function used to be encased in if (!boyfriend.stunned)
 		health -= 0.04;
 		killCombo();
 
@@ -2965,14 +2958,31 @@ class PlayState extends MusicBeatState
 		vocals.volume = 0;
 		FlxG.sound.play(Paths.soundRandom('missnote', 1, 3), FlxG.random.float(0.1, 0.2));
 
-		// shake on miss - check pref once
+		// shake on miss
 		if (PreferencesMenu.getPref('screen-shake-miss'))
+		{
 			FlxG.camera.shake(0.005, 0.2);
+		}
 
-		// Optimize: use direct animation string instead of switch for miss
-		var missAnims = ['singLEFTmiss', 'singDOWNmiss', 'singUPmiss', 'singRIGHTmiss'];
-		if (direction >= 0 && direction < 4)
-			boyfriend.playAnim(missAnims[direction], true);
+		/* boyfriend.stunned = true;
+
+		// get stunned for 5 seconds
+		new FlxTimer().start(5 / 60, function(tmr:FlxTimer)
+		{
+			boyfriend.stunned = false;
+		}); */
+
+		switch (direction)
+		{
+			case 0:
+				boyfriend.playAnim('singLEFTmiss', true);
+			case 1:
+				boyfriend.playAnim('singDOWNmiss', true);
+			case 2:
+				boyfriend.playAnim('singUPmiss', true);
+			case 3:
+				boyfriend.playAnim('singRIGHTmiss', true);
+		}
 	}
 
 	/* not used anymore lol
@@ -2997,63 +3007,59 @@ class PlayState extends MusicBeatState
 	} */
 
 function goodNoteHit(note:Note):Void
-{
-	if (!note.wasGoodHit)
-	{
-		if (!note.isSustainNote)
-		{
-			combo += 1;
-			popUpScore(note.strumTime, note);
+    {
+        if (!note.wasGoodHit)
+        {
+            if (!note.isSustainNote)
+            {
+                combo += 1;
+                popUpScore(note.strumTime, note);
 
-			if (PreferencesMenu.getPref('note-splashes'))
-			{
-				var splash:NoteSplash = grpNoteSplashes.recycle(NoteSplash);
-				splash.setupNoteSplash(note.x, note.y, note.noteData);
-				grpNoteSplashes.add(splash);
-			}
-		}
+                if (PreferencesMenu.getPref('note-splashes'))
+                {
+                    var splash:NoteSplash = grpNoteSplashes.recycle(NoteSplash);
+                    splash.setupNoteSplash(note.x, note.y, note.noteData);
+                    grpNoteSplashes.add(splash);
+                }
+            }
 
-		if (note.noteData >= 0)
-			health += 0.023;
-		else
-			health += 0.004;
+            if (note.noteData >= 0)
+                health += 0.023;
+            else
+                health += 0.004;
 
-		switch (note.noteData)
-		{
-			case 0:
-				boyfriend.playAnim('singLEFT', true);
-			case 1:
-				boyfriend.playAnim('singDOWN', true);
-			case 2:
-				boyfriend.playAnim('singUP', true);
-			case 3:
-				boyfriend.playAnim('singRIGHT', true);
-		}
+            switch (note.noteData)
+            {
+                case 0:
+                    boyfriend.playAnim('singLEFT', true);
+                case 1:
+                    boyfriend.playAnim('singDOWN', true);
+                case 2:
+                    boyfriend.playAnim('singUP', true);
+                case 3:
+                    boyfriend.playAnim('singRIGHT', true);
+            }
 
-		// use for loop instead of forEach to reduce callback overhead
-		var noteID = note.noteData;
-		for (spr in playerStrums)
-		{
-			if (spr.ID == noteID)
-			{
-				spr.animation.play('confirm', true);
-				if (PreferencesMenu.getPref('arrow-wobble'))
-					applyStrumWobble(spr.ID, wobbleIntensityOnHit, false);
-				break; // Found the strum, can exit early
-			}
-		}
+            playerStrums.forEach(function(spr:FlxSprite)
+            {
+                if (Math.abs(note.noteData) == spr.ID)
+                {
+                    spr.animation.play('confirm', true);
+                    triggerStrumWobble(spr.ID, playerStrums, strumWobbleTweens);
+                }
+            });
 
-		note.wasGoodHit = true;
-		vocals.volume = 1;
+            note.wasGoodHit = true;
+            vocals.volume = 1;
 
-		if (!note.isSustainNote)
-		{
-			note.kill();
-			notes.remove(note, true);
-			note.destroy();
-		}
-	}
-}
+            if (!note.isSustainNote)
+            {
+                note.kill();
+                notes.remove(note, true);
+                note.destroy();
+            }
+        }
+    }
 
 	var fastCarCanDrive:Bool = true;
 
@@ -3310,261 +3316,13 @@ function goodNoteHit(note:Note):Void
 	}
 
 	var curLight:Int = 0;
-
-	function applyStrumWobble(strumID:Int, intensity:Float, isOpponent:Bool):Void
-	{
-		var targetStrum:FlxSprite = null;
-		var strumGroup = isOpponent ? opponentStrums : playerStrums;
-		
-		for (spr in strumGroup)
-		{
-			if (spr.ID == strumID)
-			{
-				targetStrum = spr;
-				break;
-			}
-		}
-		
-		if (targetStrum == null) return;
-		
-		if (strumScaleTweens.exists(strumID))
-		{
-			var t = strumScaleTweens.get(strumID);
-			if (t != null) 
-			{
-				t.cancel();
-				strumScaleTweens.remove(strumID);
-			}
-		}
-		if (strumAngleTweens.exists(strumID))
-		{
-			var t = strumAngleTweens.get(strumID);
-			if (t != null) 
-			{
-				t.cancel();
-				strumAngleTweens.remove(strumID);
-			}
-		}
-		if (strumYTweens.exists(strumID))
-		{
-			var t = strumYTweens.get(strumID);
-			if (t != null) 
-			{
-				t.cancel();
-				strumYTweens.remove(strumID);
-			}
-		}
-		
-		if (!strumOriginalScales.exists(strumID))
-		{
-			strumOriginalScales.set(strumID, new FlxPoint(targetStrum.scale.x, targetStrum.scale.y));
-		}
-		if (!strumOriginalY.exists(strumID))
-		{
-			strumOriginalY.set(strumID, targetStrum.y);
-		}
-		
-		var orig = strumOriginalScales.get(strumID);
-		var origX = orig.x;
-		var origY = orig.y;
-		var baseY = strumOriginalY.get(strumID);
-		
-		targetStrum.scale.set(origX, origY);
-		targetStrum.angle = 0;
-		targetStrum.y = baseY;
-		
-		var expandX = origX * (1.0 + intensity);
-		var squashY = origY * (1.0 - intensity * strumSquashFactor);
-		var rotationAmount = strumRotationIntensity * (strumID % 2 == 0 ? 1 : -1);
-		var bounceY = baseY - strumBounceHeight;
-		
-		var scaleOut = FlxTween.tween(targetStrum.scale, {
-			x: expandX,
-			y: squashY
-		}, 0.06, {
-			ease: FlxEase.backOut,
-			onComplete: function(_)
-			{
-				if (targetStrum == null) 
-				{
-					strumScaleTweens.remove(strumID);
-					return;
-				}
-				
-				var scaleBack = FlxTween.tween(targetStrum.scale, {
-					x: origX * 0.95,
-					y: origY * 1.05
-				}, 0.08, {
-					ease: FlxEase.quartOut,
-					onComplete: function(_)
-					{
-						if (targetStrum == null) 
-						{
-							strumScaleTweens.remove(strumID);
-							return;
-						}
-						
-						var scaleSettle = FlxTween.tween(targetStrum.scale, {
-							x: origX,
-							y: origY
-						}, 0.2, {
-							ease: FlxEase.elasticOut,
-							onComplete: function(_)
-							{
-								if (targetStrum != null)
-								{
-									targetStrum.scale.set(origX, origY);
-								}
-								strumScaleTweens.remove(strumID);
-							}
-						});
-						strumScaleTweens.set(strumID, scaleSettle);
-					}
-				});
-				strumScaleTweens.set(strumID, scaleBack);
-			}
-		});
-		strumScaleTweens.set(strumID, scaleOut);
-		
-		var angleOut = FlxTween.tween(targetStrum, {angle: rotationAmount}, 0.06, {
-			ease: FlxEase.backOut,
-			onComplete: function(_)
-			{
-				if (targetStrum == null) 
-				{
-					strumAngleTweens.remove(strumID);
-					return;
-				}
-				
-				var angleBack = FlxTween.tween(targetStrum, {angle: 0}, 0.25, {
-					ease: FlxEase.elasticOut,
-					onComplete: function(_)
-					{
-						if (targetStrum != null)
-						{
-							targetStrum.angle = 0;
-						}
-						strumAngleTweens.remove(strumID);
-					}
-				});
-				strumAngleTweens.set(strumID, angleBack);
-			}
-		});
-		strumAngleTweens.set(strumID, angleOut);
-		
-		var yDown = FlxTween.tween(targetStrum, {y: bounceY}, 0.05, {
-			ease: FlxEase.cubeOut,
-			onComplete: function(_)
-			{
-				if (targetStrum == null) 
-				{
-					strumYTweens.remove(strumID);
-					return;
-				}
-				
-				var yBounce = FlxTween.tween(targetStrum, {y: baseY + 2}, 0.08, {
-					ease: FlxEase.quartOut,
-					onComplete: function(_)
-					{
-						if (targetStrum == null) 
-						{
-							strumYTweens.remove(strumID);
-							return;
-						}
-						
-						var ySettle = FlxTween.tween(targetStrum, {y: baseY}, 0.15, {
-							ease: FlxEase.sineOut,
-							onComplete: function(_)
-							{
-								if (targetStrum != null)
-								{
-									targetStrum.y = baseY;
-								}
-								strumYTweens.remove(strumID);
-							}
-						});
-						strumYTweens.set(strumID, ySettle);
-					}
-				});
-				strumYTweens.set(strumID, yBounce);
-			}
-		});
-		strumYTweens.set(strumID, yDown);
-	}
-	
-	function resetStrumTransforms():Void
-	{
-		var resetStrum = function(strum:FlxSprite, strumID:Int)
-		{
-			if (strum == null) return;
-			
-			if (strumOriginalScales.exists(strumID))
-			{
-				var orig = strumOriginalScales.get(strumID);
-				strum.scale.set(orig.x, orig.y);
-			}
-			
-			if (strumOriginalY.exists(strumID))
-			{
-				strum.y = strumOriginalY.get(strumID);
-			}
-			
-			strum.angle = 0;
-		};
-		
-		if (playerStrums != null)
-		{
-			playerStrums.forEach(function(spr:FlxSprite)
-			{
-				resetStrum(spr, spr.ID);
-			});
-		}
-		
-		if (opponentStrums != null)
-		{
-			opponentStrums.forEach(function(spr:FlxSprite)
-			{
-				resetStrum(spr, spr.ID);
-			});
-		}
-	}
 	
 	/**
 	 * Clean up caches when exiting play state
 	 */
 	override public function destroy():Void
 	{
-		resetStrumTransforms();
-		
-		for (id in strumScaleTweens.keys())
-		{
-			var t = strumScaleTweens.get(id);
-			if (t != null) t.cancel();
-		}
-		for (id in strumAngleTweens.keys())
-		{
-			var t = strumAngleTweens.get(id);
-			if (t != null) t.cancel();
-		}
-		for (id in strumYTweens.keys())
-		{
-			var t = strumYTweens.get(id);
-			if (t != null) t.cancel();
-		}
-		
-		strumScaleTweens.clear();
-		strumAngleTweens.clear();
-		strumYTweens.clear();
-		
-		for (id in strumOriginalScales.keys())
-		{
-			var pt = strumOriginalScales.get(id);
-			if (pt != null) pt.put();
-		}
-		
-		strumOriginalScales.clear();
-		strumOriginalY.clear();
-		
+		// Clear caches when leaving play state to free memory
 		AssetCacheManager.clearBitmapCache();
 		Conductor.clearBPMCache();
 		
