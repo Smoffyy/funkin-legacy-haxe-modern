@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <project>
-	<app title="Friday Night Funkin' Legacy Modernized" file="Funkin" packageName="com.ninjamuffin99.funkin" package="com.ninjamuffin99.funkin" main="Main" version="1.0.1" company="ninjamuffin99" />
+	<app title="Friday Night Funkin' Legacy Modernized" file="Funkin" packageName="com.ninjamuffin99.funkin" package="com.ninjamuffin99.funkin" main="Main" version="1.1.1" company="ninjamuffin99" />
 
 	<set name="APP_ID" value="0x0100f6c013bbc000" />
 
