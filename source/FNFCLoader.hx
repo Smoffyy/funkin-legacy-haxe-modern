@@ -177,6 +177,14 @@ class FNFCLoader
 	public static function getTempVoicesPath(songId:String):String
 		return TEMP_DIR + songId + "/Voices.ogg";
 
+	/** Filesystem path to the extracted opponent vocals. */
+	public static function getTempOpponentVoicesPath(songId:String):String
+		return TEMP_DIR + songId + "/VoicesOpponent.ogg";
+
+	/** True if an opponent vocals file was successfully extracted for this song. */
+	public static function hasOpponentVoices(songId:String):Bool
+		return FileSystem.exists(getTempOpponentVoicesPath(songId));
+
 	#if sys
 	/**
 	 * Load the extracted instrumental as an openfl Sound object.
@@ -186,11 +194,20 @@ class FNFCLoader
 		return Sound.fromFile(getTempInstPath(songId));
 
 	/**
-	 * Load the extracted player vocals as an openfl Sound object.
+	 * Load the extracted player (BF) vocals as an openfl Sound object.
+	 * This is the track that gets muted on miss.
 	 * Use this in PlayState.generateSong() when isActive == true.
 	 */
 	public static function loadVoicesSound(songId:String):Sound
 		return Sound.fromFile(getTempVoicesPath(songId));
+
+	/**
+	 * Load the extracted opponent (Dad) vocals as an openfl Sound object.
+	 * This track plays continuously and is never muted.
+	 * Use this in PlayState.generateSong() when isActive == true.
+	 */
+	public static function loadOpponentVoicesSound(songId:String):Sound
+		return Sound.fromFile(getTempOpponentVoicesPath(songId));
 	#end
 
 	/**
@@ -376,19 +393,30 @@ class FNFCLoader
 
 		if (focusEvents.length == 0) return result;
 
-		// Running pointer — advance through events as section windows move forward
+		// Running pointer using MIDPOINT of each section.
+		//
+		// WHY MIDPOINT and not sectionEnd or sectionStart:
+		//   BPM 123 gives section_ms = 1951.219512195122...
+		//   An event placed at the start of section 1 is stored as t=1951.2195121951
+		//   (one digit short, so slightly LESS than section_ms due to float truncation).
+		//   Using sectionEnd: t=0 AND t=1951.22 are BOTH < sectionEnd=1951.2195122,
+		//   so both are consumed for section 0. Last-wins = BF instead of Dad. WRONG.
+		//   Using midpoint (s+0.5)*sectionMs: midpoint of section 0 = 975.6ms.
+		//   t=0 <= 975.6 consumed (char=1=Dad). t=1951.22 > 975.6 stops. Section 0=Dad. CORRECT.
+		//   t=1951.22 <= midpoint of section 1 (2926.8ms) consumed (char=0=BF). CORRECT.
+		//   Midpoints are always deep inside their section, never near a boundary.
 		var ptr:Int = 0;
 		var currentChar:Int = -1; // -1 = no event seen yet
 
 		for (s in 0...totalSections)
 		{
-			var sectionEnd:Float = (s + 1) * sectionMs;
+			var midpoint:Float = (s + 0.5) * sectionMs;
 
-			// Consume all events that fire before this section ends
+			// Consume all events at or before this section's midpoint
 			while (ptr < focusEvents.length)
 			{
 				var t:Float = focusEvents[ptr].t;
-				if (t >= sectionEnd) break;
+				if (t > midpoint) break;
 
 				var v:Dynamic = focusEvents[ptr].v;
 				if (Std.isOfType(v, Int) || Std.isOfType(v, Float))

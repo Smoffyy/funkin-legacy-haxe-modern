@@ -68,6 +68,7 @@ class PlayState extends MusicBeatState
 
 	private var vocals:FlxSound;
 	private var vocalsFinished:Bool = false;
+	private var opponentVocals:FlxSound; // FNFC only: opponent's separate vocal track
 
 	private var dad:Character;
 	private var gf:Character;
@@ -1598,6 +1599,7 @@ class PlayState extends MusicBeatState
 		}
 		FlxG.sound.music.onComplete = endSong;
 		vocals.play();
+		if (opponentVocals != null) opponentVocals.play();
 
 		#if discord_rpc
 		// Song duration in a float, useful for the time left feature
@@ -1625,6 +1627,16 @@ class PlayState extends MusicBeatState
 				: new FlxSound().loadEmbedded(Paths.voices(SONG.song, storyDifficulty));
 			#else
 			vocals = new FlxSound().loadEmbedded(Paths.voices(SONG.song, storyDifficulty));
+			#end
+
+			// FNFC: load opponent's separate vocal track (e.g. Voices-dad-erect.ogg)
+			// This plays continuously and is never muted — only vocals (BF) gets silenced on miss.
+			#if sys
+			if (FNFCLoader.isActive && FNFCLoader.hasOpponentVoices(FNFCLoader.activeSongId))
+			{
+				opponentVocals = new FlxSound().loadEmbedded(FNFCLoader.loadOpponentVoicesSound(FNFCLoader.activeSongId));
+				FlxG.sound.list.add(opponentVocals);
+			}
 			#end
 		}
 		else
@@ -1864,6 +1876,7 @@ class PlayState extends MusicBeatState
 			{
 				FlxG.sound.music.pause();
 				vocals.pause();
+				if (opponentVocals != null) opponentVocals.pause();
 			}
 
 			if (!startTimer.finished)
@@ -1924,6 +1937,7 @@ class PlayState extends MusicBeatState
 			return;
 
 		vocals.pause();
+		if (opponentVocals != null) opponentVocals.pause();
 		FlxG.sound.music.play();
 		Conductor.songPosition = FlxG.sound.music.time + Conductor.offset;
 
@@ -1932,6 +1946,11 @@ class PlayState extends MusicBeatState
 
 		vocals.time = Conductor.songPosition;
 		vocals.play();
+		if (opponentVocals != null)
+		{
+			opponentVocals.time = Conductor.songPosition;
+			opponentVocals.play();
+		}
 	}
 
 	private var paused:Bool = false;
@@ -2209,9 +2228,8 @@ class PlayState extends MusicBeatState
 				paused = true;
 
 				vocals.stop();
+				if (opponentVocals != null) opponentVocals.stop();
 				FlxG.sound.music.stop();
-
-				// unloadAssets();
 
 				deathCounter += 1;
 
@@ -2518,30 +2536,23 @@ class PlayState extends MusicBeatState
 
 				FlxG.sound.music.stop();
 				vocals.stop();
+				if (opponentVocals != null) opponentVocals.stop();
 
-				if (SONG.song.toLowerCase() == 'eggnog')
+				prevCamFollow = camFollow;
+
+				var blackShit:FlxSprite = new FlxSprite(-FlxG.width * FlxG.camera.zoom,
+					-FlxG.height * FlxG.camera.zoom).makeGraphic(FlxG.width * 3, FlxG.height * 3, FlxColor.BLACK);
+				blackShit.scrollFactor.set();
+				add(blackShit);
+				camHUD.visible = false;
+				inCutscene = true;
+
+				FlxG.sound.play(Paths.sound('Lights_Shut_off'), function()
 				{
-					var blackShit:FlxSprite = new FlxSprite(-FlxG.width * FlxG.camera.zoom,
-						-FlxG.height * FlxG.camera.zoom).makeGraphic(FlxG.width * 3, FlxG.height * 3, FlxColor.BLACK);
-					blackShit.scrollFactor.set();
-					add(blackShit);
-					camHUD.visible = false;
-					inCutscene = true;
-
-					FlxG.sound.play(Paths.sound('Lights_Shut_off'), function()
-					{
-						// no camFollow so it centers on horror tree
-						SONG = Song.loadFromJson(storyPlaylist[0].toLowerCase() + difficulty, storyPlaylist[0]);
-						LoadingState.loadAndSwitchState(()->new PlayState());
-					});
-				}
-				else
-				{
-					prevCamFollow = camFollow;
-
+					// no camFollow so it centers on horror tree
 					SONG = Song.loadFromJson(storyPlaylist[0].toLowerCase() + difficulty, storyPlaylist[0]);
 					LoadingState.loadAndSwitchState(()->new PlayState());
-				}
+				});
 			}
 		}
 		else
