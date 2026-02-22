@@ -57,10 +57,16 @@ class LoadingState extends MusicBeatState
 			callbacks = new MultiCallback(onLoad);
 			var introComplete = callbacks.add("introComplete");
 			
-			// Use cache manager for faster loading
-			checkLoadSong(getSongPath());
-			if (PlayState.SONG.needsVoices)
-				checkLoadSong(getVocalPath());
+			// Skip sound loading for FNFC songs — their audio lives in fnfc-temp/
+			// on disk and is loaded via Sound.fromFile in PlayState.create().
+			// Trying to Assets.loadSound(Paths.inst(...)) would fail because the
+			// file is not registered in the songs asset library.
+			if (!FNFCLoader.isActive)
+			{
+				checkLoadSong(getSongPath());
+				if (PlayState.SONG.needsVoices)
+					checkLoadSong(getVocalPath());
+			}
 				
 			checkLibrary("shared");
 			if (PlayState.storyWeek > 0)
@@ -182,9 +188,12 @@ class LoadingState extends MusicBeatState
 	{
 		Paths.setCurrentLevel("week" + PlayState.storyWeek);
 		#if NO_PRELOAD_ALL
-		var loaded = isSoundLoaded(getSongPath())
-			&& (!PlayState.SONG.needsVoices || isSoundLoaded(getVocalPath()))
-			&& isLibraryLoaded("shared");
+		// FNFC songs load from fnfc-temp via Sound.fromFile — not the asset library.
+		// Treat them as already "loaded" so we go straight to PlayState.
+		var loaded = FNFCLoader.isActive
+			|| (isSoundLoaded(getSongPath())
+				&& (!PlayState.SONG.needsVoices || isSoundLoaded(getVocalPath()))
+				&& isLibraryLoaded("shared"));
 
 		if (!loaded)
 			return ()->new LoadingState(targetFactory, stopMusic);

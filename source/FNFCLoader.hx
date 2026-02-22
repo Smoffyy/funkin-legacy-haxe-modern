@@ -211,6 +211,62 @@ class FNFCLoader
 	#end
 
 	/**
+	 * Extract the instrumental for a freeplay preview and return its filesystem path.
+	 *
+	 * Uses per-variation filenames in the temp dir:
+	 *   fnfc-temp/{songId}/preview.ogg        ← easy / normal / hard
+	 *   fnfc-temp/{songId}/preview-erect.ogg  ← expert
+	 *
+	 * This means switching difficulty in freeplay never overwrites the other
+	 * variation's file — both can sit on disk simultaneously and be replayed
+	 * instantly without re-extraction.
+	 *
+	 * Does NOT touch isActive / activeSongId / activeVariation.
+	 * Safe to call on a background thread.
+	 * Returns null on any failure.
+	 */
+	public static function getPreviewInstPath(songId:String, difficulty:Int):String
+	{
+		#if sys
+		var id = songId.toLowerCase();
+		if (!exists(id)) return null;
+
+		try
+		{
+			var entries    = getEntries(id);
+			var manifestId = getSongIdFromManifest(entries, id);
+			var variation  = resolveVariation(entries, manifestId, difficulty);
+			var varSuffix  = (variation == "") ? "" : "-" + variation;
+
+			// e.g. "preview.ogg" for base, "preview-erect.ogg" for erect
+			var previewFile = "preview" + varSuffix + ".ogg";
+
+			var outDir = TEMP_DIR + manifestId + "/";
+			if (!FileSystem.exists(TEMP_DIR)) FileSystem.createDirectory(TEMP_DIR);
+			if (!FileSystem.exists(outDir))   FileSystem.createDirectory(outDir);
+
+			var destPath = outDir + previewFile;
+
+			// Only extract if not already cached on disk
+			if (!FileSystem.exists(destPath))
+			{
+				if (!extractEntry(entries, "Inst" + varSuffix + ".ogg", destPath))
+					extractEntry(entries, "Inst.ogg", destPath);
+			}
+
+			return FileSystem.exists(destPath) ? destPath : null;
+		}
+		catch (e:Dynamic)
+		{
+			trace('[FNFCLoader] getPreviewInstPath failed for "$songId": $e');
+			return null;
+		}
+		#else
+		return null;
+		#end
+	}
+
+	/**
 	 * Reset active state and clear the zip cache.
 	 * Call from PlayState.destroy() to free memory.
 	 */
