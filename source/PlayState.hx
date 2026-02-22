@@ -178,11 +178,19 @@ class PlayState extends MusicBeatState
 		if (FlxG.sound.music != null)
 			FlxG.sound.music.stop();
 
-		// Use asset cache manager for pre-cached audio
-		AssetCacheManager.preCacheSongAudio(PlayState.SONG.song, PlayState.SONG.needsVoices, PlayState.storyDifficulty);
-		
-		FlxG.sound.cache(Paths.inst(PlayState.SONG.song, PlayState.storyDifficulty));
-		FlxG.sound.cache(Paths.voices(PlayState.SONG.song, PlayState.storyDifficulty));
+		// If the song was loaded from a .fnfc, extract its audio to disk first.
+		// Must happen before any caching calls that go through Paths.inst/voices.
+		if (FNFCLoader.isActive)
+		{
+			FNFCLoader.extractAudio(FNFCLoader.activeSongId, PlayState.storyDifficulty);
+		}
+		else
+		{
+			// Only pre-cache for legacy JSON songs; FNFC songs load via Sound.fromFile.
+			AssetCacheManager.preCacheSongAudio(PlayState.SONG.song, PlayState.SONG.needsVoices, PlayState.storyDifficulty);
+			FlxG.sound.cache(Paths.inst(PlayState.SONG.song, PlayState.storyDifficulty));
+			FlxG.sound.cache(Paths.voices(PlayState.SONG.song, PlayState.storyDifficulty));
+		}
 
 		// var gameCam:FlxCamera = FlxG.camera;
 		camGame = new SwagCamera();
@@ -1578,7 +1586,16 @@ class PlayState extends MusicBeatState
 		previousFrameTime = FlxG.game.ticks;
 
 		if (!paused)
+		{
+			#if sys
+			if (FNFCLoader.isActive)
+				FlxG.sound.playMusic(FNFCLoader.loadInstSound(FNFCLoader.activeSongId), 1, false);
+			else
+				FlxG.sound.playMusic(Paths.inst(SONG.song, storyDifficulty), 1, false);
+			#else
 			FlxG.sound.playMusic(Paths.inst(SONG.song, storyDifficulty), 1, false);
+			#end
+		}
 		FlxG.sound.music.onComplete = endSong;
 		vocals.play();
 
@@ -1601,7 +1618,15 @@ class PlayState extends MusicBeatState
 		curSong = songData.song;
 
 		if (SONG.needsVoices)
+		{
+			#if sys
+			vocals = FNFCLoader.isActive
+				? new FlxSound().loadEmbedded(FNFCLoader.loadVoicesSound(FNFCLoader.activeSongId))
+				: new FlxSound().loadEmbedded(Paths.voices(SONG.song, storyDifficulty));
+			#else
 			vocals = new FlxSound().loadEmbedded(Paths.voices(SONG.song, storyDifficulty));
+			#end
+		}
 		else
 			vocals = new FlxSound();
 
@@ -3364,6 +3389,7 @@ function goodNoteHit(note:Note):Void
 		// Clear caches when leaving play state to free memory
 		AssetCacheManager.clearBitmapCache();
 		Conductor.clearBPMCache();
+		FNFCLoader.reset(); // Release FNFC zip cache and extracted audio state
 		
 		super.destroy();
 	}

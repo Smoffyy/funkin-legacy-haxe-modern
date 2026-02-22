@@ -39,25 +39,43 @@ class Song
 	}
 
 	/**
-	 * Load song from JSON with automatic caching and Psych Engine support
-	 * If cached, returns instant result
-	 * If not cached, loads and caches for future use
-	 * Automatically detects and converts Psych Engine format
+	 * Load song from JSON with automatic caching and Psych Engine support.
+	 * Now also checks for a .fnfc file and uses FNFCLoader when one exists.
+	 *
+	 * @param jsonInput  The difficulty-suffixed song name, e.g. "bopeebo-hard"
+	 * @param folder     The song folder / songId, e.g. "bopeebo"
 	 */
 	public static function loadFromJson(jsonInput:String, ?folder:String):SwagSong
 	{
+		// ── FNFC check ────────────────────────────────────────────────────────
+		// The `folder` parameter is always the bare songId (e.g. "bopeebo").
+		// If a .fnfc exists for it, delegate entirely to FNFCLoader — it reads
+		// the difficulty from PlayState.storyDifficulty (already set by the
+		// menu before this function is called).
+		if (folder != null && folder.length > 0)
+		{
+			var songId:String = folder.toLowerCase();
+			if (FNFCLoader.exists(songId))
+			{
+				trace('[Song] .fnfc found for "$songId" — delegating to FNFCLoader.');
+				return FNFCLoader.load(songId, PlayState.storyDifficulty);
+			}
+		}
+
+		// ── Legacy JSON path ──────────────────────────────────────────────────
+
 		// Create a cache key from the inputs
-		var cacheKey:String = (folder != null) 
+		var cacheKey:String = (folder != null)
 			? folder.toLowerCase() + "_" + jsonInput.toLowerCase()
 			: jsonInput.toLowerCase();
-		
+
 		// Check if already cached
 		var cachedData:Dynamic = AssetCacheManager.getCachedSongJson(cacheKey);
 		if (cachedData != null && cachedData.song != null)
 		{
 			return parseJSONshit(Json.stringify(cachedData));
 		}
-		
+
 		// Not cached, load normally
 		var rawJson:String = Assets.getText(Paths.json(folder.toLowerCase() + '/' + jsonInput.toLowerCase())).trim();
 
@@ -78,17 +96,17 @@ class Song
 
 		// Parse the JSON
 		var parsedJson:Dynamic = Json.parse(rawJson);
-		
+
 		// Cache it for next time
 		AssetCacheManager.cacheSongJson(cacheKey, parsedJson);
-		
+
 		// Return the parsed song
 		return parseJSONshit(Json.stringify(parsedJson));
 	}
 
 	/**
-	 * Parse JSON string into SwagSong
-	 * Now supports both vanilla and converted Psych Engine formats
+	 * Parse JSON string into SwagSong.
+	 * Supports both vanilla and converted Psych Engine formats.
 	 */
 	public static function parseJSONshit(rawJson:String):SwagSong
 	{
