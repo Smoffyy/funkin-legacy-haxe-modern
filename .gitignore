@@ -6,3 +6,5 @@ export/
 
 # Test scripts
 PsychConverterTest.hx
+
+*.fnfc

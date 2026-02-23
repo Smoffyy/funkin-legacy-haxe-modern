@@ -166,10 +166,17 @@ class PauseSubState extends MusicBeatSubstate
 					menuItems = pauseOG;
 					regenMenu();
 				case "Restart Song":
+					// Must re-load the song so FNFCLoader.isActive is restored before
+					// PlayState.create() runs. FNFCLoader.reset() was called in destroy(),
+					// so without this reload isActive=false and audio falls back to JSON paths.
+					PlayState.SONG = Song.loadFromJson(
+						Highscore.formatSong(PlayState.SONG.song.toLowerCase(), PlayState.storyDifficulty),
+						PlayState.SONG.song.toLowerCase());
 					FlxG.resetState();
 				case "Exit to menu":
 					PlayState.seenCutscene = false;
 					PlayState.deathCounter = 0;
+					FNFCLoader.reset();
 					if (PlayState.isStoryMode)
 						FlxG.switchState(()->new StoryMenuState());
 					else

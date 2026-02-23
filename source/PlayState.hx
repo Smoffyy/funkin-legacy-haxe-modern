@@ -2500,8 +2500,10 @@ class PlayState extends MusicBeatState
 				switch (PlayState.storyWeek)
 				{
 					case 7:
+						FNFCLoader.reset();
 						FlxG.switchState(()->new VideoState());
 					default:
+						FNFCLoader.reset();
 						FlxG.switchState(()->new StoryMenuState());
 				}
 
@@ -2558,7 +2560,7 @@ class PlayState extends MusicBeatState
 		else
 		{
 			trace('WENT BACK TO FREEPLAY??');
-			// unloadAssets();
+			FNFCLoader.reset();
 			FlxG.switchState(()->new FreeplayState());
 		}
 	}
@@ -3400,8 +3402,6 @@ function goodNoteHit(note:Note):Void
 		// Clear caches when leaving play state to free memory
 		AssetCacheManager.clearBitmapCache();
 		Conductor.clearBPMCache();
-		FNFCLoader.reset(); // Release FNFC zip cache and extracted audio state
-		
 		super.destroy();
 	}
 }
