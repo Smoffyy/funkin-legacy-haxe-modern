@@ -60,6 +60,11 @@ class Song
 				trace('[Song] .fnfc found for "$songId" — delegating to FNFCLoader.');
 				return FNFCLoader.load(songId, PlayState.storyDifficulty);
 			}
+			if (FNFCLoader.isActive)
+			{
+				trace('[Song] No .fnfc for "$songId" but isActive was true — resetting FNFCLoader.');
+				FNFCLoader.reset();
+			}
 		}
 
 		// ── Legacy JSON path ──────────────────────────────────────────────────

@@ -211,13 +211,11 @@ class FreeplayState extends MusicBeatState
         if (accepted)
         {
             var poop:String = Highscore.formatSong(songs[curSelected].songName.toLowerCase(), curDifficulty);
-            
-            // Load song - will be automatically cached by Song.loadFromJson()
-            PlayState.SONG = Song.loadFromJson(poop, songs[curSelected].songName.toLowerCase());
             PlayState.isStoryMode = false;
             PlayState.storyDifficulty = curDifficulty;
-
             PlayState.storyWeek = songs[curSelected].week;
+
+            PlayState.SONG = Song.loadFromJson(poop, songs[curSelected].songName.toLowerCase());
             
             // Pre-cache song audio immediately before playing
             AssetCacheManager.preCacheSongAudio(songs[curSelected].songName, PlayState.SONG.needsVoices, curDifficulty);

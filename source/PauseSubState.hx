@@ -148,10 +148,10 @@ class PauseSubState extends MusicBeatSubstate
 				case "Resume":
 					close();
 				case "EASY" | 'NORMAL' | "HARD" | "EXPERT":
+					PlayState.storyDifficulty = curSelected;
+
 					PlayState.SONG = Song.loadFromJson(Highscore.formatSong(PlayState.SONG.song.toLowerCase(), curSelected),
 						PlayState.SONG.song.toLowerCase());
-
-					PlayState.storyDifficulty = curSelected;
 
 					FlxG.resetState();
 

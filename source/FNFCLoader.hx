@@ -268,7 +268,13 @@ class FNFCLoader
 
 	/**
 	 * Reset active state and clear the zip cache.
-	 * Call from PlayState.destroy() to free memory.
+	 *
+	 * Call this when genuinely navigating AWAY from a FNFC song
+	 * (exit to menu, end of week, end of freeplay song).
+	 *
+	 * Do NOT call from PlayState.destroy() — destroy() fires on
+	 * FlxG.resetState() (restart) too, which would clear isActive before
+	 * the new PlayState boots. reset() is called explicitly at real exit points.
 	 */
 	public static function reset():Void
 	{
