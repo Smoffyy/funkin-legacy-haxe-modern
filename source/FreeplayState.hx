@@ -211,11 +211,13 @@ class FreeplayState extends MusicBeatState
         if (accepted)
         {
             var poop:String = Highscore.formatSong(songs[curSelected].songName.toLowerCase(), curDifficulty);
+            
+            // Load song - will be automatically cached by Song.loadFromJson()
+            PlayState.SONG = Song.loadFromJson(poop, songs[curSelected].songName.toLowerCase());
             PlayState.isStoryMode = false;
             PlayState.storyDifficulty = curDifficulty;
-            PlayState.storyWeek = songs[curSelected].week;
 
-            PlayState.SONG = Song.loadFromJson(poop, songs[curSelected].songName.toLowerCase());
+            PlayState.storyWeek = songs[curSelected].week;
             
             // Pre-cache song audio immediately before playing
             AssetCacheManager.preCacheSongAudio(songs[curSelected].songName, PlayState.SONG.needsVoices, curDifficulty);
@@ -243,8 +245,8 @@ class FreeplayState extends MusicBeatState
         diffText.text = "< " + CoolUtil.difficultyString() + " >";
         positionHighscore();
 
-        // Update preview audio for the new difficulty
-        playPreview();
+        var seekMs:Float = (FlxG.sound.music != null && FlxG.sound.music.playing) ? FlxG.sound.music.time : 0;
+        playPreview(seekMs);
     }
 
     /**
@@ -260,7 +262,7 @@ class FreeplayState extends MusicBeatState
      * Guards against stale results: if the user scrolls or changes difficulty
      * before loading finishes, the result is silently discarded.
      */
-    function playPreview():Void
+    function playPreview(seekMs:Float = 0):Void
     {
         var songName:String = songs[curSelected].songName;
         var songId:String   = songName.toLowerCase();
@@ -299,6 +301,12 @@ class FreeplayState extends MusicBeatState
                     return;
 
                 FlxG.sound.playMusic(instSound, 0);
+
+                if (seekMs > 0 && FlxG.sound.music != null)
+                {
+                    var maxMs:Float = FlxG.sound.music.length - 100;
+                    FlxG.sound.music.time = Math.min(seekMs, maxMs > 0 ? maxMs : 0);
+                }
             }
             catch (e:Dynamic)
             {
@@ -309,7 +317,11 @@ class FreeplayState extends MusicBeatState
         // Non-sys target: FNFC not supported, fall back to asset library path
         #if PRELOAD_ALL
         if (!FNFCLoader.exists(songId))
+        {
             FlxG.sound.playMusic(Paths.inst(songName, diff), 0);
+            if (seekMs > 0 && FlxG.sound.music != null)
+                FlxG.sound.music.time = seekMs;
+        }
         #end
         #end
     }
@@ -328,7 +340,7 @@ class FreeplayState extends MusicBeatState
 
         intendedScore = Highscore.getScore(songs[curSelected].songName, curDifficulty);
 
-        playPreview();
+        playPreview(0);
 
         var bullShit:Int = 0;
 
