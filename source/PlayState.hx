@@ -68,6 +68,7 @@ class PlayState extends MusicBeatState
 
 	private var vocals:FlxSound;
 	private var vocalsFinished:Bool = false;
+	private var opponentVocals:FlxSound; // FNFC only: opponent's separate vocal track
 
 	private var dad:Character;
 	private var gf:Character;
@@ -178,11 +179,19 @@ class PlayState extends MusicBeatState
 		if (FlxG.sound.music != null)
 			FlxG.sound.music.stop();
 
-		// Use asset cache manager for pre-cached audio
-		AssetCacheManager.preCacheSongAudio(PlayState.SONG.song, PlayState.SONG.needsVoices, PlayState.storyDifficulty);
-		
-		FlxG.sound.cache(Paths.inst(PlayState.SONG.song, PlayState.storyDifficulty));
-		FlxG.sound.cache(Paths.voices(PlayState.SONG.song, PlayState.storyDifficulty));
+		// If the song was loaded from a .fnfc, extract its audio to disk first.
+		// Must happen before any caching calls that go through Paths.inst/voices.
+		if (FNFCLoader.isActive)
+		{
+			FNFCLoader.extractAudio(FNFCLoader.activeSongId, PlayState.storyDifficulty);
+		}
+		else
+		{
+			// Only pre-cache for legacy JSON songs; FNFC songs load via Sound.fromFile.
+			AssetCacheManager.preCacheSongAudio(PlayState.SONG.song, PlayState.SONG.needsVoices, PlayState.storyDifficulty);
+			FlxG.sound.cache(Paths.inst(PlayState.SONG.song, PlayState.storyDifficulty));
+			FlxG.sound.cache(Paths.voices(PlayState.SONG.song, PlayState.storyDifficulty));
+		}
 
 		// var gameCam:FlxCamera = FlxG.camera;
 		camGame = new SwagCamera();
@@ -1578,9 +1587,19 @@ class PlayState extends MusicBeatState
 		previousFrameTime = FlxG.game.ticks;
 
 		if (!paused)
+		{
+			#if sys
+			if (FNFCLoader.isActive)
+				FlxG.sound.playMusic(FNFCLoader.loadInstSound(FNFCLoader.activeSongId), 1, false);
+			else
+				FlxG.sound.playMusic(Paths.inst(SONG.song, storyDifficulty), 1, false);
+			#else
 			FlxG.sound.playMusic(Paths.inst(SONG.song, storyDifficulty), 1, false);
+			#end
+		}
 		FlxG.sound.music.onComplete = endSong;
 		vocals.play();
+		if (opponentVocals != null) opponentVocals.play();
 
 		#if discord_rpc
 		// Song duration in a float, useful for the time left feature
@@ -1601,7 +1620,25 @@ class PlayState extends MusicBeatState
 		curSong = songData.song;
 
 		if (SONG.needsVoices)
+		{
+			#if sys
+			vocals = FNFCLoader.isActive
+				? new FlxSound().loadEmbedded(FNFCLoader.loadVoicesSound(FNFCLoader.activeSongId))
+				: new FlxSound().loadEmbedded(Paths.voices(SONG.song, storyDifficulty));
+			#else
 			vocals = new FlxSound().loadEmbedded(Paths.voices(SONG.song, storyDifficulty));
+			#end
+
+			// FNFC: load opponent's separate vocal track (e.g. Voices-dad-erect.ogg)
+			// This plays continuously and is never muted — only vocals (BF) gets silenced on miss.
+			#if sys
+			if (FNFCLoader.isActive && FNFCLoader.hasOpponentVoices(FNFCLoader.activeSongId))
+			{
+				opponentVocals = new FlxSound().loadEmbedded(FNFCLoader.loadOpponentVoicesSound(FNFCLoader.activeSongId));
+				FlxG.sound.list.add(opponentVocals);
+			}
+			#end
+		}
 		else
 			vocals = new FlxSound();
 
@@ -1839,6 +1876,7 @@ class PlayState extends MusicBeatState
 			{
 				FlxG.sound.music.pause();
 				vocals.pause();
+				if (opponentVocals != null) opponentVocals.pause();
 			}
 
 			if (!startTimer.finished)
@@ -1899,6 +1937,7 @@ class PlayState extends MusicBeatState
 			return;
 
 		vocals.pause();
+		if (opponentVocals != null) opponentVocals.pause();
 		FlxG.sound.music.play();
 		Conductor.songPosition = FlxG.sound.music.time + Conductor.offset;
 
@@ -1907,6 +1946,11 @@ class PlayState extends MusicBeatState
 
 		vocals.time = Conductor.songPosition;
 		vocals.play();
+		if (opponentVocals != null)
+		{
+			opponentVocals.time = Conductor.songPosition;
+			opponentVocals.play();
+		}
 	}
 
 	private var paused:Bool = false;
@@ -2184,9 +2228,8 @@ class PlayState extends MusicBeatState
 				paused = true;
 
 				vocals.stop();
+				if (opponentVocals != null) opponentVocals.stop();
 				FlxG.sound.music.stop();
-
-				// unloadAssets();
 
 				deathCounter += 1;
 
@@ -2457,8 +2500,10 @@ class PlayState extends MusicBeatState
 				switch (PlayState.storyWeek)
 				{
 					case 7:
+						FNFCLoader.reset();
 						FlxG.switchState(()->new VideoState());
 					default:
+						FNFCLoader.reset();
 						FlxG.switchState(()->new StoryMenuState());
 				}
 
@@ -2493,36 +2538,29 @@ class PlayState extends MusicBeatState
 
 				FlxG.sound.music.stop();
 				vocals.stop();
+				if (opponentVocals != null) opponentVocals.stop();
 
-				if (SONG.song.toLowerCase() == 'eggnog')
+				prevCamFollow = camFollow;
+
+				var blackShit:FlxSprite = new FlxSprite(-FlxG.width * FlxG.camera.zoom,
+					-FlxG.height * FlxG.camera.zoom).makeGraphic(FlxG.width * 3, FlxG.height * 3, FlxColor.BLACK);
+				blackShit.scrollFactor.set();
+				add(blackShit);
+				camHUD.visible = false;
+				inCutscene = true;
+
+				FlxG.sound.play(Paths.sound('Lights_Shut_off'), function()
 				{
-					var blackShit:FlxSprite = new FlxSprite(-FlxG.width * FlxG.camera.zoom,
-						-FlxG.height * FlxG.camera.zoom).makeGraphic(FlxG.width * 3, FlxG.height * 3, FlxColor.BLACK);
-					blackShit.scrollFactor.set();
-					add(blackShit);
-					camHUD.visible = false;
-					inCutscene = true;
-
-					FlxG.sound.play(Paths.sound('Lights_Shut_off'), function()
-					{
-						// no camFollow so it centers on horror tree
-						SONG = Song.loadFromJson(storyPlaylist[0].toLowerCase() + difficulty, storyPlaylist[0]);
-						LoadingState.loadAndSwitchState(()->new PlayState());
-					});
-				}
-				else
-				{
-					prevCamFollow = camFollow;
-
+					// no camFollow so it centers on horror tree
 					SONG = Song.loadFromJson(storyPlaylist[0].toLowerCase() + difficulty, storyPlaylist[0]);
 					LoadingState.loadAndSwitchState(()->new PlayState());
-				}
+				});
 			}
 		}
 		else
 		{
 			trace('WENT BACK TO FREEPLAY??');
-			// unloadAssets();
+			FNFCLoader.reset();
 			FlxG.switchState(()->new FreeplayState());
 		}
 	}
@@ -3364,7 +3402,6 @@ function goodNoteHit(note:Note):Void
 		// Clear caches when leaving play state to free memory
 		AssetCacheManager.clearBitmapCache();
 		Conductor.clearBPMCache();
-		
 		super.destroy();
 	}
 }
