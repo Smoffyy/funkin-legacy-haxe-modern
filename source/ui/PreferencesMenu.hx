@@ -8,6 +8,7 @@ import flixel.group.FlxGroup;
 import flixel.util.FlxColor;
 import ui.AtlasText.AtlasFont;
 import ui.TextMenuList.TextMenuItem;
+import ui.CheckboxThingie;
 
 class PreferencesMenu extends ui.OptionsState.Page
 {
@@ -30,18 +31,14 @@ class PreferencesMenu extends ui.OptionsState.Page
 
 		add(items = new TextMenuList());
 
+		// Base game preferences only
 		createPrefItem('naughtyness', 'censor-naughty', true);
 		createPrefItem('downscroll', 'downscroll', false);
 		createPrefItem('flashing menu', 'flashing-menu', false);
 		createPrefItem('Camera Zooming on Beat', 'camera-zoom', true);
 		createPrefItem('FPS Counter', 'fps-counter', true);
 		createPrefItem('Auto Pause', 'auto-pause', false);
-		createPrefItem('Note Splashes', 'note-splashes', false);
-		createPrefItem("New Input (Ghost Tapping)", "new-input", false);
-		createPrefItem('Screen Shake on Miss', 'screen-shake-miss', false);
-		createPrefItem('Health Bar Warning', 'health-bar-warning', true);
-		createPrefItem('Arrow Wobble', 'arrow-wobble', false);
-		createPrefItem('improved Interface', 'new-ui', false);
+		createPrefItem('Note Splashes', 'note-splashes', true);
 
 		camFollow = new FlxObject(FlxG.width / 2, 0, 140, 70);
 		if (items != null)
@@ -71,6 +68,7 @@ class PreferencesMenu extends ui.OptionsState.Page
 
 	public static function initPrefs():Void
 	{
+		// Base game preferences
 		preferenceCheck('censor-naughty', true);
 		preferenceCheck('downscroll', false);
 		preferenceCheck('flashing-menu', false);
@@ -78,10 +76,12 @@ class PreferencesMenu extends ui.OptionsState.Page
 		preferenceCheck('fps-counter', true);
 		preferenceCheck('auto-pause', false);
 		preferenceCheck('master-volume', 1);
-		preferenceCheck('note-splashes', false);
+		preferenceCheck('note-splashes', true);
+		
+		// Quality of Life preferences (still need to be initialized)
 		preferenceCheck('new-input', false);
 		preferenceCheck('screen-shake-miss', false);
-		preferenceCheck('health-bar-warning', true);
+		preferenceCheck('health-bar-warning', false);
 		preferenceCheck('arrow-wobble', false);
 		preferenceCheck('new-ui', false);
 
@@ -110,7 +110,7 @@ class PreferencesMenu extends ui.OptionsState.Page
 				default:
 					trace('swag');
 			}
-		});
+		}, true);
 
 		switch (Type.typeof(prefValue).getName())
 		{
@@ -171,7 +171,7 @@ class PreferencesMenu extends ui.OptionsState.Page
 		});
 	}
 
-	private static function preferenceCheck(prefString:String, prefValue:Dynamic):Void
+	public static function preferenceCheck(prefString:String, prefValue:Dynamic):Void
 	{
 		if (preferences.get(prefString) == null)
 		{
@@ -182,49 +182,5 @@ class PreferencesMenu extends ui.OptionsState.Page
 		{
 			trace('found preference: ' + preferences.get(prefString));
 		}
-	}
-}
-
-class CheckboxThingie extends FlxSprite
-{
-	public var daValue(default, set):Bool;
-
-	public function new(x:Float, y:Float, daValue:Bool = false)
-	{
-		super(x, y);
-
-		frames = Paths.getSparrowAtlas('checkboxThingie');
-		animation.addByPrefix('static', 'Check Box unselected', 24, false);
-		animation.addByPrefix('checked', 'Check Box selecting animation', 24, false);
-
-		antialiasing = true;
-
-		setGraphicSize(Std.int(width * 0.7));
-		updateHitbox();
-
-		this.daValue = daValue;
-	}
-
-	override function update(elapsed:Float)
-	{
-		super.update(elapsed);
-
-		switch (animation.curAnim.name)
-		{
-			case 'static':
-				offset.set();
-			case 'checked':
-				offset.set(17, 70);
-		}
-	}
-
-	function set_daValue(value:Bool):Bool
-	{
-		if (value)
-			animation.play('checked', true);
-		else
-			animation.play('static');
-
-		return value;
 	}
 }
