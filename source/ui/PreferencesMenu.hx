@@ -41,7 +41,7 @@ class PreferencesMenu extends ui.OptionsState.Page
 		createPrefItem('Screen Shake on Miss', 'screen-shake-miss', false);
 		createPrefItem('Health Bar Warning', 'health-bar-warning', true);
 		createPrefItem('Arrow Wobble', 'arrow-wobble', false);
-		createPrefItem('New UI', 'new-ui', false);
+		createPrefItem('improved Interface', 'new-ui', false);
 
 		camFollow = new FlxObject(FlxG.width / 2, 0, 140, 70);
 		if (items != null)
