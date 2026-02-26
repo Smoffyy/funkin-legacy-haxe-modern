@@ -36,11 +36,12 @@ class PreferencesMenu extends ui.OptionsState.Page
 		createPrefItem('Camera Zooming on Beat', 'camera-zoom', true);
 		createPrefItem('FPS Counter', 'fps-counter', true);
 		createPrefItem('Auto Pause', 'auto-pause', false);
-		createPrefItem('Note Splashes', 'note-splashes', true);
+		createPrefItem('Note Splashes', 'note-splashes', false);
 		createPrefItem("New Input (Ghost Tapping)", "new-input", false);
-		createPrefItem('Screen Shake on Miss', 'screen-shake-miss', true);
+		createPrefItem('Screen Shake on Miss', 'screen-shake-miss', false);
 		createPrefItem('Health Bar Warning', 'health-bar-warning', true);
-		createPrefItem('Arrow Wobble', 'arrow-wobble', true);
+		createPrefItem('Arrow Wobble', 'arrow-wobble', false);
+		createPrefItem('New UI', 'new-ui', false);
 
 		camFollow = new FlxObject(FlxG.width / 2, 0, 140, 70);
 		if (items != null)
@@ -77,11 +78,12 @@ class PreferencesMenu extends ui.OptionsState.Page
 		preferenceCheck('fps-counter', true);
 		preferenceCheck('auto-pause', false);
 		preferenceCheck('master-volume', 1);
-		preferenceCheck('note-splashes', true);
-		preferenceCheck('new-input', true);
-		preferenceCheck('screen-shake-miss', true);
+		preferenceCheck('note-splashes', false);
+		preferenceCheck('new-input', false);
+		preferenceCheck('screen-shake-miss', false);
 		preferenceCheck('health-bar-warning', true);
-		preferenceCheck('arrow-wobble', true);
+		preferenceCheck('arrow-wobble', false);
+		preferenceCheck('new-ui', false);
 
 		#if muted
 		setPref('master-volume', 0);

@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Optimized entire PlayState.hx, note logic, and more!
 - Revamped alot of scripts, ensuring compatibility between both legacy and new versions
+- Legacy UI is default, (changeable in settings)
 
 ### Fixed
 - Fixed low framerate NoteSplash effect

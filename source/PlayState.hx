@@ -174,6 +174,85 @@ class PlayState extends MusicBeatState
 	var camPos:FlxPoint;
 	var lightFadeShader:BuildingShaders;
 
+	// Initialize the old/classic HUD (default)
+	function initOldHUD():Void
+	{
+		healthBarBG = new FlxSprite(0, FlxG.height * 0.9).loadGraphic(Paths.image('healthBar'));
+		healthBarBG.screenCenter(X);
+		healthBarBG.scrollFactor.set();
+		add(healthBarBG);
+
+		if (PreferencesMenu.getPref('downscroll'))
+			healthBarBG.y = FlxG.height * 0.1;
+
+		healthBar = new FlxBar(healthBarBG.x + 4, healthBarBG.y + 4, RIGHT_TO_LEFT, Std.int(healthBarBG.width - 8), Std.int(healthBarBG.height - 8), this,
+			'displayHealth', 0, 2);
+		healthBar.scrollFactor.set();
+		healthBar.createFilledBar(0xFFFF0000, 0xFF66FF33);
+		add(healthBar);
+
+		scoreTxt = new FlxText(healthBarBG.x + healthBarBG.width - 190, healthBarBG.y + 30, 0, "", 20);
+		scoreTxt.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, RIGHT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+		scoreTxt.scrollFactor.set();
+		add(scoreTxt);
+
+		iconP1 = new HealthIcon(SONG.player1, true);
+		iconP1.y = healthBar.y - (iconP1.height / 2);
+		add(iconP1);
+
+		iconP2 = new HealthIcon(SONG.player2, false);
+		iconP2.y = healthBar.y - (iconP2.height / 2);
+		add(iconP2);
+
+		healthBar.cameras = [camHUD];
+		healthBarBG.cameras = [camHUD];
+		iconP1.cameras = [camHUD];
+		iconP2.cameras = [camHUD];
+		scoreTxt.cameras = [camHUD];
+	}
+
+	// Initialize the new/modern HUD
+	function initNewHUD():Void
+	{
+		healthBarBG = new FlxSprite(0, FlxG.height * 0.9 - 5).makeGraphic(Std.int(FlxG.width * 0.6), 20, 0xFF000000);
+		healthBarBG.screenCenter(X);
+		healthBarBG.scrollFactor.set();
+		healthBarBG.alpha = 0.6;
+		add(healthBarBG);
+
+		if (PreferencesMenu.getPref('downscroll'))
+			healthBarBG.y = FlxG.height * 0.1 - 5;
+
+		healthBar = new FlxBar(healthBarBG.x + 4, healthBarBG.y + 4, RIGHT_TO_LEFT, Std.int(healthBarBG.width - 8), Std.int(healthBarBG.height - 8), this,
+			'displayHealth', 0, 2);
+		healthBar.scrollFactor.set();
+		// Color will be set after icons are loaded
+		add(healthBar);
+
+		scoreTxt = new FlxText(0, healthBarBG.y + 30, FlxG.width, "", 20);
+		scoreTxt.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+		scoreTxt.scrollFactor.set();
+		scoreTxt.borderSize = 2;
+		add(scoreTxt);
+
+		iconP1 = new HealthIcon(SONG.player1, true);
+		iconP1.y = healthBar.y - (iconP1.height / 2);
+		add(iconP1);
+
+		iconP2 = new HealthIcon(SONG.player2, false);
+		iconP2.y = healthBar.y - (iconP2.height / 2);
+		add(iconP2);
+		
+		// Update health bar colors to match icons
+		healthBar.createFilledBar(iconP2.iconColor, iconP1.iconColor);
+
+		healthBar.cameras = [camHUD];
+		healthBarBG.cameras = [camHUD];
+		iconP1.cameras = [camHUD];
+		iconP2.cameras = [camHUD];
+		scoreTxt.cameras = [camHUD];
+	}
+
 	override public function create()
 	{
 		if (FlxG.sound.music != null)
@@ -845,46 +924,15 @@ class PlayState extends MusicBeatState
 
 		FlxG.fixedTimestep = false;
 
-		healthBarBG = new FlxSprite(0, FlxG.height * 0.9 - 5).makeGraphic(Std.int(FlxG.width * 0.6), 20, 0xFF000000);
-		healthBarBG.screenCenter(X);
-		healthBarBG.scrollFactor.set();
-		healthBarBG.alpha = 0.6;
-		add(healthBarBG);
-
-		if (PreferencesMenu.getPref('downscroll'))
-			healthBarBG.y = FlxG.height * 0.1 - 5;
-
-		healthBar = new FlxBar(healthBarBG.x + 4, healthBarBG.y + 4, RIGHT_TO_LEFT, Std.int(healthBarBG.width - 8), Std.int(healthBarBG.height - 8), this,
-			'displayHealth', 0, 2);
-		healthBar.scrollFactor.set();
-		// Color will be set after icons are loaded
-		add(healthBar);
-
-		scoreTxt = new FlxText(0, healthBarBG.y + 30, FlxG.width, "", 20);
-		scoreTxt.setFormat(Paths.font("vcr.ttf"), 20, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
-		scoreTxt.scrollFactor.set();
-		scoreTxt.borderSize = 2;
-		add(scoreTxt);
-
-		iconP1 = new HealthIcon(SONG.player1, true);
-		iconP1.y = healthBar.y - (iconP1.height / 2);
-		add(iconP1);
-
-		iconP2 = new HealthIcon(SONG.player2, false);
-		iconP2.y = healthBar.y - (iconP2.height / 2);
-		add(iconP2);
-		
-		// Update health bar colors to match icons
-		healthBar.createFilledBar(iconP2.iconColor, iconP1.iconColor);
+		// Initialize HUD based on user preference (old UI is default)
+		if (PreferencesMenu.getPref('new-ui'))
+			initNewHUD();
+		else
+			initOldHUD();
 
 		grpNoteSplashes.cameras = [camHUD];
 		strumLineNotes.cameras = [camHUD];
 		notes.cameras = [camHUD];
-		healthBar.cameras = [camHUD];
-		healthBarBG.cameras = [camHUD];
-		iconP1.cameras = [camHUD];
-		iconP2.cameras = [camHUD];
-		scoreTxt.cameras = [camHUD];
 		doof.cameras = [camHUD];
 
 		// if (SONG.song == 'South')
@@ -2031,10 +2079,14 @@ class PlayState extends MusicBeatState
 				displayedScore += (diff > 0 ? step : -step);
 		}
 
-		scoreTxt.text = "Score: " + displayedScore + " | Misses: " + misses + " | Accuracy: " + truncateFloat(accuracy, 2) + "%";
+		// Update score text based on HUD mode
+		if (PreferencesMenu.getPref('new-ui'))
+			scoreTxt.text = "Score: " + displayedScore + " | Misses: " + misses + " | Accuracy: " + truncateFloat(accuracy, 2) + "%";
+		else
+			scoreTxt.text = "Score:" + songScore;
 
-		// Healthbar effect
-		if (PreferencesMenu.getPref('health-bar-warning') && health < 0.35)
+		// Healthbar effect (only for new UI)
+		if (PreferencesMenu.getPref('new-ui') && PreferencesMenu.getPref('health-bar-warning') && health < 0.35)
 		{
 			var healthPulse:Float = Math.sin(FlxG.sound.music.time / 100) * 0.3 + 0.7;
 			healthBar.color = FlxColor.interpolate(0xFFFF0000, 0xFFFFFFFF, healthPulse);
@@ -2109,8 +2161,19 @@ class PlayState extends MusicBeatState
 		var targetP1X = healthBar.x + (healthBar.width * (FlxMath.remapToRange(healthBar.percent, 0, 100, 100, 0) * 0.01) - iconOffset);
 		var targetP2X = healthBar.x + (healthBar.width * (FlxMath.remapToRange(healthBar.percent, 0, 100, 100, 0) * 0.01)) - (iconP2.width - iconOffset);
 
-		iconP1.x = FlxMath.lerp(iconP1.x, targetP1X, 0.15);
-		iconP2.x = FlxMath.lerp(iconP2.x, targetP2X, 0.15);
+		// Icon positioning based on HUD mode
+		if (PreferencesMenu.getPref('new-ui'))
+		{
+			// New UI: Smooth lerped positioning
+			iconP1.x = FlxMath.lerp(iconP1.x, targetP1X, 0.15);
+			iconP2.x = FlxMath.lerp(iconP2.x, targetP2X, 0.15);
+		}
+		else
+		{
+			// Old UI: Direct positioning
+			iconP1.x = targetP1X;
+			iconP2.x = targetP2X;
+		}
 
 		if (health > 2)
 			health = 2;
@@ -2347,8 +2410,12 @@ class PlayState extends MusicBeatState
 					{
 						if (Math.abs(daNote.noteData) == spr.ID)
 						{
-							spr.animation.play('confirm', true);
-							triggerStrumWobble(spr.ID, opponentStrums, opponentWobbleTweens);
+							// Only animate opponent strums in new UI mode
+							if (PreferencesMenu.getPref('new-ui'))
+							{
+								spr.animation.play('confirm', true);
+								triggerStrumWobble(spr.ID, opponentStrums, opponentWobbleTweens);
+							}
 						}
 					});
 
