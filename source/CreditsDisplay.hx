@@ -45,10 +45,10 @@ class CreditsDisplay
 		titleText = new FlxText(bg.x + 25, bg.y + 15, 400, "NOW PLAYING", 18);
 		titleText.setFormat(Paths.font("vcr.ttf"), 18, diffColor, RIGHT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 		
-		charterText = new FlxText(bg.x + 25, bg.y + 45, 400, "Chart: " + (charter != "" ? charter : "Unknown"), 16);
+		charterText = new FlxText(bg.x + 25, bg.y + 70, 400, "Charted By: " + (charter != "" ? charter : "Unknown"), 16);
 		charterText.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, RIGHT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 
-		artistText = new FlxText(bg.x + 25, bg.y + 70, 400, "Music: " + (artist != "" ? artist : "Unknown"), 16);
+		artistText = new FlxText(bg.x + 25, bg.y + 45, 400, "Composed By: " + (artist != "" ? artist : "Unknown"), 16);
 		artistText.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.WHITE, RIGHT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 
 		difficultyText = new FlxText(bg.x + 25, bg.y + 105, 400, displayDiff + " «", 24);
