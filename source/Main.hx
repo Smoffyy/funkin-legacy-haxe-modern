@@ -24,11 +24,7 @@ class Main extends Sprite
 	var gameHeight:Int = 720; // Height of the game in pixels (might be less / more in actual pixels depending on your zoom).
 	var initialState:Class<FlxState> = TitleState; // The FlxState the game starts with.
 	var zoom:Float = -1; // If -1, zoom is automatically calculated to fit the window dimensions.
-	#if web
-	var framerate:Int = 60;
-	#else
-	var framerate:Int = 360;
-	#end
+	var framerate:Int;
 
 	var skipSplash:Bool = true;
 	var startFullscreen:Bool = false;
@@ -92,6 +88,18 @@ class Main extends Sprite
 		#if !debug
 		initialState = TitleState;
 		#end
+
+		// Interpolation stuff
+		ui.PreferencesMenu.initPrefs();
+		
+		if (ui.PreferencesMenu.getPref('interpolation'))
+		{
+			framerate = 360; // High FPS mode
+		}
+		else
+		{
+			framerate = 60;
+		}
 
 		addChild(new FlxGame(
 			gameWidth,

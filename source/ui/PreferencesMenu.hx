@@ -84,6 +84,7 @@ class PreferencesMenu extends ui.OptionsState.Page
 		preferenceCheck('health-bar-warning', false);
 		preferenceCheck('arrow-wobble', false);
 		preferenceCheck('new-ui', false);
+		preferenceCheck('interpolation', false);
 
 		#if muted
 		setPref('master-volume', 0);

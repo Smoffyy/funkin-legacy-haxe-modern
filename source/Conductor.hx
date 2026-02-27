@@ -52,6 +52,14 @@ class Conductor
 
 	public static function getInterpolatedPosition():Float
 	{
+		// Check if interpolation is enabled in preferences
+		if (!ui.PreferencesMenu.getPref('interpolation'))
+		{
+			// Interpolation disabled - return songPosition directly
+			return songPosition;
+		}
+		
+		// Interpolation enabled - use high FPS interpolation
 		// Safety check: if music exists and is playing
 		if (FlxG.sound.music != null && FlxG.sound.music.playing)
 		{
