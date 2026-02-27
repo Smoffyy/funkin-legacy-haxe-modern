@@ -1558,6 +1558,26 @@ class PlayState extends MusicBeatState
 
 		startTimer.start(Conductor.crochet / 1000, function(tmr:FlxTimer)
 		{
+			// Show credits if loaded from FNFC
+			if (FNFCLoader.isActive && swagCounter == 0)
+			{
+				var difficultyString = CoolUtil.difficultyString();
+				var creditsDisplay = new CreditsDisplay(FNFCLoader.activeCharter, FNFCLoader.activeSongArtist, difficultyString);
+				add(creditsDisplay.bg);
+				add(creditsDisplay.titleText);
+				add(creditsDisplay.charterText);
+				add(creditsDisplay.artistText);
+				add(creditsDisplay.difficultyText);
+				
+				creditsDisplay.bg.cameras = [camHUD];
+				creditsDisplay.titleText.cameras = [camHUD];
+				creditsDisplay.charterText.cameras = [camHUD];
+				creditsDisplay.artistText.cameras = [camHUD];
+				creditsDisplay.difficultyText.cameras = [camHUD];
+				
+				creditsDisplay.show(3.0);
+			}
+
 			// this just based on beatHit stuff but compact
 			if (swagCounter % gfSpeed == 0)
 				gf.dance();
@@ -1588,18 +1608,6 @@ class PlayState extends MusicBeatState
 			if (swagCounter > 0)
 				readySetGo(introSprPaths[swagCounter - 1]);
 			FlxG.sound.play(Paths.sound(introSndPaths[swagCounter]), 0.6);
-
-			/* switch (swagCounter)
-			{
-				case 0:
-					
-				case 1:
-					
-				case 2:
-					
-				case 3:
-					
-			} */
 
 			swagCounter += 1;
 		}, 4);

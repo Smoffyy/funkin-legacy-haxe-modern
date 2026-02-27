@@ -66,6 +66,12 @@ class FNFCLoader
 	/** The variation used for the active load ("" = base, "erect", "pico"…). */
 	public static var activeVariation:String = "";
 
+	/** Charter name from metadata. */
+	public static var activeCharter:String = "";
+
+	/** Song artist from metadata. */
+	public static var activeSongArtist:String = "";
+
 	// Internal zip entry cache — avoids re-reading the archive on every call.
 	static var zipCache:Map<String, List<Entry>> = new Map();
 
@@ -109,6 +115,17 @@ class FNFCLoader
 		isActive        = true;
 		activeSongId    = id;
 		activeVariation = variation;
+		
+		// Extract credits from metadata
+		activeCharter = "";
+		activeSongArtist = "";
+		if (metaJson != null)
+		{
+			if (metaJson.charter != null)
+				activeCharter = Std.string(metaJson.charter);
+			if (metaJson.artist != null)
+				activeSongArtist = Std.string(metaJson.artist);
+		}
 
 		return convertToSwagSong(id, metaJson, chartJson, chartKey);
 	}
