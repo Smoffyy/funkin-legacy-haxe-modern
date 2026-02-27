@@ -106,13 +106,13 @@ class QOLPreferencesMenu extends ui.OptionsState.Page
 			{
 				FlxG.updateFramerate = 360;
 				FlxG.drawFramerate = 360;
-				trace('Framerate set to 360 FPS (High FPS mode)');
+				trace('Framerate set to 360 FPS');
 			}
 			else
 			{
 				FlxG.updateFramerate = 60;
 				FlxG.drawFramerate = 60;
-				trace('Framerate set to 60 FPS (Classic mode)');
+				trace('Framerate set to 60 FPS');
 			}
 		}
 	}
