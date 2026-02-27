@@ -20,7 +20,7 @@ class CreditsDisplay
 	
 	private var pulseTween:FlxTween;
 
-	public function new(charter:String, artist:String, difficulty:String)
+	public function new(charter:String, artist:String, difficulty:String, songName:String = "")
 	{
 		// 1. Color Selection
 		var diffColor:FlxColor = FlxColor.WHITE;
@@ -42,7 +42,7 @@ class CreditsDisplay
 		accentBar = new FlxSprite(bg.x + 444, bg.y);
 		accentBar.makeGraphic(6, 155, diffColor);
 
-		titleText = new FlxText(bg.x + 25, bg.y + 15, 400, "NOW PLAYING", 18);
+		titleText = new FlxText(bg.x + 25, bg.y + 15, 400, "NOW PLAYING: " + (songName != "" ? songName.toUpperCase() : "UNKNOWN"), 18);
 		titleText.setFormat(Paths.font("vcr.ttf"), 18, diffColor, RIGHT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 		
 		charterText = new FlxText(bg.x + 25, bg.y + 70, 400, "Charted By: " + (charter != "" ? charter : "Unknown"), 16);

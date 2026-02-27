@@ -1562,7 +1562,7 @@ class PlayState extends MusicBeatState
 			if (FNFCLoader.isActive && swagCounter == 0)
 			{
 				var difficultyString = CoolUtil.difficultyString();
-				var creditsDisplay = new CreditsDisplay(FNFCLoader.activeCharter, FNFCLoader.activeSongArtist, difficultyString);
+				var creditsDisplay = new CreditsDisplay(FNFCLoader.activeCharter, FNFCLoader.activeSongArtist, difficultyString, SONG.song);
 				add(creditsDisplay.bg);
 				add(creditsDisplay.titleText);
 				add(creditsDisplay.charterText);
