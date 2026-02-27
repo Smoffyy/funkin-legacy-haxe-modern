@@ -32,9 +32,10 @@ class QOLPreferencesMenu extends ui.OptionsState.Page
 		// Quality of Life preferences
 		createPrefItem("New Input (Ghost Tapping)", "new-input", false);
 		createPrefItem('Screen Shake on Miss', 'screen-shake-miss', false);
-		createPrefItem('Health Bar Warning', 'health-bar-warning', false);
+		createPrefItem('Health Bar Warning', 'health-bar-warning', true);
 		createPrefItem('Arrow Wobble', 'arrow-wobble', false);
 		createPrefItem('Improved Interface', 'new-ui', false);
+		createPrefItem('Interpolation (HIGH FPS)', 'interpolation', false);
 
 		camFollow = new FlxObject(FlxG.width / 2, 0, 140, 70);
 		if (items != null)
@@ -97,6 +98,23 @@ class QOLPreferencesMenu extends ui.OptionsState.Page
 		PreferencesMenu.preferences.set(prefName, daSwap);
 		checkboxes[items.selectedIndex].daValue = daSwap;
 		trace('toggled? ' + PreferencesMenu.preferences.get(prefName));
+		
+		// Handle interpolation framerate change
+		if (prefName == 'interpolation')
+		{
+			if (PreferencesMenu.preferences.get('interpolation'))
+			{
+				FlxG.updateFramerate = 360;
+				FlxG.drawFramerate = 360;
+				trace('Framerate set to 360 FPS');
+			}
+			else
+			{
+				FlxG.updateFramerate = 60;
+				FlxG.drawFramerate = 60;
+				trace('Framerate set to 60 FPS');
+			}
+		}
 	}
 
 	override function update(elapsed:Float)

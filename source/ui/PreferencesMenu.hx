@@ -38,7 +38,7 @@ class PreferencesMenu extends ui.OptionsState.Page
 		createPrefItem('Camera Zooming on Beat', 'camera-zoom', true);
 		createPrefItem('FPS Counter', 'fps-counter', true);
 		createPrefItem('Auto Pause', 'auto-pause', false);
-		createPrefItem('Note Splashes', 'note-splashes', true);
+		createPrefItem('Note Splashes', 'note-splashes', false);
 
 		camFollow = new FlxObject(FlxG.width / 2, 0, 140, 70);
 		if (items != null)
@@ -84,6 +84,7 @@ class PreferencesMenu extends ui.OptionsState.Page
 		preferenceCheck('health-bar-warning', false);
 		preferenceCheck('arrow-wobble', false);
 		preferenceCheck('new-ui', false);
+		preferenceCheck('interpolation', false);
 
 		#if muted
 		setPref('master-volume', 0);
@@ -151,6 +152,19 @@ class PreferencesMenu extends ui.OptionsState.Page
 					FlxG.stage.removeChild(Main.fpsCounter);
 			case 'auto-pause':
 				FlxG.autoPause = getPref('auto-pause');
+			case 'interpolation':
+				if (getPref('interpolation'))
+				{
+					FlxG.updateFramerate = 360;
+					FlxG.drawFramerate = 360;
+					trace('Framerate set to 360 FPS');
+				}
+				else
+				{
+					FlxG.updateFramerate = 60;
+					FlxG.drawFramerate = 60;
+					trace('Framerate set to 60 FPS');
+				}
 		}
 
 		if (prefName == 'fps-counter') {}
