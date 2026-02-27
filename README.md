@@ -28,6 +28,37 @@ A modernized version of [Funkin Legacy](https://github.com/FunkinCrew/Funkin/tre
 - [JohnnyUtah](https://twitter.com/JohnnyUtahNG/) - Voice of Tankman
 - [L0Litsmonica](https://twitter.com/L0Litsmonica) - Voice of Mommy Mearest
 
+### Whats the Goal?
+
+The goal of this project is to fully convert the original [Friday Night Funkin' Legacy Branch](https://github.com/FunkinCrew/Funkin/tree/legacy/0.2.x), into a fully modern Haxe environment, while keeping the gameplay and behavior as **accurate** to the **original** as possible
+
+Specifically, this project aims to:
+
+* Port the original **0.2.x Legacy branch** of Friday Night Funkin' to modern Haxe (4.3.7+)
+* Maintain compatibility with current versions of HaxeFlixel and Lime
+* Clean up deprecated or outdated code
+* Preserve vanilla behavior and logic wherever possible
+* Introduce **modern, optional quality-of-life improvements** that do not alter the original experience unless enabled
+* Add **Legacy** and **Modern Chart support** across all Friday Night Funkin' versions
+* Maintain the original Open License
+
+### Design
+
+This is **not** a gameplay overhaul or a redesign.
+
+The intent is:
+* Preserve the *original feel*
+* Modernize the *technical foundation*
+* Add optional improvements without forcing changes on purists
+
+Think of it as:
+
+> The original game rebuilt on a modern engine foundation.
+
+### TL:DR
+In short: this branch keeps the **classic feel of Legacy** while giving it a modern foundation that’s easier to run, maintain, and enhance.
+
+
 ## Prerequisites
 
 Before you start, make sure you have the following installed:

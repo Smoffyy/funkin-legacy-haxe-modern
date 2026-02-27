@@ -35,7 +35,7 @@ class QOLPreferencesMenu extends ui.OptionsState.Page
 		createPrefItem('Health Bar Warning', 'health-bar-warning', false);
 		createPrefItem('Arrow Wobble', 'arrow-wobble', false);
 		createPrefItem('Improved Interface', 'new-ui', false);
-		createPrefItem('Interpolation (HIGH FPS)', 'interpolation', false);
+		createPrefItem('High FPS (Requires Restart)', 'interpolation', false);
 
 		camFollow = new FlxObject(FlxG.width / 2, 0, 140, 70);
 		if (items != null)

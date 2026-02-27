@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Revamped alot of scripts, ensuring compatibility between both legacy and new versions
 - Legacy UI is default, (changeable in settings)
 - Seperated new settings under **Quality Of Life Prefs** ⭐
+- Interpolation is default off
 
 ### Fixed
 - Fixed low framerate NoteSplash effect
