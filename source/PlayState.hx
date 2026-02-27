@@ -1575,7 +1575,7 @@ class PlayState extends MusicBeatState
 				creditsDisplay.artistText.cameras = [camHUD];
 				creditsDisplay.difficultyText.cameras = [camHUD];
 				
-				creditsDisplay.show(3.0);
+				creditsDisplay.show(5.0);
 			}
 
 			// this just based on beatHit stuff but compact
