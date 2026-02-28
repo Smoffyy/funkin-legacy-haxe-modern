@@ -72,6 +72,14 @@ class FNFCLoader
 	/** Song artist from metadata. */
 	public static var activeSongArtist:String = "";
 
+	/**
+	 * All chart events for the active song, sorted ascending by timestamp (ms).
+	 * Populated by load() and consumed at runtime by PlayState.processFNFCEvents().
+	 * Includes every event type: FocusCamera, ZoomCamera, SetCameraZoom,
+	 * PlayAnimation, HideHUD, etc.
+	 */
+	public static var activeEvents:Array<Dynamic> = [];
+
 	// Internal zip entry cache — avoids re-reading the archive on every call.
 	static var zipCache:Map<String, List<Entry>> = new Map();
 
@@ -125,6 +133,25 @@ class FNFCLoader
 				activeCharter = Std.string(metaJson.charter);
 			if (metaJson.artist != null)
 				activeSongArtist = Std.string(metaJson.artist);
+		}
+
+		// ── Collect all chart events for runtime playback ────────────────────────
+		// Store every event (all types) sorted by timestamp so PlayState can
+		// fire them precisely as the song position reaches each event's `t` value.
+		activeEvents = [];
+		if (chartJson.events != null)
+		{
+			var allEvts:Array<Dynamic> = cast chartJson.events;
+			activeEvents = allEvts.copy();
+			activeEvents.sort(function(a:Dynamic, b:Dynamic):Int
+			{
+				var ta:Float = a.t;
+				var tb:Float = b.t;
+				if (ta < tb) return -1;
+				if (ta > tb) return  1;
+				return 0;
+			});
+			trace('[FNFCLoader] Stored ${activeEvents.length} chart events for runtime playback.');
 		}
 
 		return convertToSwagSong(id, metaJson, chartJson, chartKey);
@@ -298,6 +325,9 @@ class FNFCLoader
 		isActive        = false;
 		activeSongId    = "";
 		activeVariation = "";
+		activeCharter   = "";
+		activeSongArtist = "";
+		activeEvents    = [];
 		zipCache.clear();
 		trace("[FNFCLoader] Cache cleared.");
 	}

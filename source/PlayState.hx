@@ -157,6 +157,19 @@ class PlayState extends MusicBeatState
 
 	var defaultCamZoom:Float = 1.05;
 
+	// ── FNFC runtime event playback ───────────────────────────────────────────
+	// Index into FNFCLoader.activeEvents; advances as events fire.
+	private var fnfcEventIndex:Int   = 0;
+	// Camera offset applied each frame ON TOP of cameraMovement() result.
+	// Set by FocusCamera events that include x/y fields.
+	private var fnfcCamOffsetX:Float = 0;
+	private var fnfcCamOffsetY:Float = 0;
+	// Tween handle so ZoomCamera events can cancel any in-progress zoom tween.
+	private var fnfcCamZoomTween:FlxTween = null;
+	// True once the first runtime FocusCamera event has fired.
+	// Before that, cameraRightSide falls back to section mustHitSection data.
+	private var fnfcUseEventCam:Bool = false;
+
 	// how big to stretch the pixel art assets
 	public static var daPixelZoom:Float = 6;
 
@@ -1544,6 +1557,13 @@ class PlayState extends MusicBeatState
 		
 		displayHealth = health;
 
+		// Reset FNFC event playback so events fire cleanly from the beginning
+		fnfcEventIndex   = 0;
+		fnfcCamOffsetX   = 0;
+		fnfcCamOffsetY   = 0;
+		fnfcUseEventCam  = false;
+		if (fnfcCamZoomTween != null) { fnfcCamZoomTween.cancel(); fnfcCamZoomTween = null; }
+
 		generateStaticArrows(0);
 		generateStaticArrows(1);
 
@@ -2226,10 +2246,26 @@ class PlayState extends MusicBeatState
 
 		if (generatedMusic && SONG.notes[Std.int(curStep / 16)] != null)
 		{
-			cameraRightSide = SONG.notes[Std.int(curStep / 16)].mustHitSection;
+			// For FNFC songs: once the first FocusCamera event has fired, let
+			// runtime events drive cameraRightSide instead of section data.
+			// Before that (or for non-FNFC songs) use the legacy mustHitSection.
+			if (!FNFCLoader.isActive || !fnfcUseEventCam)
+				cameraRightSide = SONG.notes[Std.int(curStep / 16)].mustHitSection;
 
 			cameraMovement();
+
+			// Apply per-event camera offset (set by FocusCamera events with x/y).
+			// Must run AFTER cameraMovement() because that function repositions camFollow.
+			if (FNFCLoader.isActive && (fnfcCamOffsetX != 0 || fnfcCamOffsetY != 0))
+			{
+				camFollow.x += fnfcCamOffsetX;
+				camFollow.y += fnfcCamOffsetY;
+			}
 		}
+
+		// Fire any FNFC chart events whose timestamp has been reached
+		if (startedCountdown && FNFCLoader.isActive)
+			processFNFCEvents();
 
 		if (camZooming)
 		{
@@ -2844,6 +2880,174 @@ class PlayState extends MusicBeatState
 			});
 
 			daLoop++;
+		}
+	}
+
+	// ══════════════════════════════════════════════════════════════════════════
+	// FNFC RUNTIME EVENT SYSTEM
+	// ══════════════════════════════════════════════════════════════════════════
+
+	/**
+	 * Called every update() while a FNFC song is active.
+	 * Iterates through activeEvents in timestamp order, firing each event
+	 * exactly once when the interpolated song position reaches its `t` value.
+	 */
+	function processFNFCEvents():Void
+	{
+		var events = FNFCLoader.activeEvents;
+		if (events.length == 0) return;
+
+		var songPos:Float = Conductor.getInterpolatedPosition();
+
+		while (fnfcEventIndex < events.length)
+		{
+			var ev:Dynamic = events[fnfcEventIndex];
+			var evTime:Float = ev.t;
+			if (evTime > songPos) break;
+
+			fireFNFCEvent(ev);
+			fnfcEventIndex++;
+		}
+	}
+
+	/**
+	 * Executes a single FNFC chart event.
+	 *
+	 * Supported event types (ev.e):
+	 *   FocusCamera  — move camera to character + optional x/y offset
+	 *   ZoomCamera   — tween camera to a new zoom (resets default so lerp targets new value)
+	 *   SetCameraZoom — same as ZoomCamera; also supports hudZoom field
+	 *   PlayAnimation — fire an animation on bf / dad / gf
+	 *   HideHUD      — toggle HUD visibility
+	 */
+	function fireFNFCEvent(ev:Dynamic):Void
+	{
+		var type:String  = Std.string(ev.e);
+		var v:Dynamic    = (ev.v != null) ? ev.v : {};
+
+		trace('[FNFC] Event "$type" at t=${ev.t}ms');
+
+		switch (type)
+		{
+			// ── FocusCamera ───────────────────────────────────────────────────
+			// v: Int  OR  {char:Int, x?:Float, y?:Float, duration?:Float}
+			// char 0 = BF (right side), 1 = Dad, 2 = GF (treated as Dad side)
+			case "FocusCamera":
+				var charId:Int = 0;
+				if (Std.isOfType(v, Int) || Std.isOfType(v, Float))
+					charId = Std.int(v);
+				else if (Reflect.hasField(v, "char"))
+					charId = Std.int(Reflect.field(v, "char"));
+
+				cameraRightSide = (charId == 0);
+				fnfcCamOffsetX  = Reflect.hasField(v, "x") ? Reflect.field(v, "x") : 0;
+				fnfcCamOffsetY  = Reflect.hasField(v, "y") ? Reflect.field(v, "y") : 0;
+				fnfcUseEventCam = true; // hand camera control to runtime events
+
+			// ── ZoomCamera / SetCameraZoom ────────────────────────────────────
+			// v: {zoom?:Float, hudZoom?:Float, duration?:Float, ease?:String}
+			// duration is in BEATS. zoom default = current defaultCamZoom.
+			case "ZoomCamera" | "SetCameraZoom":
+				var targetZoom:Float  = Reflect.hasField(v, "zoom")     ? Reflect.field(v, "zoom")     : defaultCamZoom;
+				var hudZoom:Float     = Reflect.hasField(v, "hudZoom")  ? Reflect.field(v, "hudZoom")  : -1;
+				var durationBeats:Float = Reflect.hasField(v, "duration") ? Reflect.field(v, "duration") : 0;
+				var easeName:String   = Reflect.hasField(v, "ease")     ? Std.string(Reflect.field(v, "ease")) : "linear";
+
+				// Update the base zoom so the lerp-back in update() targets the new value
+				defaultCamZoom = targetZoom;
+
+				// Cancel any in-flight zoom tween from a previous event
+				if (fnfcCamZoomTween != null) { fnfcCamZoomTween.cancel(); fnfcCamZoomTween = null; }
+
+				if (durationBeats <= 0)
+				{
+					FlxG.camera.zoom = targetZoom;
+					if (hudZoom >= 0) camHUD.zoom = hudZoom;
+				}
+				else
+				{
+					var secs:Float = durationBeats * (Conductor.crochet / 1000);
+					var ease       = getFNFCEase(easeName);
+					fnfcCamZoomTween = FlxTween.tween(FlxG.camera, {zoom: targetZoom}, secs, {ease: ease});
+					if (hudZoom >= 0)
+						FlxTween.tween(camHUD, {zoom: hudZoom}, secs, {ease: ease});
+				}
+
+			// ── PlayAnimation ─────────────────────────────────────────────────
+			// v: {target:"bf"|"dad"|"gf", anim:String, force?:Bool}
+			case "PlayAnimation":
+				var target:String = Reflect.hasField(v, "target") ? Std.string(Reflect.field(v, "target")) : "";
+				var anim:String   = Reflect.hasField(v, "anim")   ? Std.string(Reflect.field(v, "anim"))   : "";
+				var force:Bool    = Reflect.hasField(v, "force")  && Reflect.field(v, "force") == true;
+
+				if (anim.length == 0) return;
+
+				switch (target.toLowerCase())
+				{
+					case "bf" | "player" | "boyfriend":
+						boyfriend.playAnim(anim, force);
+					case "dad" | "opponent":
+						dad.playAnim(anim, force);
+					case "gf" | "girlfriend":
+						gf.playAnim(anim, force);
+					default:
+						trace('[FNFC] PlayAnimation: unknown target "$target"');
+				}
+
+			// ── HideHUD ───────────────────────────────────────────────────────
+			// Toggles HUD visibility (no value field needed)
+			case "HideHUD":
+				camHUD.visible = !camHUD.visible;
+
+			default:
+				// Unknown event — trace but don't crash
+				trace('[FNFC] Unhandled event type: "$type"');
+		}
+	}
+
+	/**
+	 * Maps FNF 4.0 ease name strings to FlxEase functions.
+	 * Falls back to FlxEase.linear for any unknown name.
+	 */
+	function getFNFCEase(name:String):Float->Float
+	{
+		switch (name.toLowerCase())
+		{
+			case "linear":                         return FlxEase.linear;
+			case "quadin":                         return FlxEase.quadIn;
+			case "quadout":                        return FlxEase.quadOut;
+			case "quadinout":                      return FlxEase.quadInOut;
+			case "cubein":                         return FlxEase.cubeIn;
+			case "cubeout":                        return FlxEase.cubeOut;
+			case "cubeinout":                      return FlxEase.cubeInOut;
+			case "quartin":                        return FlxEase.quartIn;
+			case "quartout":                       return FlxEase.quartOut;
+			case "quartinout":                     return FlxEase.quartInOut;
+			case "quintin":                        return FlxEase.quintIn;
+			case "quintout":                       return FlxEase.quintOut;
+			case "quintinout":                     return FlxEase.quintInOut;
+			case "sinein":                         return FlxEase.sineIn;
+			case "sineout":                        return FlxEase.sineOut;
+			case "sineinout":                      return FlxEase.sineInOut;
+			case "expoin":                         return FlxEase.expoIn;
+			case "expoout":                        return FlxEase.expoOut;
+			case "expoinout":                      return FlxEase.expoInOut;
+			case "circin":                         return FlxEase.circIn;
+			case "circout":                        return FlxEase.circOut;
+			case "circinout":                      return FlxEase.circInOut;
+			case "backin":                         return FlxEase.backIn;
+			case "backout":                        return FlxEase.backOut;
+			case "backinout":                      return FlxEase.backInOut;
+			case "elasticin":                      return FlxEase.elasticIn;
+			case "elasticout":                     return FlxEase.elasticOut;
+			case "elasticinout":                   return FlxEase.elasticInOut;
+			case "bouncein":                       return FlxEase.bounceIn;
+			case "bounceout":                      return FlxEase.bounceOut;
+			case "bounceinout":                    return FlxEase.bounceInOut;
+			case "smoothstep" | "smoothstepinout": return FlxEase.smoothStepInOut;
+			default:
+				trace('[FNFC] Unknown ease "$name", falling back to linear');
+				return FlxEase.linear;
 		}
 	}
 
