@@ -463,7 +463,6 @@ class PlayState extends MusicBeatState
 				bottomBoppers.animation.addByPrefix('bop', 'Bottom Level Boppers', 24, false);
 				bottomBoppers.antialiasing = true;
 				bottomBoppers.scrollFactor.set(0.9, 0.9);
-				bottomBoppers.setGraphicSize(Std.int(bottomBoppers.width * 1));
 				bottomBoppers.updateHitbox();
 				add(bottomBoppers);
 
@@ -666,10 +665,10 @@ class PlayState extends MusicBeatState
 				tankmanRun = new FlxTypedGroup<TankmenBG>();
 				add(tankmanRun);
 
-				var tankGround:BGSprite = new BGSprite('tankGround', -420, -150);
-				tankGround.setGraphicSize(Std.int(tankGround.width * 1.15));
-				tankGround.updateHitbox();
-				add(tankGround);
+				var tankGroundBG:BGSprite = new BGSprite('tankGround', -420, -150);
+				tankGroundBG.setGraphicSize(Std.int(tankGroundBG.width * 1.15));
+				tankGroundBG.updateHitbox();
+				add(tankGroundBG);
 
 				moveTank();
 
@@ -840,7 +839,6 @@ class PlayState extends MusicBeatState
 				gf.y += 10;
 				gf.x -= 30;
 				boyfriend.x += 40;
-				boyfriend.y += 0;
 				dad.y += 60;
 				dad.x -= 80;
 
@@ -1564,12 +1562,14 @@ class PlayState extends MusicBeatState
 				var difficultyString = CoolUtil.difficultyString();
 				var creditsDisplay = new CreditsDisplay(FNFCLoader.activeCharter, FNFCLoader.activeSongArtist, difficultyString, SONG.song);
 				add(creditsDisplay.bg);
+				add(creditsDisplay.accentBar);
 				add(creditsDisplay.titleText);
 				add(creditsDisplay.charterText);
 				add(creditsDisplay.artistText);
 				add(creditsDisplay.difficultyText);
 				
 				creditsDisplay.bg.cameras = [camHUD];
+				creditsDisplay.accentBar.cameras = [camHUD];
 				creditsDisplay.titleText.cameras = [camHUD];
 				creditsDisplay.charterText.cameras = [camHUD];
 				creditsDisplay.artistText.cameras = [camHUD];
@@ -1824,10 +1824,9 @@ class PlayState extends MusicBeatState
 					babyArrow.updateHitbox();
 					babyArrow.antialiasing = false;
 
-					switch (Math.abs(i))
+					switch (i)
 					{
 						case 0:
-							babyArrow.x += Note.swagWidth * 0;
 							babyArrow.animation.add('static', [0]);
 							babyArrow.animation.add('pressed', [4, 8], 12, false);
 							babyArrow.animation.add('confirm', [12, 16], 24, false);
@@ -1858,10 +1857,9 @@ class PlayState extends MusicBeatState
 					babyArrow.antialiasing = true;
 					babyArrow.setGraphicSize(Std.int(babyArrow.width * 0.7));
 
-					switch (Math.abs(i))
+					switch (i)
 					{
 						case 0:
-							babyArrow.x += Note.swagWidth * 0;
 							babyArrow.animation.addByPrefix('static', 'arrow static instance 1');
 							babyArrow.animation.addByPrefix('pressed', 'left press', 24, false);
 							babyArrow.animation.addByPrefix('confirm', 'left confirm', 24, false);
@@ -2304,7 +2302,9 @@ class PlayState extends MusicBeatState
 
 				deathCounter += 1;
 
-				openSubState(new GameOverSubstate(boyfriend.getScreenPosition().x, boyfriend.getScreenPosition().y));
+				var bfPos = boyfriend.getScreenPosition();
+				openSubState(new GameOverSubstate(bfPos.x, bfPos.y));
+				bfPos.put();
 
 				// FlxG.switchState(new GameOverState(boyfriend.getScreenPosition().x, boyfriend.getScreenPosition().y));
 
@@ -2563,7 +2563,7 @@ class PlayState extends MusicBeatState
 		{
 			campaignScore += songScore;
 
-			storyPlaylist.remove(storyPlaylist[0]);
+			storyPlaylist.shift();
 
 			if (storyPlaylist.length <= 0)
 			{
@@ -2572,17 +2572,6 @@ class PlayState extends MusicBeatState
 				transIn = FlxTransitionableState.defaultTransIn;
 				transOut = FlxTransitionableState.defaultTransOut;
 
-				switch (PlayState.storyWeek)
-				{
-					case 7:
-						FNFCLoader.reset();
-						FlxG.switchState(()->new VideoState());
-					default:
-						FNFCLoader.reset();
-						FlxG.switchState(()->new StoryMenuState());
-				}
-
-				// if ()
 				StoryMenuState.weekUnlocked[Std.int(Math.min(storyWeek + 1, StoryMenuState.weekUnlocked.length - 1))] = true;
 
 				if (SONG.validScore)
@@ -2593,6 +2582,15 @@ class PlayState extends MusicBeatState
 
 				FlxG.save.data.weekUnlocked = StoryMenuState.weekUnlocked;
 				FlxG.save.flush();
+
+				FNFCLoader.reset();
+				switch (PlayState.storyWeek)
+				{
+					case 7:
+						FlxG.switchState(()->new VideoState());
+					default:
+						FlxG.switchState(()->new StoryMenuState());
+				}
 			}
 			else
 			{
@@ -2863,13 +2861,11 @@ class PlayState extends MusicBeatState
 			{
 				case 'mom':
 					camFollow.y = dad.getMidpoint().y;
+					vocals.volume = 1;
 				case 'senpai' | 'senpai-angry':
 					camFollow.y = dad.getMidpoint().y - 430;
 					camFollow.x = dad.getMidpoint().x - 100;
 			}
-
-			if (dad.curCharacter == 'mom')
-				vocals.volume = 1;
 
 			if (SONG.song.toLowerCase() == 'tutorial')
 				tweenCamIn();
@@ -3107,8 +3103,8 @@ class PlayState extends MusicBeatState
 
 	function noteMiss(direction:Int = 1):Void
 	{
-		// whole function used to be encased in if (!boyfriend.stunned)
 		health -= 0.04;
+		misses++;
 		killCombo();
 
 		if (!practiceMode)
@@ -3165,53 +3161,53 @@ class PlayState extends MusicBeatState
 			noteMiss(3);
 	} */
 
-function goodNoteHit(note:Note):Void
-    {
-        if (!note.wasGoodHit)
-        {
-            if (!note.isSustainNote)
-            {
-                combo += 1;
-                popUpScore(note.strumTime, note);
-            }
+	function goodNoteHit(note:Note):Void
+	{
+		if (!note.wasGoodHit)
+		{
+			if (!note.isSustainNote)
+			{
+				combo += 1;
+				popUpScore(note.strumTime, note);
+			}
 
-            if (note.noteData >= 0)
-                health += 0.023;
-            else
-                health += 0.004;
+			if (note.noteData >= 0)
+				health += 0.023;
+			else
+				health += 0.004;
 
-            switch (note.noteData)
-            {
-                case 0:
-                    boyfriend.playAnim('singLEFT', true);
-                case 1:
-                    boyfriend.playAnim('singDOWN', true);
-                case 2:
-                    boyfriend.playAnim('singUP', true);
-                case 3:
-                    boyfriend.playAnim('singRIGHT', true);
-            }
+			switch (note.noteData)
+			{
+				case 0:
+					boyfriend.playAnim('singLEFT', true);
+				case 1:
+					boyfriend.playAnim('singDOWN', true);
+				case 2:
+					boyfriend.playAnim('singUP', true);
+				case 3:
+					boyfriend.playAnim('singRIGHT', true);
+			}
 
-            playerStrums.forEach(function(spr:FlxSprite)
-            {
-                if (Math.abs(note.noteData) == spr.ID)
-                {
-                    spr.animation.play('confirm', true);
-                    triggerStrumWobble(spr.ID, playerStrums, strumWobbleTweens);
-                }
-            });
+			playerStrums.forEach(function(spr:FlxSprite)
+			{
+				if (note.noteData == spr.ID)
+				{
+					spr.animation.play('confirm', true);
+					triggerStrumWobble(spr.ID, playerStrums, strumWobbleTweens);
+				}
+			});
 
-            note.wasGoodHit = true;
-            vocals.volume = 1;
+			note.wasGoodHit = true;
+			vocals.volume = 1;
 
-            if (!note.isSustainNote)
-            {
-                note.kill();
-                notes.remove(note, true);
-                note.destroy();
-            }
-        }
-    }
+			if (!note.isSustainNote)
+			{
+				note.kill();
+				notes.remove(note, true);
+				note.destroy();
+			}
+		}
+	}
 
 	var fastCarCanDrive:Bool = true;
 
