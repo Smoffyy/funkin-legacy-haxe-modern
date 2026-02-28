@@ -85,6 +85,7 @@ class PreferencesMenu extends ui.OptionsState.Page
 		preferenceCheck('arrow-wobble', false);
 		preferenceCheck('new-ui', false);
 		preferenceCheck('interpolation', false);
+		preferenceCheck('opponent-note-glow', false);
 
 		#if muted
 		setPref('master-volume', 0);

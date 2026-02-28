@@ -2089,7 +2089,7 @@ class PlayState extends MusicBeatState
 		if (PreferencesMenu.getPref('new-ui'))
 			scoreTxt.text = "Score: " + displayedScore + " | Misses: " + misses + " | Accuracy: " + truncateFloat(accuracy, 2) + "%";
 		else
-			scoreTxt.text = "Score:" + songScore;
+			scoreTxt.text = "Score:" + displayedScore;
 
 		// Healthbar effect (only for new UI)
 		if (PreferencesMenu.getPref('new-ui') && PreferencesMenu.getPref('health-bar-warning') && health < 0.35)
@@ -2418,8 +2418,7 @@ class PlayState extends MusicBeatState
 					{
 						if (Math.abs(daNote.noteData) == spr.ID)
 						{
-							// Only animate opponent strums in new UI mode
-							if (PreferencesMenu.getPref('new-ui'))
+							if (PreferencesMenu.getPref('opponent-note-glow'))
 							{
 								spr.animation.play('confirm', true);
 								triggerStrumWobble(spr.ID, opponentStrums, opponentWobbleTweens);

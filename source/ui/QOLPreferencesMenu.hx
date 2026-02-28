@@ -36,6 +36,7 @@ class QOLPreferencesMenu extends ui.OptionsState.Page
 		createPrefItem('Arrow Wobble', 'arrow-wobble', false);
 		createPrefItem('Improved Interface', 'new-ui', false);
 		createPrefItem('Interpolation (HIGH FPS)', 'interpolation', false);
+		createPrefItem('Opponent Note Glow', 'opponent-note-glow', false);
 
 		camFollow = new FlxObject(FlxG.width / 2, 0, 140, 70);
 		if (items != null)
