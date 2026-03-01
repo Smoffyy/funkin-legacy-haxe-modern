@@ -157,6 +157,14 @@ class PlayState extends MusicBeatState
 
 	var defaultCamZoom:Float = 1.05;
 
+	private var fnfcEventIndex:Int     = 0;
+	private var fnfcCamOffsetX:Float   = 0;
+	private var fnfcCamOffsetY:Float   = 0;
+	private var fnfcCamZoomTween:FlxTween = null;
+	private var fnfcBopRate:Int        = 4;
+	private var fnfcBopIntensity:Float = 1.0;
+	private var fnfcUseEventCam:Bool   = false;
+
 	// how big to stretch the pixel art assets
 	public static var daPixelZoom:Float = 6;
 
@@ -1544,6 +1552,14 @@ class PlayState extends MusicBeatState
 		
 		displayHealth = health;
 
+		fnfcEventIndex   = 0;
+		fnfcCamOffsetX   = 0;
+		fnfcCamOffsetY   = 0;
+		fnfcUseEventCam  = false;
+		fnfcBopRate      = 4;
+		fnfcBopIntensity = 1.0;
+		if (fnfcCamZoomTween != null) { fnfcCamZoomTween.cancel(); fnfcCamZoomTween = null; }
+
 		generateStaticArrows(0);
 		generateStaticArrows(1);
 
@@ -2226,10 +2242,20 @@ class PlayState extends MusicBeatState
 
 		if (generatedMusic && SONG.notes[Std.int(curStep / 16)] != null)
 		{
-			cameraRightSide = SONG.notes[Std.int(curStep / 16)].mustHitSection;
+			if (!FNFCLoader.isActive || !fnfcUseEventCam)
+				cameraRightSide = SONG.notes[Std.int(curStep / 16)].mustHitSection;
 
 			cameraMovement();
+
+			if (FNFCLoader.isActive && (fnfcCamOffsetX != 0 || fnfcCamOffsetY != 0))
+			{
+				camFollow.x += fnfcCamOffsetX;
+				camFollow.y += fnfcCamOffsetY;
+			}
 		}
+
+		if (startedCountdown && FNFCLoader.isActive)
+			processFNFCEvents();
 
 		if (camZooming)
 		{
@@ -2847,6 +2873,145 @@ class PlayState extends MusicBeatState
 		}
 	}
 
+	function processFNFCEvents():Void
+	{
+		var events = FNFCLoader.activeEvents;
+		if (events.length == 0) return;
+		var songPos:Float = Conductor.getInterpolatedPosition();
+		while (fnfcEventIndex < events.length)
+		{
+			var ev:Dynamic = events[fnfcEventIndex];
+			if ((ev.t : Float) > songPos) break;
+			fireFNFCEvent(ev);
+			fnfcEventIndex++;
+		}
+	}
+
+	function fireFNFCEvent(ev:Dynamic):Void
+	{
+		var type:String = Std.string(ev.e);
+		var v:Dynamic   = (ev.v != null) ? ev.v : {};
+
+		trace('[FNFC] "$type" at t=${ev.t}ms');
+
+		switch (type)
+		{
+			case "FocusCamera":
+				var charId:Int    = 0;
+				var offsetX:Float = 0;
+				var offsetY:Float = 0;
+
+				if (Std.isOfType(v, Int) || Std.isOfType(v, Float))
+				{
+					charId = Std.int(v);
+				}
+				else
+				{
+					if (Reflect.hasField(v, "char")) charId  = Std.int(Reflect.field(v, "char"));
+					if (Reflect.hasField(v, "x"))    offsetX = Reflect.field(v, "x");
+					if (Reflect.hasField(v, "y"))    offsetY = Reflect.field(v, "y");
+				}
+
+				cameraRightSide = (charId == 0);
+				fnfcCamOffsetX  = offsetX;
+				fnfcCamOffsetY  = offsetY;
+				fnfcUseEventCam = true;
+
+			case "ZoomCamera":
+				var targetZoom:Float    = Reflect.hasField(v, "zoom")     ? Reflect.field(v, "zoom")                   : defaultCamZoom;
+				var durationSteps:Float = Reflect.hasField(v, "duration") ? Reflect.field(v, "duration")               : 0;
+				var easeName:String     = Reflect.hasField(v, "ease")     ? Std.string(Reflect.field(v, "ease"))        : "linear";
+				var easeDir:String      = Reflect.hasField(v, "easeDir")  ? Std.string(Reflect.field(v, "easeDir"))     : "";
+				var mode:String         = Reflect.hasField(v, "mode")     ? Std.string(Reflect.field(v, "mode"))        : "stage";
+
+				var fullEase:String = easeName;
+				if (easeDir.length > 0 && !easeName.toLowerCase().endsWith(easeDir.toLowerCase()))
+					fullEase = easeName + easeDir;
+
+				if (fnfcCamZoomTween != null) { fnfcCamZoomTween.cancel(); fnfcCamZoomTween = null; }
+
+				if (mode != "direct")
+					defaultCamZoom = targetZoom;
+
+				if (durationSteps <= 0)
+				{
+					FlxG.camera.zoom = targetZoom;
+				}
+				else
+				{
+					var secs:Float = durationSteps * (Conductor.stepCrochet / 1000);
+					fnfcCamZoomTween = FlxTween.tween(FlxG.camera, {zoom: targetZoom}, secs, {ease: getFNFCEase(fullEase)});
+				}
+
+			case "SetCameraBop":
+				if (Reflect.hasField(v, "rate"))
+				{
+					var rate:Int = Std.int(Reflect.field(v, "rate"));
+					fnfcBopRate = (rate > 0) ? rate : 4;
+				}
+				if (Reflect.hasField(v, "intensity"))
+					fnfcBopIntensity = Reflect.field(v, "intensity");
+
+			case "PlayAnimation":
+				var target:String = Reflect.hasField(v, "target") ? Std.string(Reflect.field(v, "target")) : "";
+				var anim:String   = Reflect.hasField(v, "anim")   ? Std.string(Reflect.field(v, "anim"))   : "";
+				var force:Bool    = Reflect.hasField(v, "force")  && (Reflect.field(v, "force") == true);
+				if (anim.length == 0) return;
+				switch (target.toLowerCase())
+				{
+					case "bf" | "player" | "boyfriend": boyfriend.playAnim(anim, force);
+					case "dad" | "opponent":            dad.playAnim(anim, force);
+					case "gf" | "girlfriend":           gf.playAnim(anim, force);
+				}
+
+			case "HideHUD":
+				camHUD.visible = !camHUD.visible;
+
+			default:
+		}
+	}
+
+	function getFNFCEase(name:String):Float->Float
+	{
+		switch (name.toLowerCase())
+		{
+			case "linear":                         return FlxEase.linear;
+			case "classic":                        return FlxEase.linear;
+			case "quadin":                         return FlxEase.quadIn;
+			case "quadout":                        return FlxEase.quadOut;
+			case "quadinout":                      return FlxEase.quadInOut;
+			case "cubein":                         return FlxEase.cubeIn;
+			case "cubeout":                        return FlxEase.cubeOut;
+			case "cubeinout":                      return FlxEase.cubeInOut;
+			case "quartin":                        return FlxEase.quartIn;
+			case "quartout":                       return FlxEase.quartOut;
+			case "quartinout":                     return FlxEase.quartInOut;
+			case "quintin":                        return FlxEase.quintIn;
+			case "quintout":                       return FlxEase.quintOut;
+			case "quintinout":                     return FlxEase.quintInOut;
+			case "sinein":                         return FlxEase.sineIn;
+			case "sineout":                        return FlxEase.sineOut;
+			case "sineinout":                      return FlxEase.sineInOut;
+			case "expo" | "expoin":                return FlxEase.expoIn;
+			case "expoout":                        return FlxEase.expoOut;
+			case "expoinout":                      return FlxEase.expoInOut;
+			case "circin":                         return FlxEase.circIn;
+			case "circout":                        return FlxEase.circOut;
+			case "circinout":                      return FlxEase.circInOut;
+			case "backin":                         return FlxEase.backIn;
+			case "backout":                        return FlxEase.backOut;
+			case "backinout":                      return FlxEase.backInOut;
+			case "elasticin":                      return FlxEase.elasticIn;
+			case "elasticout":                     return FlxEase.elasticOut;
+			case "elasticinout":                   return FlxEase.elasticInOut;
+			case "bouncein":                       return FlxEase.bounceIn;
+			case "bounceout":                      return FlxEase.bounceOut;
+			case "bounceinout":                    return FlxEase.bounceInOut;
+			case "smoothstep" | "smoothstepinout": return FlxEase.smoothStepInOut;
+			default:                               return FlxEase.linear;
+		}
+	}
+
 	var cameraRightSide:Bool = false;
 
 	function cameraMovement()
@@ -3364,10 +3529,13 @@ class PlayState extends MusicBeatState
 				camHUD.zoom += 0.03;
 			}
 
-			if (camZooming && FlxG.camera.zoom < 1.35 && curBeat % 4 == 0)
+			var bopRate:Int        = FNFCLoader.isActive ? fnfcBopRate      : 4;
+			var bopIntensity:Float = FNFCLoader.isActive ? fnfcBopIntensity : 1.0;
+
+			if (camZooming && FlxG.camera.zoom < 1.35 && bopIntensity > 0 && curBeat % bopRate == 0)
 			{
-				FlxG.camera.zoom += 0.015;
-				camHUD.zoom += 0.03;
+				FlxG.camera.zoom += 0.015 * bopIntensity;
+				camHUD.zoom += 0.03 * bopIntensity;
 			}
 		}
 

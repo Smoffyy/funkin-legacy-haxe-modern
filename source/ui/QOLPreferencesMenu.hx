@@ -6,6 +6,7 @@ import flixel.FlxObject;
 import flixel.FlxSprite;
 import flixel.group.FlxGroup;
 import flixel.util.FlxColor;
+import flixel.util.FlxTimer;
 import ui.AtlasText.AtlasFont;
 import ui.TextMenuList.TextMenuItem;
 import ui.CheckboxThingie;
@@ -103,18 +104,22 @@ class QOLPreferencesMenu extends ui.OptionsState.Page
 		// Handle interpolation framerate change
 		if (prefName == 'interpolation')
 		{
-			if (PreferencesMenu.preferences.get('interpolation'))
+			new FlxTimer().start(0.05, function(timer:FlxTimer)
 			{
-				FlxG.updateFramerate = 360;
-				FlxG.drawFramerate = 360;
-				trace('Framerate set to 360 FPS');
-			}
-			else
-			{
-				FlxG.updateFramerate = 60;
-				FlxG.drawFramerate = 60;
-				trace('Framerate set to 60 FPS');
-			}
+				if (PreferencesMenu.preferences.get('interpolation'))
+				{
+					FlxG.updateFramerate = 360;
+					FlxG.drawFramerate = 360;
+					trace('Framerate set to 360 FPS (High FPS mode)');
+				}
+				else
+				{
+					// Classic mode
+					FlxG.updateFramerate = 60;
+					FlxG.drawFramerate = 60;
+					trace('Framerate set to 60 FPS (Classic mode)');
+				}
+			});
 		}
 	}
 

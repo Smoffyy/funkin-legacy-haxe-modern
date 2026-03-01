@@ -72,6 +72,9 @@ class FNFCLoader
 	/** Song artist from metadata. */
 	public static var activeSongArtist:String = "";
 
+	/** All chart events sorted ascending by timestamp, for runtime playback. */
+	public static var activeEvents:Array<Dynamic> = [];
+
 	// Internal zip entry cache — avoids re-reading the archive on every call.
 	static var zipCache:Map<String, List<Entry>> = new Map();
 
@@ -125,6 +128,18 @@ class FNFCLoader
 				activeCharter = Std.string(metaJson.charter);
 			if (metaJson.artist != null)
 				activeSongArtist = Std.string(metaJson.artist);
+		}
+
+		activeEvents = [];
+		if (chartJson.events != null)
+		{
+			var all:Array<Dynamic> = cast chartJson.events;
+			activeEvents = all.copy();
+			activeEvents.sort(function(a:Dynamic, b:Dynamic):Int {
+				var ta:Float = a.t; var tb:Float = b.t;
+				if (ta < tb) return -1; if (ta > tb) return 1; return 0;
+			});
+			trace('[FNFCLoader] Stored ${activeEvents.length} chart events for runtime playback.');
 		}
 
 		return convertToSwagSong(id, metaJson, chartJson, chartKey);
@@ -295,9 +310,12 @@ class FNFCLoader
 	 */
 	public static function reset():Void
 	{
-		isActive        = false;
-		activeSongId    = "";
-		activeVariation = "";
+		isActive         = false;
+		activeSongId     = "";
+		activeVariation  = "";
+		activeCharter    = "";
+		activeSongArtist = "";
+		activeEvents     = [];
 		zipCache.clear();
 		trace("[FNFCLoader] Cache cleared.");
 	}
