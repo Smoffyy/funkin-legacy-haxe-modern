@@ -32,12 +32,12 @@ class QOLPreferencesMenu extends ui.OptionsState.Page
 
 		// Quality of Life preferences
 		createPrefItem("New Input (Ghost Tapping)", "new-input", false);
+		createPrefItem('Interpolation (HIGH FPS)', 'interpolation', true);
+		createPrefItem('Improved Interface', 'new-ui', false);
+		createPrefItem('Opponent Note Glow', 'opponent-note-glow', false);
 		createPrefItem('Screen Shake on Miss', 'screen-shake-miss', false);
 		createPrefItem('Health Bar Warning', 'health-bar-warning', true);
 		createPrefItem('Arrow Wobble', 'arrow-wobble', false);
-		createPrefItem('Improved Interface', 'new-ui', false);
-		createPrefItem('Interpolation (HIGH FPS)', 'interpolation', false);
-		createPrefItem('Opponent Note Glow', 'opponent-note-glow', false);
 
 		camFollow = new FlxObject(FlxG.width / 2, 0, 140, 70);
 		if (items != null)
@@ -104,7 +104,7 @@ class QOLPreferencesMenu extends ui.OptionsState.Page
 		// Handle interpolation framerate change
 		if (prefName == 'interpolation')
 		{
-			new FlxTimer().start(0.05, function(timer:FlxTimer)
+			new FlxTimer().start(0.1, function(timer:FlxTimer)
 			{
 				if (PreferencesMenu.preferences.get('interpolation'))
 				{

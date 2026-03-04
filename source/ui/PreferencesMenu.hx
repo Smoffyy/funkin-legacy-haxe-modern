@@ -85,7 +85,7 @@ class PreferencesMenu extends ui.OptionsState.Page
 		preferenceCheck('health-bar-warning', false);
 		preferenceCheck('arrow-wobble', false);
 		preferenceCheck('new-ui', false);
-		preferenceCheck('interpolation', false);
+		preferenceCheck('interpolation', true);
 		preferenceCheck('opponent-note-glow', false);
 
 		#if muted
@@ -155,7 +155,7 @@ class PreferencesMenu extends ui.OptionsState.Page
 			case 'auto-pause':
 				FlxG.autoPause = getPref('auto-pause');
 			case 'interpolation':
-				new FlxTimer().start(0.05, function(timer:FlxTimer)
+				new FlxTimer().start(0.1, function(timer:FlxTimer)
 				{
 					if (getPref('interpolation'))
 					{
