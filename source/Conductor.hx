@@ -50,6 +50,13 @@ class Conductor
 		interpolationStarted = false;
 	}
 
+	public static function resetInterpolation():Void
+	{
+		lastAudioTime = 0;
+		lastFrameTime = 0;
+		interpolationStarted = false;
+	}
+
 	public static function getInterpolatedPosition():Float
 	{
 		// Check if interpolation is enabled in preferences
@@ -78,8 +85,7 @@ class Conductor
 			// Calculate time elapsed since last audio update
 			var timeSinceLastUpdate:Float = currentTimer - lastFrameTime;
 			
-			// Safety check: if too much time has passed, something went wrong - resync
-			if (timeSinceLastUpdate > 2000)
+			if (timeSinceLastUpdate > 2000 || timeSinceLastUpdate < 0)
 			{
 				lastAudioTime = currentMusicTime;
 				lastFrameTime = currentTimer;
@@ -87,7 +93,22 @@ class Conductor
 			}
 			
 			// Return interpolated position
-			return lastAudioTime + timeSinceLastUpdate;
+			var interpolatedPos:Float = lastAudioTime + timeSinceLastUpdate;
+			
+			// If we're more than 100ms off, resync immediately
+			if (Math.abs(interpolatedPos - currentMusicTime) > 100)
+			{
+				lastAudioTime = currentMusicTime;
+				lastFrameTime = currentTimer;
+				return currentMusicTime;
+			}
+			
+			return interpolatedPos;
+		}
+		else
+		{
+			// Music is not playing - reset interpolation state
+			resetInterpolation();
 		}
 		
 		// Fallback to songPosition when music isn't playing

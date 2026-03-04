@@ -1951,6 +1951,9 @@ class PlayState extends MusicBeatState
 
 			if (!startTimer.finished)
 				startTimer.active = false;
+			
+			// Reset interpolation
+			Conductor.resetInterpolation();
 		}
 
 		super.openSubState(SubState);
@@ -1966,6 +1969,9 @@ class PlayState extends MusicBeatState
 			if (!startTimer.finished)
 				startTimer.active = true;
 			paused = false;
+			
+			// Reset interpolation
+			Conductor.resetInterpolation();
 
 			#if discord_rpc
 			if (startTimer.finished)
@@ -2010,6 +2016,9 @@ class PlayState extends MusicBeatState
 		if (opponentVocals != null) opponentVocals.pause();
 		FlxG.sound.music.play();
 		Conductor.songPosition = FlxG.sound.music.time + Conductor.offset;
+		
+		// Reset interpolation
+		Conductor.resetInterpolation();
 
 		if (vocalsFinished)
 			return;
