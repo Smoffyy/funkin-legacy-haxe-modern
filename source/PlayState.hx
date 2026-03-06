@@ -2679,6 +2679,8 @@ class PlayState extends MusicBeatState
 		{
 			trace('WENT BACK TO FREEPLAY??');
 			FNFCLoader.reset();
+			vocals.stop();
+			if (opponentVocals != null) opponentVocals.stop();
 			FlxG.switchState(()->new FreeplayState());
 		}
 	}
@@ -3657,9 +3659,30 @@ class PlayState extends MusicBeatState
 	 */
 	override public function destroy():Void
 	{
-		// Clear caches when leaving play state to free memory
 		AssetCacheManager.clearBitmapCache();
 		Conductor.clearBPMCache();
+
+		if (vocals != null)
+		{
+			vocals.stop();
+			vocals.destroy();
+			vocals = null;
+		}
+		if (opponentVocals != null)
+		{
+			opponentVocals.stop();
+			opponentVocals.destroy();
+			opponentVocals = null;
+		}
+		if (trainSound != null)
+		{
+			trainSound.stop();
+			trainSound.destroy();
+			trainSound = null;
+		}
+		if (FlxG.sound.music != null)
+			FlxG.sound.music.stop();
+
 		super.destroy();
 	}
 }

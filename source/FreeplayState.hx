@@ -57,6 +57,9 @@ class FreeplayState extends MusicBeatState
     private var currentPreloadIndex:Int = 0;
     private var isPreloading:Bool = false;
 
+    private var _pendingSound:Sound = null;
+    private var _pendingSeekMs:Float = 0;
+
     override function create()
     {
         #if discord_rpc
@@ -169,6 +172,20 @@ class FreeplayState extends MusicBeatState
     override function update(elapsed:Float)
     {
         super.update(elapsed);
+
+        if (_pendingSound != null)
+        {
+            var snd = _pendingSound;
+            var seekMs = _pendingSeekMs;
+            _pendingSound = null;
+            _pendingSeekMs = 0;
+            FlxG.sound.playMusic(snd, 0);
+            if (seekMs > 0 && FlxG.sound.music != null)
+            {
+                var maxMs:Float = FlxG.sound.music.length - 100;
+                FlxG.sound.music.time = Math.min(seekMs, maxMs > 0 ? maxMs : 0);
+            }
+        }
 
         if (FlxG.sound.music != null)
         {
@@ -300,13 +317,8 @@ class FreeplayState extends MusicBeatState
                     || curDifficulty != diff)
                     return;
 
-                FlxG.sound.playMusic(instSound, 0);
-
-                if (seekMs > 0 && FlxG.sound.music != null)
-                {
-                    var maxMs:Float = FlxG.sound.music.length - 100;
-                    FlxG.sound.music.time = Math.min(seekMs, maxMs > 0 ? maxMs : 0);
-                }
+                _pendingSeekMs = seekMs;
+                _pendingSound = instSound;
             }
             catch (e:Dynamic)
             {
