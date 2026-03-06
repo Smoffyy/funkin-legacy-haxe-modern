@@ -8,20 +8,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Note wobble (toggle)
 - Bot play for debug
-- .fnfc SUPPORTT as well as keeping original legacy support. ⭐
+- .fnfc support as well as keeping original legacy support ⭐
 - Song Credits Display for .fnfc files
+- Framerate selector in Quality of Life Prefs — choose from 30, 60, 75, 120, 144, 180, 240, 300, or 360 FPS ⭐
+- High framerate audio interpolation — note scroll position is extrapolated from the OS clock between audio buffer ticks for smooth, accurate note movement at any framerate
+- `Conductor.refreshInterpolationPref()` — cached preference flag so framerate mode is not looked up every frame
+- BPM map caching in `Conductor` — song BPM change maps are computed once and reused on replay
+- Framerate changes now apply instantly in settings without restarting the game
 
 ### Changed
 - Optimized entire PlayState.hx, note logic, and more!
-- Revamped alot of scripts, ensuring compatibility between both legacy and new versions
-- Legacy UI is default, (changeable in settings)
-- Seperated new settings under **Quality Of Life Prefs** ⭐
-- Interpolation is default on
+- Revamped a lot of scripts, ensuring compatibility between both legacy and new versions
+- Legacy UI is default (changeable in settings)
+- Separated new settings under **Quality Of Life Prefs** ⭐
+- Renamed "Interpolation" setting to **Framerate** — now a left/right selector instead of a toggle
+- Framerate is now applied at all three layers: `FlxG.updateFramerate`, `FlxG.drawFramerate`, and `lime` window frame rate, preventing FPS fluctuation
+- `applyFramerate()` sets update before draw when going up, and draw before update when going down — eliminates the Flixel draw framerate warning
+- Interpolation state resets cleanly when switching to 60 FPS or starting a new song
 
 ### Fixed
 - Fixed low framerate NoteSplash effect
 - Freeplay cache loading
 - Sustain note gap
+- Fixed framerate selector showing `##F FPS` instead of the number (wrong atlas font for digit glyphs)
+- Fixed checkbox indices being offset for all items after the Framerate row
+- Fixed arrow keys not working on the Framerate selector after returning from a song (Controls system consuming keys before the selector could read them)
+- Fixed Flixel warning "draw framerate should not be smaller than update framerate" when toggling framerate in settings
+- Fixed game crash on launch caused by `applyFramerate` being called before `FlxGame` was initialized
 
 ## [1.0.1] - 2026-02-13 (Haxe Modern Edition)
 ### Added

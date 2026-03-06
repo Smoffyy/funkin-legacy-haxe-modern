@@ -37,13 +37,13 @@ class QOLPreferencesMenu extends ui.OptionsState.Page
 
 		add(items = new TextMenuList());
 
-		createFramerateItem();
 		createPrefItem("New Input (Ghost Tapping)", "new-input", false);
 		createPrefItem('Improved Interface', 'new-ui', false);
 		createPrefItem('Opponent Note Glow', 'opponent-note-glow', false);
 		createPrefItem('Screen Shake on Miss', 'screen-shake-miss', false);
 		createPrefItem('Health Bar Warning', 'health-bar-warning', true);
 		createPrefItem('Arrow Wobble', 'arrow-wobble', false);
+		createFramerateItem();
 
 		camFollow = new FlxObject(FlxG.width / 2, 0, 140, 70);
 		if (items != null)
@@ -74,6 +74,8 @@ class QOLPreferencesMenu extends ui.OptionsState.Page
 			fpsOptionIndex = (fpsOptionIndex + 1) % FPS_OPTIONS.length;
 			applyFpsOption();
 		}, true);
+
+		checkboxes.push(null);
 	}
 
 	function framerateLabel():String
@@ -128,14 +130,14 @@ class QOLPreferencesMenu extends ui.OptionsState.Page
 		var daSwap:Bool = PreferencesMenu.preferences.get(prefName);
 		daSwap = !daSwap;
 		PreferencesMenu.preferences.set(prefName, daSwap);
-		checkboxes[items.selectedIndex].daValue = daSwap;
+		var cb = checkboxes[items.selectedIndex];
+		if (cb != null)
+			cb.daValue = daSwap;
 	}
 
 	override function update(elapsed:Float)
 	{
-		super.update(elapsed);
-
-		if (items.selectedIndex == fpsItemIndex)
+		if (enabled && items.selectedIndex == fpsItemIndex)
 		{
 			var left = FlxG.keys.justPressed.LEFT;
 			var right = FlxG.keys.justPressed.RIGHT;
@@ -166,6 +168,8 @@ class QOLPreferencesMenu extends ui.OptionsState.Page
 				applyFpsOption();
 			}
 		}
+
+		super.update(elapsed);
 
 		items.forEach(function(daItem:TextMenuItem)
 		{
