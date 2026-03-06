@@ -148,6 +148,7 @@ class Note extends FlxSprite
 		{
 			noteScore * 0.2;
 			alpha = 0.6;
+			antialiasing = false;
 
 			if (PreferencesMenu.getPref('downscroll'))
 				angle = 180;
@@ -188,6 +189,7 @@ class Note extends FlxSprite
 				}
 
 				prevNote.scale.y *= Conductor.stepCrochet / 100 * 1.5 * PlayState.SONG.speed;
+				prevNote.scale.y += 0.02;
 				prevNote.updateHitbox();
 				// prevNote.setGraphicSize();
 			}
