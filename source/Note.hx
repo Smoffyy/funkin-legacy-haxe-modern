@@ -207,8 +207,13 @@ class Note extends FlxSprite
 
 		if (mustPress)
 		{
-			// miss on the NEXT frame so lag doesnt make u miss notes
-			if (willMiss && !wasGoodHit)
+			if (wasGoodHit)
+			{
+				canBeHit = false;
+				tooLate = false;
+				willMiss = false;
+			}
+			else if (willMiss)
 			{
 				tooLate = true;
 				canBeHit = false;
@@ -216,12 +221,10 @@ class Note extends FlxSprite
 			else
 			{
 				var songPos:Float = Conductor.getInterpolatedPosition();
-				if (strumTime > songPos - Conductor.safeZoneOffset)
-				{ // The * 0.5 is so that it's easier to hit them too late, instead of too early
-					if (strumTime < songPos + (Conductor.safeZoneOffset * 0.5))
-						canBeHit = true;
-				}
-				else
+				var diff:Float = songPos - strumTime;
+				if (diff < Conductor.safeZoneOffset && strumTime < songPos + Conductor.safeZoneOffset)
+					canBeHit = true;
+				if (diff >= Conductor.safeZoneOffset)
 				{
 					canBeHit = true;
 					willMiss = true;

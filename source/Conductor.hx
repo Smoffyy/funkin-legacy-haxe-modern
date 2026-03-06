@@ -73,7 +73,7 @@ class Conductor
 			var currentMusicTime:Float = FlxG.sound.music.time;
 			var currentTimer:Float = Lib.getTimer();
 			
-			// Initialize interpolation on first music update
+			// Sync audio anchor whenever the audio clock ticks forward
 			if (!interpolationStarted || currentMusicTime != lastAudioTime)
 			{
 				lastAudioTime = currentMusicTime;
@@ -82,21 +82,16 @@ class Conductor
 				return currentMusicTime;
 			}
 			
-			// Calculate time elapsed since last audio update
 			var timeSinceLastUpdate:Float = currentTimer - lastFrameTime;
 			
-			if (timeSinceLastUpdate > 2000 || timeSinceLastUpdate < 0)
-			{
-				lastAudioTime = currentMusicTime;
-				lastFrameTime = currentTimer;
-				return currentMusicTime;
-			}
+			// Sanity clamp: never extrapolate more than one audio callback period (~22ms)
+			if (timeSinceLastUpdate < 0 || timeSinceLastUpdate > 22)
+				timeSinceLastUpdate = 0;
 			
-			// Return interpolated position
 			var interpolatedPos:Float = lastAudioTime + timeSinceLastUpdate;
 			
-			// If we're more than 100ms off, resync immediately
-			if (Math.abs(interpolatedPos - currentMusicTime) > 100)
+			// Hard resync if we drift more than 50ms from real audio time
+			if (Math.abs(interpolatedPos - currentMusicTime) > 50)
 			{
 				lastAudioTime = currentMusicTime;
 				lastFrameTime = currentTimer;

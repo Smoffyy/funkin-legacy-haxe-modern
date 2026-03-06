@@ -3168,14 +3168,14 @@ class PlayState extends MusicBeatState
 					{
 						for (coolNote in possibleNotes)
 						{
-							if (coolNote.noteData == daNote.noteData && Math.abs(daNote.strumTime - coolNote.strumTime) < 10)
-							{ // if it's the same note twice at < 10ms distance, just delete it
-								// EXCEPT u cant delete it in this loop cuz it fucks with the collection lol
+							if (coolNote.noteData != daNote.noteData) continue;
+							if (Math.abs(daNote.strumTime - coolNote.strumTime) < 10)
+							{
 								dumbNotes.push(daNote);
 								break;
 							}
-							else if (coolNote.noteData == daNote.noteData && daNote.strumTime < coolNote.strumTime)
-							{ // if daNote is earlier than existing note (coolNote), replace
+							if (daNote.strumTime < coolNote.strumTime)
+							{
 								possibleNotes.remove(coolNote);
 								possibleNotes.push(daNote);
 								break;
