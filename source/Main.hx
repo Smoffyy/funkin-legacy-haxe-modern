@@ -89,17 +89,9 @@ class Main extends Sprite
 		initialState = TitleState;
 		#end
 
-		// Interpolation stuff
 		ui.PreferencesMenu.initPrefs();
 		
-		if (ui.PreferencesMenu.getPref('interpolation'))
-		{
-			framerate = 360; // High FPS mode
-		}
-		else
-		{
-			framerate = 60;
-		}
+		framerate = ui.PreferencesMenu.getPref('framerate');
 
 		addChild(new FlxGame(
 			gameWidth,

@@ -6,18 +6,25 @@ import flixel.FlxObject;
 import flixel.FlxSprite;
 import flixel.group.FlxGroup;
 import flixel.util.FlxColor;
-import flixel.util.FlxTimer;
 import ui.AtlasText.AtlasFont;
 import ui.TextMenuList.TextMenuItem;
 import ui.CheckboxThingie;
 
 class QOLPreferencesMenu extends ui.OptionsState.Page
 {
-	var items:TextMenuList;
+	static final FPS_OPTIONS:Array<Int> = [30, 60, 75, 120, 144, 180, 240, 300, 360];
 
+	var items:TextMenuList;
 	var checkboxes:Array<CheckboxThingie> = [];
 	var menuCamera:FlxCamera;
 	var camFollow:FlxObject;
+
+	var fpsOptionIndex:Int = 0;
+	var fpsItemIndex:Int = -1;
+	var fpsItem:TextMenuItem;
+
+	var inputHoldTimer:Float = 0;
+	static inline final INPUT_REPEAT_DELAY:Float = 0.15;
 
 	public function new()
 	{
@@ -30,9 +37,8 @@ class QOLPreferencesMenu extends ui.OptionsState.Page
 
 		add(items = new TextMenuList());
 
-		// Quality of Life preferences
+		createFramerateItem();
 		createPrefItem("New Input (Ghost Tapping)", "new-input", false);
-		createPrefItem('Interpolation (HIGH FPS)', 'interpolation', true);
 		createPrefItem('Improved Interface', 'new-ui', false);
 		createPrefItem('Opponent Note Glow', 'opponent-note-glow', false);
 		createPrefItem('Screen Shake on Miss', 'screen-shake-miss', false);
@@ -54,9 +60,38 @@ class QOLPreferencesMenu extends ui.OptionsState.Page
 		});
 	}
 
+	function createFramerateItem():Void
+	{
+		var savedFps:Int = PreferencesMenu.getPref('framerate');
+		fpsOptionIndex = FPS_OPTIONS.indexOf(savedFps);
+		if (fpsOptionIndex < 0)
+			fpsOptionIndex = 0;
+
+		fpsItemIndex = items.length;
+
+		fpsItem = items.createItem(120, (120 * items.length) + 30, framerateLabel(), AtlasFont.Default, function()
+		{
+			fpsOptionIndex = (fpsOptionIndex + 1) % FPS_OPTIONS.length;
+			applyFpsOption();
+		}, true);
+	}
+
+	function framerateLabel():String
+	{
+		return 'Framerate: ' + FPS_OPTIONS[fpsOptionIndex] + ' FPS';
+	}
+
+	function applyFpsOption():Void
+	{
+		var fps:Int = FPS_OPTIONS[fpsOptionIndex];
+		PreferencesMenu.setPref('framerate', fps);
+		PreferencesMenu.applyFramerate(fps);
+		if (fpsItem != null)
+			fpsItem.setItem(framerateLabel());
+	}
+
 	private function createPrefItem(prefName:String, prefString:String, prefValue:Dynamic):Void
 	{
-		// Pass fireInstantly: true directly to createItem for instant, non-blocking response
 		items.createItem(120, (120 * items.length) + 30, prefName, AtlasFont.Bold, function()
 		{
 			PreferencesMenu.preferenceCheck(prefString, prefValue);
@@ -69,7 +104,7 @@ class QOLPreferencesMenu extends ui.OptionsState.Page
 				default:
 					trace('swag');
 			}
-		}, true); // fireInstantly = true
+		}, true);
 
 		switch (Type.typeof(prefValue).getName())
 		{
@@ -79,8 +114,6 @@ class QOLPreferencesMenu extends ui.OptionsState.Page
 			default:
 				trace('swag');
 		}
-
-		trace(Type.typeof(prefValue).getName());
 	}
 
 	function createCheckbox(prefString:String)
@@ -90,44 +123,49 @@ class QOLPreferencesMenu extends ui.OptionsState.Page
 		add(checkbox);
 	}
 
-	/**
-	 * Assumes that the preference has already been checked/set?
-	 */
 	private function prefToggle(prefName:String)
 	{
 		var daSwap:Bool = PreferencesMenu.preferences.get(prefName);
 		daSwap = !daSwap;
 		PreferencesMenu.preferences.set(prefName, daSwap);
 		checkboxes[items.selectedIndex].daValue = daSwap;
-		trace('toggled? ' + PreferencesMenu.preferences.get(prefName));
-		
-		// Handle interpolation framerate change
-		if (prefName == 'interpolation')
-		{
-			new FlxTimer().start(0.1, function(timer:FlxTimer)
-			{
-				if (PreferencesMenu.preferences.get('interpolation'))
-				{
-					FlxG.updateFramerate = 360;
-					FlxG.drawFramerate = 360;
-					trace('Framerate set to 360 FPS (High FPS mode)');
-				}
-				else
-				{
-					// Classic mode
-					FlxG.updateFramerate = 60;
-					FlxG.drawFramerate = 60;
-					trace('Framerate set to 60 FPS (Classic mode)');
-				}
-			});
-		}
 	}
 
 	override function update(elapsed:Float)
 	{
 		super.update(elapsed);
 
-		// menuCamera.followLerp = CoolUtil.camLerpShit(0.05);
+		if (items.selectedIndex == fpsItemIndex)
+		{
+			var left = FlxG.keys.justPressed.LEFT;
+			var right = FlxG.keys.justPressed.RIGHT;
+
+			inputHoldTimer += elapsed;
+			if (FlxG.keys.pressed.LEFT && inputHoldTimer >= INPUT_REPEAT_DELAY)
+			{
+				left = true;
+				inputHoldTimer = 0;
+			}
+			else if (FlxG.keys.pressed.RIGHT && inputHoldTimer >= INPUT_REPEAT_DELAY)
+			{
+				right = true;
+				inputHoldTimer = 0;
+			}
+
+			if (!FlxG.keys.pressed.LEFT && !FlxG.keys.pressed.RIGHT)
+				inputHoldTimer = 0;
+
+			if (left)
+			{
+				fpsOptionIndex = (fpsOptionIndex - 1 + FPS_OPTIONS.length) % FPS_OPTIONS.length;
+				applyFpsOption();
+			}
+			else if (right)
+			{
+				fpsOptionIndex = (fpsOptionIndex + 1) % FPS_OPTIONS.length;
+				applyFpsOption();
+			}
+		}
 
 		items.forEach(function(daItem:TextMenuItem)
 		{
