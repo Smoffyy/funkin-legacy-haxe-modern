@@ -2358,7 +2358,10 @@ class PlayState extends MusicBeatState
 				break;
 				
 			var dunceNote:Note = unspawnNotes[0];
-			notes.add(dunceNote);
+			if (dunceNote.isSustainNote)
+				notes.insert(0, dunceNote);
+			else
+				notes.add(dunceNote);
 			unspawnNotes.shift();
 		}
 
@@ -2391,7 +2394,7 @@ class PlayState extends MusicBeatState
 						if (daNote.animation.curAnim.name.endsWith("end") && daNote.prevNote != null)
 							daNote.y += daNote.prevNote.height;
 						else
-							daNote.y += daNote.height / 2;
+							daNote.y += (daNote.frameHeight * daNote.scale.y) / 2;
 
 						if ((!daNote.mustPress || (daNote.wasGoodHit || (daNote.prevNote.wasGoodHit && !daNote.canBeHit)))
 							&& daNote.y - daNote.offset.y * daNote.scale.y + daNote.height >= strumLineMid)
@@ -2408,6 +2411,14 @@ class PlayState extends MusicBeatState
 				{
 					var songPos:Float = Conductor.getInterpolatedPosition();
 					daNote.y = (strumLine.y - (songPos - daNote.strumTime) * (0.45 * FlxMath.roundDecimal(SONG.speed, 2)));
+
+					if (daNote.isSustainNote)
+					{
+						if (!daNote.animation.curAnim.name.endsWith("end"))
+							daNote.y -= daNote.height / 2;
+						else if (daNote.prevNote != null)
+							daNote.y -= daNote.prevNote.height / 2;
+					}
 
 					if (daNote.isSustainNote
 						&& (!daNote.mustPress || (daNote.wasGoodHit || (daNote.prevNote.wasGoodHit && !daNote.canBeHit)))
