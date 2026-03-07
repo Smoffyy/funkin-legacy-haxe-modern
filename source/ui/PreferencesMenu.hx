@@ -6,7 +6,6 @@ import flixel.FlxObject;
 import flixel.FlxSprite;
 import flixel.group.FlxGroup;
 import flixel.util.FlxColor;
-import flixel.util.FlxTimer;
 import ui.AtlasText.AtlasFont;
 import ui.TextMenuList.TextMenuItem;
 import ui.CheckboxThingie;
@@ -85,8 +84,8 @@ class PreferencesMenu extends ui.OptionsState.Page
 		preferenceCheck('health-bar-warning', false);
 		preferenceCheck('arrow-wobble', false);
 		preferenceCheck('new-ui', false);
-		preferenceCheck('interpolation', true);
 		preferenceCheck('opponent-note-glow', false);
+		preferenceCheck('framerate', 60);
 
 		#if muted
 		setPref('master-volume', 0);
@@ -97,6 +96,8 @@ class PreferencesMenu extends ui.OptionsState.Page
 			FlxG.stage.removeChild(Main.fpsCounter);
 
 		FlxG.autoPause = getPref('auto-pause');
+
+		Conductor.refreshInterpolationPref();
 	}
 
 	private function createPrefItem(prefName:String, prefString:String, prefValue:Dynamic):Void
@@ -154,25 +155,26 @@ class PreferencesMenu extends ui.OptionsState.Page
 					FlxG.stage.removeChild(Main.fpsCounter);
 			case 'auto-pause':
 				FlxG.autoPause = getPref('auto-pause');
-			case 'interpolation':
-				new FlxTimer().start(0.1, function(timer:FlxTimer)
-				{
-					if (getPref('interpolation'))
-					{
-						FlxG.updateFramerate = 360;
-						FlxG.drawFramerate = 360;
-						trace('Framerate set to 360 FPS (High FPS mode)');
-					}
-					else
-					{
-						FlxG.updateFramerate = 60;
-						FlxG.drawFramerate = 60;
-						trace('Framerate set to 60 FPS (Classic mode)');
-					}
-				});
 		}
+	}
 
-		if (prefName == 'fps-counter') {}
+	public static function applyFramerate(fps:Int):Void
+	{
+		var current:Int = FlxG.updateFramerate;
+		if (fps >= current)
+		{
+			FlxG.updateFramerate = fps;
+			FlxG.drawFramerate = fps;
+		}
+		else
+		{
+			FlxG.drawFramerate = fps;
+			FlxG.updateFramerate = fps;
+		}
+		openfl.Lib.application.window.frameRate = fps;
+		Conductor.refreshInterpolationPref();
+		if (fps <= 60)
+			Conductor.resetInterpolation();
 	}
 
 	override function update(elapsed:Float)
