@@ -2099,6 +2099,12 @@ class PlayState extends MusicBeatState
 				moveTank();
 		}
 
+		// Compute once per frame so all note logic uses the same consistent position
+		Conductor.framePosition = Conductor.getInterpolatedPosition();
+
+		if (!inCutscene)
+			keyShit();
+
 		super.update(elapsed);
 
 		if (displayedScore != songScore)
@@ -2523,6 +2529,14 @@ class PlayState extends MusicBeatState
 						{
 							totalNotes++;
 							accuracy = totalNotes > 0 ? (totalNotesHit / totalNotes) * 100 : 0;
+
+							switch (daNote.noteData)
+							{
+								case 0: boyfriend.playAnim('singLEFTmiss', true);
+								case 1: boyfriend.playAnim('singDOWNmiss', true);
+								case 2: boyfriend.playAnim('singUPmiss', true);
+								case 3: boyfriend.playAnim('singRIGHTmiss', true);
+							}
 						}
 
 						killCombo();
@@ -2538,9 +2552,6 @@ class PlayState extends MusicBeatState
 			});
 		}
 
-		if (!inCutscene)
-			keyShit();
-		
 		// Reset opponent strums animation back to static, finally fixed it holy
 		opponentStrums.forEach(function(spr:FlxSprite)
 		{
@@ -3128,7 +3139,7 @@ class PlayState extends MusicBeatState
 			pressArray = [false, false, false, false];
 			releaseArray = [false, false, false, false];
 
-			var songPos:Float = Conductor.getInterpolatedPosition();
+			var songPos:Float = Conductor.framePosition;
 
 			notes.forEachAlive(function(daNote:Note)
 			{
@@ -3160,9 +3171,13 @@ class PlayState extends MusicBeatState
 			var possibleNotes:Array<Note> = []; // notes that can be hit
 			var directionList:Array<Int> = []; // directions that can be hit
 			var dumbNotes:Array<Note> = []; // notes to kill later
+			var tooLateDirections:Array<Int> = [];
 
 			notes.forEachAlive(function(daNote:Note)
 			{
+				if (daNote.mustPress && !daNote.wasGoodHit && daNote.tooLate)
+					tooLateDirections.push(daNote.noteData);
+
 				if (daNote.canBeHit && daNote.mustPress && !daNote.tooLate && !daNote.wasGoodHit)
 				{
 					if (directionList.contains(daNote.noteData))
@@ -3207,7 +3222,7 @@ class PlayState extends MusicBeatState
 			{
 				for (shit in 0...pressArray.length)
 				{ // if a direction is hit that shouldn't be
-					if (pressArray[shit] && !directionList.contains(shit))
+					if (pressArray[shit] && !directionList.contains(shit) && !tooLateDirections.contains(shit))
 						noteMiss(shit);
 				}
 				for (coolNote in possibleNotes)

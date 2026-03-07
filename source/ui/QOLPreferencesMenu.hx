@@ -37,13 +37,13 @@ class QOLPreferencesMenu extends ui.OptionsState.Page
 
 		add(items = new TextMenuList());
 
+		createFramerateItem();
 		createPrefItem("New Input (Ghost Tapping)", "new-input", false);
 		createPrefItem('Improved Interface', 'new-ui', false);
 		createPrefItem('Opponent Note Glow', 'opponent-note-glow', false);
 		createPrefItem('Screen Shake on Miss', 'screen-shake-miss', false);
 		createPrefItem('Health Bar Warning', 'health-bar-warning', true);
 		createPrefItem('Arrow Wobble', 'arrow-wobble', false);
-		createFramerateItem();
 
 		camFollow = new FlxObject(FlxG.width / 2, 0, 140, 70);
 		if (items != null)

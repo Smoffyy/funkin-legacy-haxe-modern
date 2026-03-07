@@ -20,6 +20,9 @@ class Conductor
 	public static var lastSongPos:Float;
 	public static var offset:Float = 0;
 
+	// Computed once per frame by PlayState, all per-note logic reads this
+	public static var framePosition:Float = 0;
+
 	public static var safeFrames:Int = 10;
 	public static var safeZoneOffset:Float = (safeFrames / 60) * 1000;
 
@@ -42,6 +45,7 @@ class Conductor
 		lastFrameTime = 0;
 		lastSongPos = 0;
 		songPosition = 0;
+		framePosition = 0;
 		interpolationStarted = false;
 		refreshInterpolationPref();
 	}

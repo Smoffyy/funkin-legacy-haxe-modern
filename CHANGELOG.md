@@ -12,9 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Song Credits Display for .fnfc files
 - Framerate selector in Quality of Life Prefs — choose from 30, 60, 75, 120, 144, 180, 240, 300, or 360 FPS ⭐
 - High framerate audio interpolation — note scroll position is extrapolated from the OS clock between audio buffer ticks for smooth, accurate note movement at any framerate
+- `Conductor.framePosition` — interpolated position computed once per frame and shared across all note logic, ensuring every note is evaluated against the same timestamp each frame
 - `Conductor.refreshInterpolationPref()` — cached preference flag so framerate mode is not looked up every frame
 - BPM map caching in `Conductor` — song BPM change maps are computed once and reused on replay
 - Framerate changes now apply instantly in settings without restarting the game
+- Directional miss animations now play when a note is missed without being attempted
 
 ### Changed
 - Optimized entire PlayState.hx, note logic, and more!
@@ -25,6 +27,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Framerate is now applied at all three layers: `FlxG.updateFramerate`, `FlxG.drawFramerate`, and `lime` window frame rate, preventing FPS fluctuation
 - `applyFramerate()` sets update before draw when going up, and draw before update when going down — eliminates the Flixel draw framerate warning
 - Interpolation state resets cleanly when switching to 60 FPS or starting a new song
+- `applyFramerate()` now caps menus to 360 FPS regardless of user setting; `applyGameplayFramerate()` lifts the cap during a song
+- Note hit window now uses `Conductor.framePosition` (interpolated) instead of raw `Conductor.songPosition` — `canBeHit` now matches where notes are visually positioned at high framerates
+- Framerate selector left/right input now respects the player's control bindings instead of hardcoded arrow keys
+- Options menu input no longer blocked during the intro transition
 
 ### Fixed
 - Fixed low framerate NoteSplash effect
@@ -35,6 +41,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed arrow keys not working on the Framerate selector after returning from a song (Controls system consuming keys before the selector could read them)
 - Fixed Flixel warning "draw framerate should not be smaller than update framerate" when toggling framerate in settings
 - Fixed game crash on launch caused by `applyFramerate` being called before `FlxGame` was initialized
+- Fixed note inputs randomly not registering or triggering a miss when the note was hit on time — caused by `keyShit()` running after `Note.update()` had already invalidated `canBeHit` that frame
+- Fixed ghost miss being triggered when pressing a key on the exact frame a note expires (`tooLateDirections` guard)
+- Fixed different notes on the same frame being evaluated against different interpolated positions due to repeated `Lib.getTimer()` calls
+- Fixed Unlimited FPS mode rendering at 1 FPS in gameplay due to `window.frameRate = 0` breaking lime's render present loop on Windows native
+- Fixed gameplay framerate cap not lifting to Unlimited because Flixel resets `updateFramerate`/`drawFramerate` to constructor values during state transitions — `applyGameplayFramerate()` now runs after `super.create()`
 
 ## [1.0.1] - 2026-02-13 (Haxe Modern Edition)
 ### Added

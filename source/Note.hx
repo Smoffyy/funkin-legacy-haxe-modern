@@ -213,18 +213,23 @@ class Note extends FlxSprite
 				tooLate = false;
 				willMiss = false;
 			}
-			else if (willMiss)
+			// willMiss this frame, tooLate next frame
+			// this means input on the very edge frame is never swallowed
+			else if (willMiss && !wasGoodHit)
 			{
 				tooLate = true;
 				canBeHit = false;
 			}
 			else
 			{
-				var songPos:Float = Conductor.getInterpolatedPosition();
-				var diff:Float = songPos - strumTime;
-				if (diff < Conductor.safeZoneOffset && strumTime < songPos + Conductor.safeZoneOffset)
-					canBeHit = true;
-				if (diff >= Conductor.safeZoneOffset)
+				// framePosition is computed once per frame by PlayState, consistent across all notes
+				var songPos:Float = Conductor.framePosition;
+				if (strumTime > songPos - Conductor.safeZoneOffset)
+				{
+					if (strumTime < songPos + (Conductor.safeZoneOffset * 0.35)) // Org 0.5 (testing 0.35)
+						canBeHit = true;
+				}
+				else
 				{
 					canBeHit = true;
 					willMiss = true;
@@ -235,14 +240,7 @@ class Note extends FlxSprite
 		{
 			canBeHit = false;
 
-			// Add safety check to prevent early hits
-			var currentPos:Float = Conductor.getInterpolatedPosition();
-			
-			// Only mark as hit if:
-			// 1. The note's time has passed
-			// 2. The position is positive (music has started)
-			// 3. Position isn't unreasonably large (sanity check)
-			if (strumTime <= currentPos && currentPos >= 0 && currentPos < strumTime + 5000)
+			if (strumTime <= Conductor.framePosition)
 				wasGoodHit = true;
 		}
 

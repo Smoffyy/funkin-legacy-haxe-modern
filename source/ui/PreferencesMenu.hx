@@ -79,13 +79,13 @@ class PreferencesMenu extends ui.OptionsState.Page
 		preferenceCheck('note-splashes', true);
 		
 		// Quality of Life preferences (still need to be initialized)
+		preferenceCheck('framerate', 60);
 		preferenceCheck('new-input', false);
 		preferenceCheck('screen-shake-miss', false);
 		preferenceCheck('health-bar-warning', false);
 		preferenceCheck('arrow-wobble', false);
 		preferenceCheck('new-ui', false);
 		preferenceCheck('opponent-note-glow', false);
-		preferenceCheck('framerate', 60);
 
 		#if muted
 		setPref('master-volume', 0);
