@@ -12,7 +12,7 @@ import ui.CheckboxThingie;
 
 class QOLPreferencesMenu extends ui.OptionsState.Page
 {
-	static final FPS_OPTIONS:Array<Int> = [30, 60, 75, 120, 144, 180, 240, 300, 360];
+	static final FPS_OPTIONS:Array<Int> = [30, 60, 75, 120, 144, 180, 240, 300, 360, 0];
 
 	var items:TextMenuList;
 	var checkboxes:Array<CheckboxThingie> = [];
@@ -38,12 +38,12 @@ class QOLPreferencesMenu extends ui.OptionsState.Page
 		add(items = new TextMenuList());
 
 		createPrefItem("New Input (Ghost Tapping)", "new-input", false);
+		createFramerateItem();
 		createPrefItem('Improved Interface', 'new-ui', false);
 		createPrefItem('Opponent Note Glow', 'opponent-note-glow', false);
 		createPrefItem('Screen Shake on Miss', 'screen-shake-miss', false);
 		createPrefItem('Health Bar Warning', 'health-bar-warning', true);
 		createPrefItem('Arrow Wobble', 'arrow-wobble', false);
-		createFramerateItem();
 
 		camFollow = new FlxObject(FlxG.width / 2, 0, 140, 70);
 		if (items != null)
@@ -80,7 +80,8 @@ class QOLPreferencesMenu extends ui.OptionsState.Page
 
 	function framerateLabel():String
 	{
-		return 'Framerate: ' + FPS_OPTIONS[fpsOptionIndex] + ' FPS';
+		var fps:Int = FPS_OPTIONS[fpsOptionIndex];
+		return 'Framerate: ' + (fps == 0 ? 'Unlimited' : fps + ' FPS');
 	}
 
 	function applyFpsOption():Void

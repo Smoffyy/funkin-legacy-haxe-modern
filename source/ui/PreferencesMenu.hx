@@ -84,8 +84,8 @@ class PreferencesMenu extends ui.OptionsState.Page
 		preferenceCheck('health-bar-warning', false);
 		preferenceCheck('arrow-wobble', false);
 		preferenceCheck('new-ui', false);
-		preferenceCheck('opponent-note-glow', false);
 		preferenceCheck('framerate', 60);
+		preferenceCheck('opponent-note-glow', false);
 
 		#if muted
 		setPref('master-volume', 0);
@@ -160,21 +160,48 @@ class PreferencesMenu extends ui.OptionsState.Page
 
 	public static function applyFramerate(fps:Int):Void
 	{
+		// never exceed 360 in menus regardless of user setting
+		var menuFps:Int = (fps == 0) ? 360 : Std.int(Math.min(fps, 360));
 		var current:Int = FlxG.updateFramerate;
-		if (fps >= current)
+		if (menuFps >= current)
 		{
-			FlxG.updateFramerate = fps;
-			FlxG.drawFramerate = fps;
+			FlxG.updateFramerate = menuFps;
+			FlxG.drawFramerate = menuFps;
 		}
 		else
 		{
-			FlxG.drawFramerate = fps;
-			FlxG.updateFramerate = fps;
+			FlxG.drawFramerate = menuFps;
+			FlxG.updateFramerate = menuFps;
 		}
-		openfl.Lib.application.window.frameRate = fps;
+		openfl.Lib.application.window.frameRate = menuFps;
 		Conductor.refreshInterpolationPref();
-		if (fps <= 60)
+		if (menuFps <= 60)
 			Conductor.resetInterpolation();
+	}
+
+	public static function applyGameplayFramerate():Void
+	{
+		var fps:Int = getPref('framerate');
+		if (fps == 0)
+		{
+			FlxG.updateFramerate = 960;
+			FlxG.drawFramerate = 960;
+		}
+		else
+		{
+			if (fps >= FlxG.updateFramerate)
+			{
+				FlxG.updateFramerate = fps;
+				FlxG.drawFramerate = fps;
+			}
+			else
+			{
+				FlxG.drawFramerate = fps;
+				FlxG.updateFramerate = fps;
+			}
+			openfl.Lib.application.window.frameRate = fps;
+		}
+		Conductor.refreshInterpolationPref();
 	}
 
 	override function update(elapsed:Float)

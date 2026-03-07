@@ -56,7 +56,8 @@ class Conductor
 	// Call this whenever the framerate pref changes so the cache stays in sync
 	public static function refreshInterpolationPref():Void
 	{
-		_interpolationEnabled = (ui.PreferencesMenu.getPref('framerate') > 60);
+		var fps:Int = ui.PreferencesMenu.getPref('framerate');
+		_interpolationEnabled = (fps == 0 || fps > 60);
 	}
 
 	public static function getInterpolatedPosition():Float

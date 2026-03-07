@@ -90,8 +90,9 @@ class Main extends Sprite
 		#end
 
 		ui.PreferencesMenu.initPrefs();
-		
-		framerate = ui.PreferencesMenu.getPref('framerate');
+
+		var rawFps:Int = ui.PreferencesMenu.getPref('framerate');
+		framerate = (rawFps == 0) ? 360 : Std.int(Math.min(rawFps, 360));
 
 		addChild(new FlxGame(
 			gameWidth,
@@ -102,6 +103,8 @@ class Main extends Sprite
 			skipSplash,
 			startFullscreen
 		));
+
+		openfl.Lib.application.window.frameRate = framerate;
 
 		#if !mobile
 		fpsCounter = new FPS(10, 3, 0xFFFFFF);
