@@ -38,12 +38,12 @@ class QOLPreferencesMenu extends ui.OptionsState.Page
 		add(items = new TextMenuList());
 
 		createPrefItem("New Input (Ghost Tapping)", "new-input", false);
-		createFramerateItem();
 		createPrefItem('Improved Interface', 'new-ui', false);
 		createPrefItem('Opponent Note Glow', 'opponent-note-glow', false);
 		createPrefItem('Screen Shake on Miss', 'screen-shake-miss', false);
 		createPrefItem('Health Bar Warning', 'health-bar-warning', true);
 		createPrefItem('Arrow Wobble', 'arrow-wobble', false);
+		createFramerateItem();
 
 		camFollow = new FlxObject(FlxG.width / 2, 0, 140, 70);
 		if (items != null)
@@ -140,22 +140,22 @@ class QOLPreferencesMenu extends ui.OptionsState.Page
 	{
 		if (enabled && items.selectedIndex == fpsItemIndex)
 		{
-			var left = FlxG.keys.justPressed.LEFT;
-			var right = FlxG.keys.justPressed.RIGHT;
+			var left = controls.UI_LEFT_P;
+			var right = controls.UI_RIGHT_P;
 
 			inputHoldTimer += elapsed;
-			if (FlxG.keys.pressed.LEFT && inputHoldTimer >= INPUT_REPEAT_DELAY)
+			if (controls.UI_LEFT && inputHoldTimer >= INPUT_REPEAT_DELAY)
 			{
 				left = true;
 				inputHoldTimer = 0;
 			}
-			else if (FlxG.keys.pressed.RIGHT && inputHoldTimer >= INPUT_REPEAT_DELAY)
+			else if (controls.UI_RIGHT && inputHoldTimer >= INPUT_REPEAT_DELAY)
 			{
 				right = true;
 				inputHoldTimer = 0;
 			}
 
-			if (!FlxG.keys.pressed.LEFT && !FlxG.keys.pressed.RIGHT)
+			if (!controls.UI_LEFT && !controls.UI_RIGHT)
 				inputHoldTimer = 0;
 
 			if (left)

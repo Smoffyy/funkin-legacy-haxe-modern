@@ -84,8 +84,8 @@ class PreferencesMenu extends ui.OptionsState.Page
 		preferenceCheck('health-bar-warning', false);
 		preferenceCheck('arrow-wobble', false);
 		preferenceCheck('new-ui', false);
-		preferenceCheck('framerate', 60);
 		preferenceCheck('opponent-note-glow', false);
+		preferenceCheck('framerate', 60);
 
 		#if muted
 		setPref('master-volume', 0);
@@ -184,8 +184,8 @@ class PreferencesMenu extends ui.OptionsState.Page
 		var fps:Int = getPref('framerate');
 		if (fps == 0)
 		{
-			FlxG.updateFramerate = 960;
-			FlxG.drawFramerate = 960;
+			FlxG.updateFramerate = 999;
+			FlxG.drawFramerate = 999;
 		}
 		else
 		{

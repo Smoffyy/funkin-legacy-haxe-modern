@@ -57,8 +57,7 @@ class OptionsState extends MusicBeatState
 			setPage(Controls);
 		}
 
-		// disable for intro transition
-		currentPage.enabled = false;
+		currentPage.enabled = true;
 		super.create();
 	}
 
