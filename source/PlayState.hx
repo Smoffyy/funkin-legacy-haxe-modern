@@ -1013,6 +1013,7 @@ class PlayState extends MusicBeatState
 		} 
 
 		super.create();
+		ui.PreferencesMenu.applyGameplayFramerate();
 	}
 
 	function ughIntro()
@@ -3703,6 +3704,7 @@ class PlayState extends MusicBeatState
 		if (FlxG.sound.music != null)
 			FlxG.sound.music.stop();
 
+		ui.PreferencesMenu.applyFramerate(ui.PreferencesMenu.getPref('framerate'));
 		super.destroy();
 	}
 }
