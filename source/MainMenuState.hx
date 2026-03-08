@@ -122,17 +122,57 @@ class MainMenuState extends MusicBeatState
         FlxG.cameras.reset(new SwagCamera());
         FlxG.camera.follow(camFollow, null, 0.06);
 
-		var versionShit:FlxText = new FlxText(5, FlxG.height - 35, 0, "v" + Application.current.meta.get('version') + " Legacy Modern", 12);
-		versionShit.scrollFactor.set();
-		versionShit.setFormat("VCR OSD Mono", 16, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
-		add(versionShit);
-			
-		var legacyText:FlxText = new FlxText(5, FlxG.height - 18, 0, "Funkin' (v0.2.8)", 12);
-		legacyText.scrollFactor.set();
-		legacyText.setFormat("VCR OSD Mono", 16, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
-		add(legacyText);
+		// Version badge — dark bg + gold left accent + two-line text
+		var modVer:String  = "v" + Application.current.meta.get('version') + " Legacy Modern";
+		var baseVer:String = "Base: Funkin' v0.2.8";
 
-		// First-visit hint
+		// Measure text first so bg can be sized correctly
+		var vModText:FlxText = new FlxText(0, 0, 0, modVer, 16);
+		vModText.setFormat("VCR OSD Mono", 16, 0xFFFFD700, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+
+		var vBaseText:FlxText = new FlxText(0, 0, 0, baseVer, 11);
+		vBaseText.setFormat("VCR OSD Mono", 11, 0xFFAAAAAA, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+
+		var padX:Int  = 12;
+		var padY:Int  = 8;
+		var accentW:Int = 4;
+		var badgeW:Int  = Std.int(Math.max(vModText.width, vBaseText.width)) + padX * 2 + accentW;
+		var badgeH:Int  = Std.int(vModText.height + vBaseText.height) + padY * 2 + 4;
+		var badgeX:Int  = 10;
+		var badgeY:Int  = FlxG.height - badgeH - 10;
+
+		// Shadow layer for depth
+		var vShadow:FlxSprite = new FlxSprite(badgeX + 3, badgeY + 3).makeGraphic(badgeW, badgeH, 0x55000000);
+		vShadow.scrollFactor.set();
+		add(vShadow);
+
+		// Main dark background
+		var vBadgeBg:FlxSprite = new FlxSprite(badgeX, badgeY).makeGraphic(badgeW, badgeH, 0xDD111111);
+		vBadgeBg.scrollFactor.set();
+		add(vBadgeBg);
+
+		// Gold left accent bar
+		var vAccent:FlxSprite = new FlxSprite(badgeX, badgeY).makeGraphic(accentW, badgeH, 0xFFFFD700);
+		vAccent.scrollFactor.set();
+		add(vAccent);
+
+		// Thin separator between the two text lines
+		var sepY:Int = badgeY + padY + Std.int(vModText.height) + 2;
+		var vSep:FlxSprite = new FlxSprite(badgeX + accentW + padX, sepY).makeGraphic(badgeW - accentW - padX * 2, 1, 0x44FFFFFF);
+		vSep.scrollFactor.set();
+		add(vSep);
+
+		// Position and add text on top
+		vModText.x  = badgeX + accentW + padX;
+		vModText.y  = badgeY + padY;
+		vBaseText.x = badgeX + accentW + padX;
+		vBaseText.y = sepY + 4;
+		vModText.scrollFactor.set();
+		vBaseText.scrollFactor.set();
+		add(vModText);
+		add(vBaseText);
+
+		// First-visit hint pointing players to QoL settings
 		if (!_shownQolHint)
 		{
 			_shownQolHint = true;
@@ -152,7 +192,7 @@ class MainMenuState extends MusicBeatState
 			label.alpha = 0;
 			add(label);
 
-			var sub:FlxText = new FlxText(0, barY, FlxG.width, "Framerate, ghost tapping, new ui, and more!", 15);
+			var sub:FlxText = new FlxText(0, barY, FlxG.width, "Framerate, ghost tapping, screen shake, and more", 15);
 			sub.scrollFactor.set();
 			sub.setFormat("VCR OSD Mono", 15, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 			sub.y = label.y + label.height + 2;
