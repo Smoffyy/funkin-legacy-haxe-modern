@@ -9,14 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Note wobble (toggle)
 - Bot play for debug
 - .fnfc support as well as keeping original legacy support ⭐
-- Song Credits Display for .fnfc files
-- Framerate selector in Quality of Life Prefs — choose from 30, 60, 75, 120, 144, 180, 240, 300, or 360 FPS ⭐
+- Song Credits Display for .fnfc files (toggleable in Quality of Life Prefs)
+- Framerate selector in Quality of Life Prefs — choose from 30, 60, 75, 120, 144, 180, 240, 300, 360 FPS, or Unlimited ⭐
 - High framerate audio interpolation — note scroll position is extrapolated from the OS clock between audio buffer ticks for smooth, accurate note movement at any framerate
 - `Conductor.framePosition` — interpolated position computed once per frame and shared across all note logic, ensuring every note is evaluated against the same timestamp each frame
 - `Conductor.refreshInterpolationPref()` — cached preference flag so framerate mode is not looked up every frame
 - BPM map caching in `Conductor` — song BPM change maps are computed once and reused on replay
 - Framerate changes now apply instantly in settings without restarting the game
 - Directional miss animations now play when a note is missed without being attempted
+- Note state snapshots — `canBeHit` and `tooLate` are captured before `super.update()` so `keyShit()` always reads stable pre-update note state while inputs are current-frame fresh
+- First-visit tip banner on the main menu pointing new players to Quality of Life Prefs
 
 ### Changed
 - Optimized entire PlayState.hx, note logic, and more!
@@ -31,6 +33,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Note hit window now uses `Conductor.framePosition` (interpolated) instead of raw `Conductor.songPosition` — `canBeHit` now matches where notes are visually positioned at high framerates
 - Framerate selector left/right input now respects the player's control bindings instead of hardcoded arrow keys
 - Options menu input no longer blocked during the intro transition
+- `keyShit()` now runs after `super.update()` so `FlxActionManager` has refreshed all inputs before note hit detection reads them
+- Note hit logic restored to legacy `willMiss` one-frame buffer pattern — `tooLate` is deferred by one frame so edge-frame inputs are never lost
+- `FNFCLoader` fully guarded with `#if sys` — game now compiles for all platforms including HTML5, Web, and any non-sys target; FNFC features gracefully unavailable on unsupported platforms
 
 ### Fixed
 - Fixed low framerate NoteSplash effect
@@ -46,6 +51,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed different notes on the same frame being evaluated against different interpolated positions due to repeated `Lib.getTimer()` calls
 - Fixed Unlimited FPS mode rendering at 1 FPS in gameplay due to `window.frameRate = 0` breaking lime's render present loop on Windows native
 - Fixed gameplay framerate cap not lifting to Unlimited because Flixel resets `updateFramerate`/`drawFramerate` to constructor values during state transitions — `applyGameplayFramerate()` now runs after `super.create()`
+- Fixed framerate selector cycling through only 4 options when going left due to stale compiled binary with old `FPS_OPTIONS` array
+- Fixed framerate selector losing track of position when navigating left — caused by `fireInstantly=true` silently advancing the index on every navigation, and input being read before `FlxActionManager` refreshed controls
+- Fixed `sys.FileSystem` and `sys.io.File` bare imports in `FNFCLoader` causing compile failure on HTML5 and other non-sys targets
 
 ## [1.0.1] - 2026-02-13 (Haxe Modern Edition)
 ### Added
