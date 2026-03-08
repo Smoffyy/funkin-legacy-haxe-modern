@@ -226,7 +226,7 @@ class Note extends FlxSprite
 				var songPos:Float = Conductor.framePosition;
 				if (strumTime > songPos - Conductor.safeZoneOffset)
 				{
-					if (strumTime < songPos + (Conductor.safeZoneOffset * 0.35)) // Org 0.5 (testing 0.35)
+					if (strumTime < songPos + (Conductor.safeZoneOffset * 0.5)) // Org 0.5
 						canBeHit = true;
 				}
 				else
