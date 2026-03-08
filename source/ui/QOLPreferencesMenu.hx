@@ -73,7 +73,7 @@ class QOLPreferencesMenu extends ui.OptionsState.Page
 		{
 			fpsOptionIndex = (fpsOptionIndex + 1) % FPS_OPTIONS.length;
 			applyFpsOption();
-		}, true);
+		}, false);
 
 		checkboxes.push(null);
 	}
@@ -138,6 +138,8 @@ class QOLPreferencesMenu extends ui.OptionsState.Page
 
 	override function update(elapsed:Float)
 	{
+		super.update(elapsed);
+
 		if (enabled && items.selectedIndex == fpsItemIndex)
 		{
 			var left = controls.UI_LEFT_P;
@@ -169,8 +171,10 @@ class QOLPreferencesMenu extends ui.OptionsState.Page
 				applyFpsOption();
 			}
 		}
-
-		super.update(elapsed);
+		else
+		{
+			inputHoldTimer = 0;
+		}
 
 		items.forEach(function(daItem:TextMenuItem)
 		{
