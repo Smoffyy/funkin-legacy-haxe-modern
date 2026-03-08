@@ -1013,7 +1013,6 @@ class PlayState extends MusicBeatState
 		} 
 
 		super.create();
-		ui.PreferencesMenu.applyGameplayFramerate();
 	}
 
 	function ughIntro()
@@ -1573,8 +1572,7 @@ class PlayState extends MusicBeatState
 
 		startTimer.start(Conductor.crochet / 1000, function(tmr:FlxTimer)
 		{
-			// Show credits if loaded from FNFC
-			if (FNFCLoader.isActive && swagCounter == 0)
+			if (FNFCLoader.isActive && swagCounter == 0 && PreferencesMenu.getPref('song-credits'))
 			{
 				var difficultyString = CoolUtil.difficultyString();
 				var creditsDisplay = new CreditsDisplay(FNFCLoader.activeCharter, FNFCLoader.activeSongArtist, difficultyString, SONG.song);
@@ -3705,7 +3703,6 @@ class PlayState extends MusicBeatState
 		if (FlxG.sound.music != null)
 			FlxG.sound.music.stop();
 
-		ui.PreferencesMenu.applyFramerate(ui.PreferencesMenu.getPref('framerate'));
 		super.destroy();
 	}
 }
