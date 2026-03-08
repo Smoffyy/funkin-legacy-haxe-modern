@@ -24,6 +24,11 @@ class Note extends FlxSprite
 	public var canBeHit:Bool = false;
 	public var tooLate:Bool = false;
 	public var wasGoodHit:Bool = false;
+
+	// Snapshots captured before super.update() so keyShit() reads pre-update state
+	// while inputs are read post-update (where FlxActionManager has refreshed them)
+	public var canBeHitSnapshot:Bool = false;
+	public var tooLateSnapshot:Bool = false;
 	public var prevNote:Note;
 
 	private var willMiss:Bool = false;

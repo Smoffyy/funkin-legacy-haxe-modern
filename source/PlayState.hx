@@ -2102,10 +2102,16 @@ class PlayState extends MusicBeatState
 		// Compute once per frame so all note logic uses the same consistent position
 		Conductor.framePosition = Conductor.getInterpolatedPosition();
 
-		if (!inCutscene)
-			keyShit();
+		notes.forEachAlive(function(daNote:Note)
+		{
+			daNote.canBeHitSnapshot = daNote.canBeHit;
+			daNote.tooLateSnapshot = daNote.tooLate;
+		});
 
 		super.update(elapsed);
+
+		if (!inCutscene)
+			keyShit();
 
 		if (displayedScore != songScore)
 		{
@@ -3143,7 +3149,7 @@ class PlayState extends MusicBeatState
 
 			notes.forEachAlive(function(daNote:Note)
 			{
-				if (daNote.mustPress && !daNote.tooLate && !daNote.wasGoodHit && daNote.canBeHit)
+				if (daNote.mustPress && !daNote.tooLateSnapshot && !daNote.wasGoodHit && daNote.canBeHitSnapshot)
 				{
 					if (daNote.isSustainNote)
 						holdArray[daNote.noteData] = true;
@@ -3158,7 +3164,7 @@ class PlayState extends MusicBeatState
 		{
 			notes.forEachAlive(function(daNote:Note)
 			{
-				if (daNote.isSustainNote && daNote.canBeHit && daNote.mustPress && holdArray[daNote.noteData])
+				if (daNote.isSustainNote && daNote.canBeHitSnapshot && daNote.mustPress && holdArray[daNote.noteData])
 					goodNoteHit(daNote);
 			});
 		}
@@ -3175,10 +3181,10 @@ class PlayState extends MusicBeatState
 
 			notes.forEachAlive(function(daNote:Note)
 			{
-				if (daNote.mustPress && !daNote.wasGoodHit && daNote.tooLate)
+				if (daNote.mustPress && !daNote.wasGoodHit && daNote.tooLateSnapshot)
 					tooLateDirections.push(daNote.noteData);
 
-				if (daNote.canBeHit && daNote.mustPress && !daNote.tooLate && !daNote.wasGoodHit)
+				if (daNote.canBeHitSnapshot && daNote.mustPress && !daNote.tooLateSnapshot && !daNote.wasGoodHit)
 				{
 					if (directionList.contains(daNote.noteData))
 					{
