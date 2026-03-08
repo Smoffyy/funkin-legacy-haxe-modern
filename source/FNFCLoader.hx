@@ -4,12 +4,12 @@ import haxe.Json;
 import haxe.io.Bytes;
 import haxe.zip.Entry;
 import haxe.zip.Reader;
-import sys.FileSystem;
-import sys.io.File;
 import Song.SwagSong;
 import Section.SwagSection;
 
 #if sys
+import sys.FileSystem;
+import sys.io.File;
 import openfl.media.Sound;
 #end
 
@@ -88,7 +88,11 @@ class FNFCLoader
 	 */
 	public static function exists(songId:String):Bool
 	{
+		#if sys
 		return FileSystem.exists(getFnfcPath(songId));
+		#else
+		return false;
+		#end
 	}
 
 	/**
@@ -99,6 +103,10 @@ class FNFCLoader
 	 */
 	public static function load(songId:String, difficulty:Int):SwagSong
 	{
+		#if !sys
+		throw "[FNFCLoader] .fnfc loading is not supported on this platform.";
+		return null;
+		#else
 		var entries   = getEntries(songId);
 		var id        = getSongIdFromManifest(entries, songId);
 		var variation = resolveVariation(entries, id, difficulty);
@@ -143,6 +151,7 @@ class FNFCLoader
 		}
 
 		return convertToSwagSong(id, metaJson, chartJson, chartKey);
+		#end // sys
 	}
 
 	/**
@@ -215,7 +224,13 @@ class FNFCLoader
 
 	/** True if an opponent vocals file was successfully extracted for this song. */
 	public static function hasOpponentVoices(songId:String):Bool
+	{
+		#if sys
 		return FileSystem.exists(getTempOpponentVoicesPath(songId));
+		#else
+		return false;
+		#end
+	}
 
 	#if sys
 	/**
@@ -557,6 +572,7 @@ class FNFCLoader
 
 	static function getEntries(songId:String):List<Entry>
 	{
+		#if sys
 		if (zipCache.exists(songId)) return zipCache.get(songId);
 
 		var path = getFnfcPath(songId);
@@ -570,6 +586,10 @@ class FNFCLoader
 		zipCache.set(songId, entries);
 		trace('[FNFCLoader] Loaded zip: $path  (${Lambda.count(entries)} entries)');
 		return entries;
+		#else
+		throw "[FNFCLoader] getEntries() is not supported on this platform.";
+		return null;
+		#end
 	}
 
 	static function hasEntry(entries:List<Entry>, fileName:String):Bool
