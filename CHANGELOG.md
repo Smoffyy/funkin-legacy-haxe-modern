@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Directional miss animations now play when a note is missed without being attempted
 - Note state snapshots — `canBeHit` and `tooLate` are captured before `super.update()` so `keyShit()` always reads stable pre-update note state while inputs are current-frame fresh
 - First-visit tip banner on the main menu pointing new players to Quality of Life Prefs
+- **Changelog viewer** in the Options menu — reads `changelog.txt` (or `.md`) from the game folder and displays it in-game with UP/DOWN scrolling; gracefully falls back to a message on non-desktop builds
 
 ### Changed
 - Optimized entire PlayState.hx, note logic, and more!
