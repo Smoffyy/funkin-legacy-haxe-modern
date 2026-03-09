@@ -34,7 +34,7 @@ The goal of this project is to fully convert the original [Friday Night Funkin' 
 
 Specifically, this project aims to:
 
-* Port the original **0.2.x Legacy branch** of Friday Night Funkin' to modern Haxe (4.3.7+)
+* Port the original **0.2.x Legacy branch** of Friday Night Funkin' to modern [Haxe (4.3.7+)](https://haxe.org/download/version/4.3.7/)
 * Maintain compatibility with current versions of HaxeFlixel and Lime
 * Clean up deprecated or outdated code
 * Preserve vanilla behavior and logic wherever possible
