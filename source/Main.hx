@@ -24,11 +24,7 @@ class Main extends Sprite
 	var gameHeight:Int = 720; // Height of the game in pixels (might be less / more in actual pixels depending on your zoom).
 	var initialState:Class<FlxState> = TitleState; // The FlxState the game starts with.
 	var zoom:Float = -1; // If -1, zoom is automatically calculated to fit the window dimensions.
-	#if web
-	var framerate:Int = 60;
-	#else
-	var framerate:Int = 360;
-	#end
+	var framerate:Int;
 
 	var skipSplash:Bool = true;
 	var startFullscreen:Bool = false;
@@ -93,6 +89,11 @@ class Main extends Sprite
 		initialState = TitleState;
 		#end
 
+		ui.PreferencesMenu.initPrefs();
+
+		var rawFps:Int = ui.PreferencesMenu.getPref('framerate');
+		framerate = (rawFps == 0) ? 360 : Std.int(Math.min(rawFps, 360));
+
 		addChild(new FlxGame(
 			gameWidth,
 			gameHeight,
@@ -102,6 +103,8 @@ class Main extends Sprite
 			skipSplash,
 			startFullscreen
 		));
+
+		openfl.Lib.application.window.frameRate = framerate;
 
 		#if !mobile
 		fpsCounter = new FPS(10, 3, 0xFFFFFF);

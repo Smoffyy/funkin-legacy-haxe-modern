@@ -24,6 +24,11 @@ class Note extends FlxSprite
 	public var canBeHit:Bool = false;
 	public var tooLate:Bool = false;
 	public var wasGoodHit:Bool = false;
+
+	// Snapshots captured before super.update() so keyShit() reads pre-update state
+	// while inputs are read post-update (where FlxActionManager has refreshed them)
+	public var canBeHitSnapshot:Bool = false;
+	public var tooLateSnapshot:Bool = false;
 	public var prevNote:Note;
 
 	private var willMiss:Bool = false;
@@ -148,6 +153,7 @@ class Note extends FlxSprite
 		{
 			noteScore * 0.2;
 			alpha = 0.6;
+			antialiasing = false;
 
 			if (PreferencesMenu.getPref('downscroll'))
 				angle = 180;
@@ -188,6 +194,7 @@ class Note extends FlxSprite
 				}
 
 				prevNote.scale.y *= Conductor.stepCrochet / 100 * 1.5 * PlayState.SONG.speed;
+				prevNote.scale.y += 0.02;
 				prevNote.updateHitbox();
 				// prevNote.setGraphicSize();
 			}
@@ -205,18 +212,26 @@ class Note extends FlxSprite
 
 		if (mustPress)
 		{
-			// miss on the NEXT frame so lag doesnt make u miss notes
-			if (willMiss && !wasGoodHit)
+			if (wasGoodHit)
+			{
+				canBeHit = false;
+				tooLate = false;
+				willMiss = false;
+			}
+			// willMiss this frame, tooLate next frame
+			// this means input on the very edge frame is never swallowed
+			else if (willMiss && !wasGoodHit)
 			{
 				tooLate = true;
 				canBeHit = false;
 			}
 			else
 			{
-				var songPos:Float = Conductor.getInterpolatedPosition();
+				// framePosition is computed once per frame by PlayState, consistent across all notes
+				var songPos:Float = Conductor.framePosition;
 				if (strumTime > songPos - Conductor.safeZoneOffset)
-				{ // The * 0.5 is so that it's easier to hit them too late, instead of too early
-					if (strumTime < songPos + (Conductor.safeZoneOffset * 0.5))
+				{
+					if (strumTime < songPos + (Conductor.safeZoneOffset * 0.5)) // Org 0.5
 						canBeHit = true;
 				}
 				else
@@ -230,14 +245,7 @@ class Note extends FlxSprite
 		{
 			canBeHit = false;
 
-			// Add safety check to prevent early hits
-			var currentPos:Float = Conductor.getInterpolatedPosition();
-			
-			// Only mark as hit if:
-			// 1. The note's time has passed
-			// 2. The position is positive (music has started)
-			// 3. Position isn't unreasonably large (sanity check)
-			if (strumTime <= currentPos && currentPos >= 0 && currentPos < strumTime + 5000)
+			if (strumTime <= Conductor.framePosition)
 				wasGoodHit = true;
 		}
 

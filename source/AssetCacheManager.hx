@@ -81,6 +81,15 @@ class AssetCacheManager
 	
 	public static function preCacheSongAudio(songName:String, ?needsVoices:Bool = true, ?difficulty:Int = 1):Void
 	{
+		// FNFC songs load via Sound.fromFile from fnfc-temp — they are not registered
+		// in the OpenFL asset library, so FlxG.sound.cache() would throw for them.
+		// PlayState.create() calls FNFCLoader.extractAudio() directly before playback.
+		if (FNFCLoader.isActive)
+		{
+			trace('[AssetCacheManager] Skipping audio pre-cache for FNFC song: $songName');
+			return;
+		}
+
 		try
 		{
 			var instPath:String = Paths.inst(songName, difficulty);

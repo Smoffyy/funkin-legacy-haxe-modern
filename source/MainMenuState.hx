@@ -34,6 +34,7 @@ import ui.NgPrompt;
 
 class MainMenuState extends MusicBeatState
 {
+	static var _shownQolHint:Bool = false;
 	var menuItems:MainMenuList;
 
 	var magenta:FlxSprite;
@@ -121,7 +122,7 @@ class MainMenuState extends MusicBeatState
         FlxG.cameras.reset(new SwagCamera());
         FlxG.camera.follow(camFollow, null, 0.06);
 
-		var versionShit:FlxText = new FlxText(5, FlxG.height - 35, 0, "v" + Application.current.meta.get('version') + " Legacy Modern", 12);
+		var versionShit:FlxText = new FlxText(5, FlxG.height - 35, 0, "Legacy Modern (v" + Application.current.meta.get('version') + ")", 12);
 		versionShit.scrollFactor.set();
 		versionShit.setFormat("VCR OSD Mono", 16, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 		add(versionShit);
@@ -130,6 +131,44 @@ class MainMenuState extends MusicBeatState
 		legacyText.scrollFactor.set();
 		legacyText.setFormat("VCR OSD Mono", 16, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 		add(legacyText);
+
+		// First-visit hint
+		if (!_shownQolHint)
+		{
+			_shownQolHint = true;
+
+			var barHeight:Int = 80;
+			var barY:Float = FlxG.height - barHeight - 45;
+
+			var hintBg:FlxSprite = new FlxSprite(0, barY).makeGraphic(FlxG.width, barHeight, 0xDD000000);
+			hintBg.scrollFactor.set();
+			hintBg.alpha = 0;
+			add(hintBg);
+
+			var label:FlxText = new FlxText(0, barY, FlxG.width, "NEW! Check out OPTIONS  >>  QUALITY OF LIFE PREFS", 22);
+			label.scrollFactor.set();
+			label.setFormat("VCR OSD Mono", 22, 0xFFFFD700, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+			label.y = barY + (barHeight - label.height) / 2 - 10;
+			label.alpha = 0;
+			add(label);
+
+			var sub:FlxText = new FlxText(0, barY, FlxG.width, "Framerate, ghost tapping, new ui, and more!", 15);
+			sub.scrollFactor.set();
+			sub.setFormat("VCR OSD Mono", 15, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+			sub.y = label.y + label.height + 2;
+			sub.alpha = 0;
+			add(sub);
+
+			var delay:Float = 0.5;
+			var hold:Float  = 5.0;
+			var fade:Float  = 0.7;
+			FlxTween.tween(hintBg,  {alpha: 1}, 0.4, {startDelay: delay});
+			FlxTween.tween(label,   {alpha: 1}, 0.4, {startDelay: delay + 0.1});
+			FlxTween.tween(sub,     {alpha: 1}, 0.4, {startDelay: delay + 0.2});
+			FlxTween.tween(hintBg,  {alpha: 0}, fade, {startDelay: delay + hold});
+			FlxTween.tween(label,   {alpha: 0}, fade, {startDelay: delay + hold + 0.1});
+			FlxTween.tween(sub,     {alpha: 0}, fade, {startDelay: delay + hold + 0.1});
+		}
 
         super.create();
     }

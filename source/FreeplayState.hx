@@ -57,6 +57,9 @@ class FreeplayState extends MusicBeatState
     private var currentPreloadIndex:Int = 0;
     private var isPreloading:Bool = false;
 
+    private var _pendingSound:Sound = null;
+    private var _pendingSeekMs:Float = 0;
+
     override function create()
     {
         #if discord_rpc
@@ -170,6 +173,20 @@ class FreeplayState extends MusicBeatState
     {
         super.update(elapsed);
 
+        if (_pendingSound != null)
+        {
+            var snd = _pendingSound;
+            var seekMs = _pendingSeekMs;
+            _pendingSound = null;
+            _pendingSeekMs = 0;
+            FlxG.sound.playMusic(snd, 0);
+            if (seekMs > 0 && FlxG.sound.music != null)
+            {
+                var maxMs:Float = FlxG.sound.music.length - 100;
+                FlxG.sound.music.time = Math.min(seekMs, maxMs > 0 ? maxMs : 0);
+            }
+        }
+
         if (FlxG.sound.music != null)
         {
             if (FlxG.sound.music.volume < 0.7)
@@ -244,6 +261,81 @@ class FreeplayState extends MusicBeatState
 
         diffText.text = "< " + CoolUtil.difficultyString() + " >";
         positionHighscore();
+
+        var seekMs:Float = (FlxG.sound.music != null && FlxG.sound.music.playing) ? FlxG.sound.music.time : 0;
+        playPreview(seekMs);
+    }
+
+    /**
+     * Play a preview of the currently selected song at the current difficulty.
+     *
+     * Priority:
+     *   1. If a .fnfc exists for this song → extract the correct variation's
+     *      instrumental to fnfc-temp and play via Sound.fromFile.
+     *      Works for ALL difficulties including expert (erect).
+     *   2. Otherwise → play from the songs asset library (requires PRELOAD_ALL).
+     *
+     * Runs extraction + loading on a background thread to avoid UI stutter.
+     * Guards against stale results: if the user scrolls or changes difficulty
+     * before loading finishes, the result is silently discarded.
+     */
+    function playPreview(seekMs:Float = 0):Void
+    {
+        var songName:String = songs[curSelected].songName;
+        var songId:String   = songName.toLowerCase();
+        var diff:Int        = curDifficulty;
+
+        #if sys
+        sys.thread.Thread.create(function()
+        {
+            try
+            {
+                var instSound:Sound = null;
+
+                if (FNFCLoader.exists(songId))
+                {
+                    // FNFC path — extract preview inst to temp dir, load from filesystem
+                    var path:String = FNFCLoader.getPreviewInstPath(songId, diff);
+                    if (path == null) return;
+                    instSound = Sound.fromFile(path);
+                }
+                else
+                {
+                    #if PRELOAD_ALL
+                    // Legacy path — load from OpenFL asset library
+                    instSound = Assets.getSound(Paths.inst(songName, diff));
+                    #else
+                    return; // No preloaded assets available, skip preview
+                    #end
+                }
+
+                if (instSound == null) return;
+
+                // Discard result if user has already moved on
+                if (songs[curSelected] == null
+                    || songs[curSelected].songName != songName
+                    || curDifficulty != diff)
+                    return;
+
+                _pendingSeekMs = seekMs;
+                _pendingSound = instSound;
+            }
+            catch (e:Dynamic)
+            {
+                trace('[FreeplayState] Preview error for "$songName" diff=$diff: $e');
+            }
+        });
+        #else
+        // Non-sys target: FNFC not supported, fall back to asset library path
+        #if PRELOAD_ALL
+        if (!FNFCLoader.exists(songId))
+        {
+            FlxG.sound.playMusic(Paths.inst(songName, diff), 0);
+            if (seekMs > 0 && FlxG.sound.music != null)
+                FlxG.sound.music.time = seekMs;
+        }
+        #end
+        #end
     }
 
     function changeSelection(change:Int = 0)
@@ -260,31 +352,7 @@ class FreeplayState extends MusicBeatState
 
         intendedScore = Highscore.getScore(songs[curSelected].songName, curDifficulty);
 
-        #if PRELOAD_ALL
-        #if sys
-        var currentSongName = songs[curSelected].songName;
-        
-        var loadJob = function() {
-            try {
-                // Using openfl.utils.Assets.getSound
-                var instToPlay:Sound = Assets.getSound(Paths.inst(currentSongName, curDifficulty));
-                
-                if (songs[curSelected] != null && songs[curSelected].songName == currentSongName)
-                {
-                    FlxG.sound.playMusic(instToPlay, 0);
-                }
-            }
-            catch(e:Dynamic)
-            {
-                trace("Error loading song: " + e);
-            }
-        };
-
-        sys.thread.Thread.create(loadJob);
-        #else
-        FlxG.sound.playMusic(Paths.inst(songs[curSelected].songName, curDifficulty), 0);
-        #end
-        #end
+        playPreview(0);
 
         var bullShit:Int = 0;
 

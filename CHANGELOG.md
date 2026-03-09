@@ -4,6 +4,63 @@ All notable changes will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-03-08 (Haxe Modern Edition)
+### Added
+- Note wobble (toggle)
+- Bot play for debug
+- .fnfc support as well as keeping original legacy support ⭐
+- Song Credits Display for .fnfc files (toggleable in Quality of Life Prefs)
+- Framerate selector in Quality of Life Prefs — choose from 30, 60, 75, 120, 144, 180, 240, 300, 360 FPS, or Unlimited ⭐
+- High framerate audio interpolation — note scroll position is extrapolated from the OS clock between audio buffer ticks for smooth, accurate note movement at any framerate
+- `Conductor.framePosition` — interpolated position computed once per frame and shared across all note logic, ensuring every note is evaluated against the same timestamp each frame
+- `Conductor.refreshInterpolationPref()` — cached preference flag so framerate mode is not looked up every frame
+- BPM map caching in `Conductor` — song BPM change maps are computed once and reused on replay
+- Framerate changes now apply instantly in settings without restarting the game
+- Directional miss animations now play when a note is missed without being attempted
+- Note state snapshots — `canBeHit` and `tooLate` are captured before `super.update()` so `keyShit()` always reads stable pre-update note state while inputs are current-frame fresh
+- First-visit tip banner on the main menu pointing new players to Quality of Life Prefs
+- **Changelog viewer** in the Options menu — reads `changelog.txt` (or `.md`) from the game folder and displays it in-game with UP/DOWN scrolling; gracefully falls back to a message on non-desktop builds
+
+### Changed
+- Optimized entire PlayState.hx, note logic, and more!
+- Revamped a lot of scripts, ensuring compatibility between both legacy and new versions
+- Legacy UI is default (changeable in settings)
+- Separated new settings under **Quality Of Life Prefs** ⭐
+- Renamed "Interpolation" setting to **Framerate** — now a left/right selector instead of a toggle
+- Framerate is now applied at all three layers: `FlxG.updateFramerate`, `FlxG.drawFramerate`, and `lime` window frame rate, preventing FPS fluctuation
+- `applyFramerate()` sets update before draw when going up, and draw before update when going down — eliminates the Flixel draw framerate warning
+- Interpolation state resets cleanly when switching to 60 FPS or starting a new song
+- `applyFramerate()` now caps menus to 360 FPS regardless of user setting; `applyGameplayFramerate()` lifts the cap during a song
+- Note hit window now uses `Conductor.framePosition` (interpolated) instead of raw `Conductor.songPosition` — `canBeHit` now matches where notes are visually positioned at high framerates
+- Framerate selector left/right input now respects the player's control bindings instead of hardcoded arrow keys
+- Options menu input no longer blocked during the intro transition
+- `keyShit()` now runs after `super.update()` so `FlxActionManager` has refreshed all inputs before note hit detection reads them
+- Note hit logic restored to legacy `willMiss` one-frame buffer pattern — `tooLate` is deferred by one frame so edge-frame inputs are never lost
+- `FNFCLoader` fully guarded with `#if sys` — game now compiles for all platforms including HTML5, Web, and any non-sys target; FNFC features gracefully unavailable on unsupported platforms
+
+### Fixed
+- Fixed low framerate NoteSplash effect
+- Freeplay cache loading
+- Sustain note gap
+- Fixed framerate selector showing `##F FPS` instead of the number (wrong atlas font for digit glyphs)
+- Fixed checkbox indices being offset for all items after the Framerate row
+- Fixed arrow keys not working on the Framerate selector after returning from a song (Controls system consuming keys before the selector could read them)
+- Fixed Flixel warning "draw framerate should not be smaller than update framerate" when toggling framerate in settings
+- Fixed game crash on launch caused by `applyFramerate` being called before `FlxGame` was initialized
+- Fixed note inputs randomly not registering or triggering a miss when the note was hit on time — caused by `keyShit()` running after `Note.update()` had already invalidated `canBeHit` that frame
+- Fixed ghost miss being triggered when pressing a key on the exact frame a note expires (`tooLateDirections` guard)
+- Fixed different notes on the same frame being evaluated against different interpolated positions due to repeated `Lib.getTimer()` calls
+- Fixed Unlimited FPS mode rendering at 1 FPS in gameplay due to `window.frameRate = 0` breaking lime's render present loop on Windows native
+- Fixed gameplay framerate cap not lifting to Unlimited because Flixel resets `updateFramerate`/`drawFramerate` to constructor values during state transitions — `applyGameplayFramerate()` now runs after `super.create()`
+- Fixed framerate selector cycling through only 4 options when going left due to stale compiled binary with old `FPS_OPTIONS` array
+- Fixed framerate selector losing track of position when navigating left — caused by `fireInstantly=true` silently advancing the index on every navigation, and input being read before `FlxActionManager` refreshed controls
+- Fixed `sys.FileSystem` and `sys.io.File` bare imports in `FNFCLoader` causing compile failure on HTML5 and other non-sys targets
+
+## [1.0.1] - 2026-02-13 (Haxe Modern Edition)
+### Added
+- Screenshake on miss
+- Healthbar blink on low health
+
 ## [1.0.0] - 2026-02-11 (Haxe Modern Edition)
 ### Added
 - Recompiled for Haxe 4.3.7 (latest version) ⭐
