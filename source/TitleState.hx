@@ -91,6 +91,10 @@ class TitleState extends MusicBeatState
 
 		FlxG.save.bind('funkin', 'ninjamuffin99');
 		PreferencesMenu.initPrefs();
+		// keep asset loading fast at default 60fps
+		new flixel.util.FlxTimer().start(0.001, function(_) {
+			PreferencesMenu.applyFramerate(PreferencesMenu.getPref('framerate'));
+		});
 		PlayerSettings.init();
 		Highscore.load();
 

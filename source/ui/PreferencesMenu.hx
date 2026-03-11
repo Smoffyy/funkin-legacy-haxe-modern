@@ -66,8 +66,25 @@ class PreferencesMenu extends ui.OptionsState.Page
 		preferences.set(pref, value);
 	}
 
+	public static function savePrefs():Void
+	{
+		var obj:Dynamic = {};
+		for (key in preferences.keys())
+			Reflect.setField(obj, key, preferences.get(key));
+		FlxG.save.data.preferences = obj;
+		FlxG.save.flush();
+	}
+
 	public static function initPrefs():Void
 	{
+		// Load persisted prefs from disk before applying defaults
+		if (FlxG.save != null && FlxG.save.data != null && FlxG.save.data.preferences != null)
+		{
+			var saved:Dynamic = FlxG.save.data.preferences;
+			for (key in Reflect.fields(saved))
+				preferences.set(key, Reflect.field(saved, key));
+		}
+
 		// Base game preferences
 		preferenceCheck('censor-naughty', true);
 		preferenceCheck('downscroll', false);
