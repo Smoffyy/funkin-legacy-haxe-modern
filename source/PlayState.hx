@@ -2191,10 +2191,11 @@ class PlayState extends MusicBeatState
 		// FlxG.watch.addQuick('VOL', vocals.amplitudeLeft);
 		// FlxG.watch.addQuick('VOLRight', vocals.amplitudeRight);
 
-		displayHealth = FlxMath.lerp(displayHealth, health, 0.15);
+		displayHealth = FlxMath.lerp(displayHealth, health, 1 - Math.pow(0.85, elapsed * 60));
 
-		iconP1.setGraphicSize(Std.int(FlxMath.lerp(150, iconP1.width, 0.85)));
-		iconP2.setGraphicSize(Std.int(FlxMath.lerp(150, iconP2.width, 0.85)));
+		var iconLerp:Float = Math.pow(0.85, elapsed * 60);
+		iconP1.setGraphicSize(Std.int(FlxMath.lerp(150, iconP1.width, iconLerp)));
+		iconP2.setGraphicSize(Std.int(FlxMath.lerp(150, iconP2.width, iconLerp)));
 
 		iconP1.updateHitbox();
 		iconP2.updateHitbox();
@@ -2208,8 +2209,9 @@ class PlayState extends MusicBeatState
 		if (PreferencesMenu.getPref('new-ui'))
 		{
 			// New UI: Smooth lerped positioning
-			iconP1.x = FlxMath.lerp(iconP1.x, targetP1X, 0.15);
-			iconP2.x = FlxMath.lerp(iconP2.x, targetP2X, 0.15);
+			var iconPosLerp:Float = 1 - Math.pow(0.85, elapsed * 60);
+			iconP1.x = FlxMath.lerp(iconP1.x, targetP1X, iconPosLerp);
+			iconP2.x = FlxMath.lerp(iconP2.x, targetP2X, iconPosLerp);
 		}
 		else
 		{
@@ -2280,8 +2282,9 @@ class PlayState extends MusicBeatState
 
 		if (camZooming)
 		{
-			FlxG.camera.zoom = FlxMath.lerp(defaultCamZoom, FlxG.camera.zoom, 0.95);
-			camHUD.zoom = FlxMath.lerp(1, camHUD.zoom, 0.95);
+			var camLerp:Float = Math.pow(0.95, elapsed * 60);
+			FlxG.camera.zoom = FlxMath.lerp(defaultCamZoom, FlxG.camera.zoom, camLerp);
+			camHUD.zoom = FlxMath.lerp(1, camHUD.zoom, camLerp);
 		}
 
 		FlxG.watch.addQuick("beatShit", curBeat);
@@ -2380,6 +2383,7 @@ class PlayState extends MusicBeatState
 		if (generatedMusic)
 		{
 			var downscroll:Bool = PreferencesMenu.getPref('downscroll');
+			var curSection = (generatedMusic && SONG.notes[Math.floor(curStep / 16)] != null) ? SONG.notes[Math.floor(curStep / 16)] : null;
 			notes.forEachAlive(function(daNote:Note)
 			{
 				if ((downscroll && daNote.y < -daNote.height)
@@ -2398,8 +2402,7 @@ class PlayState extends MusicBeatState
 
 				if (downscroll)
 				{
-					var songPos:Float = Conductor.getInterpolatedPosition();
-					daNote.y = (strumLine.y + (songPos - daNote.strumTime) * (0.45 * FlxMath.roundDecimal(SONG.speed, 2)));
+					daNote.y = (strumLine.y + (Conductor.framePosition - daNote.strumTime) * (0.45 * FlxMath.roundDecimal(SONG.speed, 2)));
 
 					if (daNote.isSustainNote)
 					{
@@ -2421,8 +2424,7 @@ class PlayState extends MusicBeatState
 				}
 				else
 				{
-					var songPos:Float = Conductor.getInterpolatedPosition();
-					daNote.y = (strumLine.y - (songPos - daNote.strumTime) * (0.45 * FlxMath.roundDecimal(SONG.speed, 2)));
+					daNote.y = (strumLine.y - (Conductor.framePosition - daNote.strumTime) * (0.45 * FlxMath.roundDecimal(SONG.speed, 2)));
 
 					if (daNote.isSustainNote)
 					{
@@ -2451,11 +2453,8 @@ class PlayState extends MusicBeatState
 
 					var altAnim:String = "";
 
-					if (SONG.notes[Math.floor(curStep / 16)] != null)
-					{
-						if (SONG.notes[Math.floor(curStep / 16)].altAnim)
-							altAnim = '-alt';
-					}
+					if (curSection != null && curSection.altAnim)
+						altAnim = '-alt';
 
 					if (daNote.altNote)
 						altAnim = '-alt';
@@ -3055,38 +3054,39 @@ class PlayState extends MusicBeatState
 
 	function cameraMovement()
 	{
-		if (camFollow.x != dad.getMidpoint().x + 150 && !cameraRightSide)
+		var dadMid = dad.getMidpoint();
+		if (camFollow.x != dadMid.x + 150 && !cameraRightSide)
 		{
-			camFollow.setPosition(dad.getMidpoint().x + 150, dad.getMidpoint().y - 100);
-			// camFollow.setPosition(lucky.getMidpoint().x - 120, lucky.getMidpoint().y + 210);
+			camFollow.setPosition(dadMid.x + 150, dadMid.y - 100);
 
 			switch (dad.curCharacter)
 			{
 				case 'mom':
-					camFollow.y = dad.getMidpoint().y;
+					camFollow.y = dadMid.y;
 					vocals.volume = 1;
 				case 'senpai' | 'senpai-angry':
-					camFollow.y = dad.getMidpoint().y - 430;
-					camFollow.x = dad.getMidpoint().x - 100;
+					camFollow.y = dadMid.y - 430;
+					camFollow.x = dadMid.x - 100;
 			}
 
 			if (SONG.song.toLowerCase() == 'tutorial')
 				tweenCamIn();
 		}
 
-		if (cameraRightSide && camFollow.x != boyfriend.getMidpoint().x - 100)
+		var bfMid = boyfriend.getMidpoint();
+		if (cameraRightSide && camFollow.x != bfMid.x - 100)
 		{
-			camFollow.setPosition(boyfriend.getMidpoint().x - 100, boyfriend.getMidpoint().y - 100);
+			camFollow.setPosition(bfMid.x - 100, bfMid.y - 100);
 
 			switch (curStage)
 			{
 				case 'limo':
-					camFollow.x = boyfriend.getMidpoint().x - 300;
+					camFollow.x = bfMid.x - 300;
 				case 'mall':
-					camFollow.y = boyfriend.getMidpoint().y - 200;
+					camFollow.y = bfMid.y - 200;
 				case 'school' | 'schoolEvil':
-					camFollow.x = boyfriend.getMidpoint().x - 200;
-					camFollow.y = boyfriend.getMidpoint().y - 200;
+					camFollow.x = bfMid.x - 200;
+					camFollow.y = bfMid.y - 200;
 			}
 
 			if (SONG.song.toLowerCase() == 'tutorial')
@@ -3312,6 +3312,8 @@ class PlayState extends MusicBeatState
 	{
 		health -= 0.04;
 		misses++;
+		totalNotes++;
+		accuracy = totalNotes > 0 ? (totalNotesHit / totalNotes) * 100 : 0;
 		killCombo();
 
 		if (!practiceMode)
