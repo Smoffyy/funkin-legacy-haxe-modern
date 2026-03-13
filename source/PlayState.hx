@@ -154,6 +154,17 @@ class PlayState extends MusicBeatState
 	
 	var hudVisible:Bool = true; // Toggle for HUD visibility
 
+	// Cached prefs — set once in startCountdown, avoids Map lookups every frame
+	private var _prefNewUI:Bool       = false;
+	private var _prefDownscroll:Bool  = false;
+	private var _prefCamZoom:Bool     = true;
+	private var _prefNoteGlow:Bool    = false;
+	private var _prefArrowWobble:Bool = false;
+	private var _prefNewInput:Bool    = false;
+	private var _prefHealthWarn:Bool  = false;
+	private var _prefScreenShake:Bool = false;
+	private var _prefNoteSplash:Bool  = false;
+
 	var grpNoteSplashes:FlxTypedGroup<NoteSplash>;
 
 	public static var campaignScore:Int = 0;
@@ -1553,6 +1564,17 @@ class PlayState extends MusicBeatState
 	{
 		inCutscene = false;
 		camHUD.visible = true;
+
+		// Cache frequently-read prefs for the duration of this song
+		_prefNewUI       = PreferencesMenu.getPref('new-ui');
+		_prefDownscroll  = PreferencesMenu.getPref('downscroll');
+		_prefCamZoom     = PreferencesMenu.getPref('camera-zoom');
+		_prefNoteGlow    = PreferencesMenu.getPref('opponent-note-glow');
+		_prefArrowWobble = PreferencesMenu.getPref('arrow-wobble');
+		_prefNewInput    = PreferencesMenu.getPref('new-input');
+		_prefHealthWarn  = PreferencesMenu.getPref('health-bar-warning');
+		_prefScreenShake = PreferencesMenu.getPref('screen-shake-miss');
+		_prefNoteSplash  = PreferencesMenu.getPref('note-splashes');
 		
 		displayHealth = health;
 
@@ -1817,10 +1839,8 @@ class PlayState extends MusicBeatState
 	
 	function truncateFloat(number:Float, precision:Int):Float
 	{
-		var num = number;
-		num = num * Math.pow(10, precision);
-		num = Math.round(num) / Math.pow(10, precision);
-		return num;
+		var p = Math.pow(10, precision);
+		return Math.round(number * p) / p;
 	}
 
 	// ^ These two sorts also look cute together ^
@@ -2130,14 +2150,20 @@ class PlayState extends MusicBeatState
 				displayedScore += (diff > 0 ? step : -step);
 		}
 
-		// Update score text based on HUD mode
-		if (PreferencesMenu.getPref('new-ui'))
-			scoreTxt.text = "Score: " + displayedScore + " | Misses: " + misses + " | Accuracy: " + truncateFloat(accuracy, 2) + "%";
+		// Update score text only when values change
+		if (_prefNewUI)
+		{
+			var newTxt = "Score: " + displayedScore + " | Misses: " + misses + " | Accuracy: " + truncateFloat(accuracy, 2) + "%";
+			if (scoreTxt.text != newTxt) scoreTxt.text = newTxt;
+		}
 		else
-			scoreTxt.text = "Score:" + displayedScore;
+		{
+			var newTxt = "Score:" + displayedScore;
+			if (scoreTxt.text != newTxt) scoreTxt.text = newTxt;
+		}
 
 		// Healthbar effect (only for new UI)
-		if (PreferencesMenu.getPref('new-ui') && PreferencesMenu.getPref('health-bar-warning') && health < 0.35)
+		if (_prefNewUI && _prefHealthWarn && health < 0.35)
 		{
 			var healthPulse:Float = Math.sin(FlxG.sound.music.time / 100) * 0.3 + 0.7;
 			healthBar.color = FlxColor.interpolate(0xFFFF0000, 0xFFFFFFFF, healthPulse);
@@ -2214,7 +2240,7 @@ class PlayState extends MusicBeatState
 		var targetP2X = healthBar.x + (healthBar.width * (FlxMath.remapToRange(healthBar.percent, 0, 100, 100, 0) * 0.01)) - (iconP2.width - iconOffset);
 
 		// Icon positioning based on HUD mode
-		if (PreferencesMenu.getPref('new-ui'))
+		if (_prefNewUI)
 		{
 			// New UI: Smooth lerped positioning
 			var iconPosLerp:Float = 1 - Math.pow(0.85, elapsed * 60);
@@ -2390,7 +2416,7 @@ class PlayState extends MusicBeatState
 
 		if (generatedMusic)
 		{
-			var downscroll:Bool = PreferencesMenu.getPref('downscroll');
+			var downscroll:Bool = _prefDownscroll;
 			var curSection = (generatedMusic && SONG.notes[Math.floor(curStep / 16)] != null) ? SONG.notes[Math.floor(curStep / 16)] : null;
 			notes.forEachAlive(function(daNote:Note)
 			{
@@ -2483,7 +2509,7 @@ class PlayState extends MusicBeatState
 					{
 						if (Math.abs(daNote.noteData) == spr.ID)
 						{
-							if (PreferencesMenu.getPref('opponent-note-glow'))
+							if (_prefNoteGlow)
 							{
 								spr.animation.play('confirm', true);
 								triggerStrumWobble(spr.ID, opponentStrums, opponentWobbleTweens);
@@ -2755,7 +2781,7 @@ class PlayState extends MusicBeatState
 		if (isSick)
 		{
 			// pref
-			if (PreferencesMenu.getPref('note-splashes'))
+			if (_prefNoteSplash)
 			{
 				var noteSplash:NoteSplash = grpNoteSplashes.recycle(NoteSplash);
 				noteSplash.setupNoteSplash(daNote.x, daNote.y, daNote.noteData);
@@ -3104,7 +3130,7 @@ class PlayState extends MusicBeatState
 
 	function triggerStrumWobble(noteData:Int, strumGroup:FlxTypedGroup<FlxSprite>, wobbleTweens:Array<FlxTween>):Void
 	{
-		if (!PreferencesMenu.getPref('arrow-wobble'))
+		if (!_prefArrowWobble)
 			return;
 
 		strumGroup.forEach(function(spr:FlxSprite)
@@ -3245,7 +3271,7 @@ class PlayState extends MusicBeatState
 				}
 			}
 			// icky ghost tapping, should not be a thing!!!
-			else if (!PreferencesMenu.getPref("new-input"))
+			else if (!_prefNewInput)
 			{
 				for (shit in 0...pressArray.length)
 					if (pressArray[shit])
@@ -3331,7 +3357,7 @@ class PlayState extends MusicBeatState
 		FlxG.sound.play(Paths.soundRandom('missnote', 1, 3), FlxG.random.float(0.1, 0.2));
 
 		// shake on miss
-		if (PreferencesMenu.getPref('screen-shake-miss'))
+		if (_prefScreenShake)
 		{
 			FlxG.camera.shake(0.005, 0.2);
 		}
@@ -3574,7 +3600,7 @@ class PlayState extends MusicBeatState
 
 		// HARDCODING FOR MILF ZOOMS!
 
-		if (PreferencesMenu.getPref('camera-zoom'))
+		if (_prefCamZoom)
 		{
 			if (curSong.toLowerCase() == 'milf' && curBeat >= 168 && curBeat < 200 && camZooming && FlxG.camera.zoom < 1.35)
 			{
