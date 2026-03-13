@@ -68,7 +68,10 @@ class PlayState extends MusicBeatState
 
 	private var vocals:FlxSound;
 	private var vocalsFinished:Bool = false;
-	private var opponentVocals:FlxSound; // FNFC only: opponent's separate vocal track
+	private var opponentVocals:FlxSound; // FNFC only
+	#if sys
+	private var fnfcInstSound:openfl.media.Sound = null;
+	#end
 
 	private var dad:Character;
 	private var gf:Character;
@@ -1661,8 +1664,8 @@ class PlayState extends MusicBeatState
 		if (!paused)
 		{
 			#if sys
-			if (FNFCLoader.isActive)
-				FlxG.sound.playMusic(FNFCLoader.loadInstSound(FNFCLoader.activeSongId), 1, false);
+			if (FNFCLoader.isActive && fnfcInstSound != null)
+				FlxG.sound.playMusic(fnfcInstSound, 1, false);
 			else
 				FlxG.sound.playMusic(Paths.inst(SONG.song, storyDifficulty), 1, false);
 			#else
@@ -1719,6 +1722,11 @@ class PlayState extends MusicBeatState
 			vocalsFinished = true;
 		};
 		FlxG.sound.list.add(vocals);
+
+		#if sys
+		if (FNFCLoader.isActive)
+			fnfcInstSound = FNFCLoader.loadInstSound(FNFCLoader.activeSongId);
+		#end
 
 		notes = new FlxTypedGroup<Note>();
 		add(notes);
