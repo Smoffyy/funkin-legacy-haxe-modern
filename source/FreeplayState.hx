@@ -26,6 +26,9 @@ class FreeplayState extends MusicBeatState
 {
     var songs:Array<SongMetadata> = [];
 
+    static var lastSelectedSong:Int = 0;
+    static var lastDifficulty:Int = 1;
+
     var curSelected:Int = 0;
     var holdScrollTimer:Float = 0;
     var holdScrollDelay:Float = 0.2;
@@ -143,6 +146,8 @@ class FreeplayState extends MusicBeatState
 
         add(scoreText);
 
+        curSelected = lastSelectedSong;
+        curDifficulty = lastDifficulty;
         changeSelection();
         changeDiff();
         
@@ -247,6 +252,9 @@ class FreeplayState extends MusicBeatState
 
         if (accepted)
         {
+            lastSelectedSong = curSelected;
+            lastDifficulty = curDifficulty;
+
             var poop:String = Highscore.formatSong(songs[curSelected].songName.toLowerCase(), curDifficulty);
             
             // Load song - will be automatically cached by Song.loadFromJson()
