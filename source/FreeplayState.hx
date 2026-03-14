@@ -27,6 +27,9 @@ class FreeplayState extends MusicBeatState
     var songs:Array<SongMetadata> = [];
 
     var curSelected:Int = 0;
+    var holdScrollTimer:Float = 0;
+    var holdScrollDelay:Float = 0.2;
+    var holdScrollInterval:Float = 0.08;
     var curDifficulty:Int = 1;
 
     var scoreText:FlxText;
@@ -204,12 +207,29 @@ class FreeplayState extends MusicBeatState
 
         var upP = controls.UI_UP_P;
         var downP = controls.UI_DOWN_P;
+        var upH = controls.UI_UP;
+        var downH = controls.UI_DOWN;
         var accepted = controls.ACCEPT;
 
         if (upP)
             changeSelection(-1);
         if (downP)
             changeSelection(1);
+
+        if (upH || downH)
+        {
+            holdScrollTimer += elapsed;
+            if (upP || downP)
+                holdScrollTimer = -holdScrollDelay;
+            if (holdScrollTimer >= holdScrollInterval)
+            {
+                holdScrollTimer = 0;
+                if (upH) changeSelection(-1);
+                if (downH) changeSelection(1);
+            }
+        }
+        else
+            holdScrollTimer = 0;
 
         if (FlxG.mouse.wheel != 0)
             changeSelection(-Math.round(FlxG.mouse.wheel / 4));
