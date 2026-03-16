@@ -34,7 +34,6 @@ import ui.NgPrompt;
 
 class MainMenuState extends MusicBeatState
 {
-	static var _shownQolHint:Bool = false;
 	var menuItems:MainMenuList;
 
 	var magenta:FlxSprite;
@@ -133,9 +132,10 @@ class MainMenuState extends MusicBeatState
 		add(legacyText);
 
 		// First-visit hint
-		if (!_shownQolHint)
+		if (FlxG.save.data.shownQolHint != true)
 		{
-			_shownQolHint = true;
+			FlxG.save.data.shownQolHint = true;
+			FlxG.save.flush();
 
 			var barHeight:Int = 80;
 			var barY:Float = FlxG.height - barHeight - 45;

@@ -68,7 +68,10 @@ class PlayState extends MusicBeatState
 
 	private var vocals:FlxSound;
 	private var vocalsFinished:Bool = false;
-	private var opponentVocals:FlxSound; // FNFC only: opponent's separate vocal track
+	private var opponentVocals:FlxSound; // FNFC only
+	#if sys
+	private var fnfcInstSound:openfl.media.Sound = null;
+	#end
 
 	private var dad:Character;
 	private var gf:Character;
@@ -89,6 +92,8 @@ class PlayState extends MusicBeatState
 
 	private var strumWobbleTweens:Array<FlxTween> = [null, null, null, null];
 	private var opponentWobbleTweens:Array<FlxTween> = [null, null, null, null];
+	private var opponentStrumTimers:Array<Float> = [0, 0, 0, 0];
+	static inline final OPPONENT_STRUM_HOLD:Float = 0.12;
 
 	private var camZooming:Bool = false;
 	private var curSong:String = "";
@@ -150,6 +155,17 @@ class PlayState extends MusicBeatState
 	var totalNotes:Int = 0;
 	
 	var hudVisible:Bool = true; // Toggle for HUD visibility
+
+	// Cached prefs — set once in startCountdown, avoids Map lookups every frame
+	private var _prefNewUI:Bool       = false;
+	private var _prefDownscroll:Bool  = false;
+	private var _prefCamZoom:Bool     = true;
+	private var _prefNoteGlow:Bool    = false;
+	private var _prefArrowWobble:Bool = false;
+	private var _prefNewInput:Bool    = false;
+	private var _prefHealthWarn:Bool  = false;
+	private var _prefScreenShake:Bool = false;
+	private var _prefNoteSplash:Bool  = false;
 
 	var grpNoteSplashes:FlxTypedGroup<NoteSplash>;
 
@@ -1550,6 +1566,17 @@ class PlayState extends MusicBeatState
 	{
 		inCutscene = false;
 		camHUD.visible = true;
+
+		// Cache frequently-read prefs for the duration of this song
+		_prefNewUI       = PreferencesMenu.getPref('new-ui');
+		_prefDownscroll  = PreferencesMenu.getPref('downscroll');
+		_prefCamZoom     = PreferencesMenu.getPref('camera-zoom');
+		_prefNoteGlow    = PreferencesMenu.getPref('opponent-note-glow');
+		_prefArrowWobble = PreferencesMenu.getPref('arrow-wobble');
+		_prefNewInput    = PreferencesMenu.getPref('new-input');
+		_prefHealthWarn  = PreferencesMenu.getPref('health-bar-warning');
+		_prefScreenShake = PreferencesMenu.getPref('screen-shake-miss');
+		_prefNoteSplash  = PreferencesMenu.getPref('note-splashes');
 		
 		displayHealth = health;
 
@@ -1661,8 +1688,8 @@ class PlayState extends MusicBeatState
 		if (!paused)
 		{
 			#if sys
-			if (FNFCLoader.isActive)
-				FlxG.sound.playMusic(FNFCLoader.loadInstSound(FNFCLoader.activeSongId), 1, false);
+			if (FNFCLoader.isActive && fnfcInstSound != null)
+				FlxG.sound.playMusic(fnfcInstSound, 1, false);
 			else
 				FlxG.sound.playMusic(Paths.inst(SONG.song, storyDifficulty), 1, false);
 			#else
@@ -1719,6 +1746,11 @@ class PlayState extends MusicBeatState
 			vocalsFinished = true;
 		};
 		FlxG.sound.list.add(vocals);
+
+		#if sys
+		if (FNFCLoader.isActive)
+			fnfcInstSound = FNFCLoader.loadInstSound(FNFCLoader.activeSongId);
+		#end
 
 		notes = new FlxTypedGroup<Note>();
 		add(notes);
@@ -1809,10 +1841,8 @@ class PlayState extends MusicBeatState
 	
 	function truncateFloat(number:Float, precision:Int):Float
 	{
-		var num = number;
-		num = num * Math.pow(10, precision);
-		num = Math.round(num) / Math.pow(10, precision);
-		return num;
+		var p = Math.pow(10, precision);
+		return Math.round(number * p) / p;
 	}
 
 	// ^ These two sorts also look cute together ^
@@ -2122,14 +2152,20 @@ class PlayState extends MusicBeatState
 				displayedScore += (diff > 0 ? step : -step);
 		}
 
-		// Update score text based on HUD mode
-		if (PreferencesMenu.getPref('new-ui'))
-			scoreTxt.text = "Score: " + displayedScore + " | Misses: " + misses + " | Accuracy: " + truncateFloat(accuracy, 2) + "%";
+		// Update score text only when values change
+		if (_prefNewUI)
+		{
+			var newTxt = "Score: " + displayedScore + " | Misses: " + misses + " | Accuracy: " + truncateFloat(accuracy, 2) + "%";
+			if (scoreTxt.text != newTxt) scoreTxt.text = newTxt;
+		}
 		else
-			scoreTxt.text = "Score:" + displayedScore;
+		{
+			var newTxt = "Score:" + displayedScore;
+			if (scoreTxt.text != newTxt) scoreTxt.text = newTxt;
+		}
 
 		// Healthbar effect (only for new UI)
-		if (PreferencesMenu.getPref('new-ui') && PreferencesMenu.getPref('health-bar-warning') && health < 0.35)
+		if (_prefNewUI && _prefHealthWarn && health < 0.35)
 		{
 			var healthPulse:Float = Math.sin(FlxG.sound.music.time / 100) * 0.3 + 0.7;
 			healthBar.color = FlxColor.interpolate(0xFFFF0000, 0xFFFFFFFF, healthPulse);
@@ -2191,10 +2227,11 @@ class PlayState extends MusicBeatState
 		// FlxG.watch.addQuick('VOL', vocals.amplitudeLeft);
 		// FlxG.watch.addQuick('VOLRight', vocals.amplitudeRight);
 
-		displayHealth = FlxMath.lerp(displayHealth, health, 0.15);
+		displayHealth = FlxMath.lerp(displayHealth, health, 1 - Math.pow(0.85, elapsed * 60));
 
-		iconP1.setGraphicSize(Std.int(FlxMath.lerp(150, iconP1.width, 0.85)));
-		iconP2.setGraphicSize(Std.int(FlxMath.lerp(150, iconP2.width, 0.85)));
+		var iconLerp:Float = Math.pow(0.85, elapsed * 60);
+		iconP1.setGraphicSize(Std.int(FlxMath.lerp(150, iconP1.width, iconLerp)));
+		iconP2.setGraphicSize(Std.int(FlxMath.lerp(150, iconP2.width, iconLerp)));
 
 		iconP1.updateHitbox();
 		iconP2.updateHitbox();
@@ -2205,11 +2242,12 @@ class PlayState extends MusicBeatState
 		var targetP2X = healthBar.x + (healthBar.width * (FlxMath.remapToRange(healthBar.percent, 0, 100, 100, 0) * 0.01)) - (iconP2.width - iconOffset);
 
 		// Icon positioning based on HUD mode
-		if (PreferencesMenu.getPref('new-ui'))
+		if (_prefNewUI)
 		{
 			// New UI: Smooth lerped positioning
-			iconP1.x = FlxMath.lerp(iconP1.x, targetP1X, 0.15);
-			iconP2.x = FlxMath.lerp(iconP2.x, targetP2X, 0.15);
+			var iconPosLerp:Float = 1 - Math.pow(0.85, elapsed * 60);
+			iconP1.x = FlxMath.lerp(iconP1.x, targetP1X, iconPosLerp);
+			iconP2.x = FlxMath.lerp(iconP2.x, targetP2X, iconPosLerp);
 		}
 		else
 		{
@@ -2280,8 +2318,9 @@ class PlayState extends MusicBeatState
 
 		if (camZooming)
 		{
-			FlxG.camera.zoom = FlxMath.lerp(defaultCamZoom, FlxG.camera.zoom, 0.95);
-			camHUD.zoom = FlxMath.lerp(1, camHUD.zoom, 0.95);
+			var camLerp:Float = Math.pow(0.95, elapsed * 60);
+			FlxG.camera.zoom = FlxMath.lerp(defaultCamZoom, FlxG.camera.zoom, camLerp);
+			camHUD.zoom = FlxMath.lerp(1, camHUD.zoom, camLerp);
 		}
 
 		FlxG.watch.addQuick("beatShit", curBeat);
@@ -2379,7 +2418,8 @@ class PlayState extends MusicBeatState
 
 		if (generatedMusic)
 		{
-			var downscroll:Bool = PreferencesMenu.getPref('downscroll');
+			var downscroll:Bool = _prefDownscroll;
+			var curSection = (generatedMusic && SONG.notes[Math.floor(curStep / 16)] != null) ? SONG.notes[Math.floor(curStep / 16)] : null;
 			notes.forEachAlive(function(daNote:Note)
 			{
 				if ((downscroll && daNote.y < -daNote.height)
@@ -2398,8 +2438,7 @@ class PlayState extends MusicBeatState
 
 				if (downscroll)
 				{
-					var songPos:Float = Conductor.getInterpolatedPosition();
-					daNote.y = (strumLine.y + (songPos - daNote.strumTime) * (0.45 * FlxMath.roundDecimal(SONG.speed, 2)));
+					daNote.y = (strumLine.y + (Conductor.framePosition - daNote.strumTime) * (0.45 * FlxMath.roundDecimal(SONG.speed, 2)));
 
 					if (daNote.isSustainNote)
 					{
@@ -2421,8 +2460,7 @@ class PlayState extends MusicBeatState
 				}
 				else
 				{
-					var songPos:Float = Conductor.getInterpolatedPosition();
-					daNote.y = (strumLine.y - (songPos - daNote.strumTime) * (0.45 * FlxMath.roundDecimal(SONG.speed, 2)));
+					daNote.y = (strumLine.y - (Conductor.framePosition - daNote.strumTime) * (0.45 * FlxMath.roundDecimal(SONG.speed, 2)));
 
 					if (daNote.isSustainNote)
 					{
@@ -2451,11 +2489,8 @@ class PlayState extends MusicBeatState
 
 					var altAnim:String = "";
 
-					if (SONG.notes[Math.floor(curStep / 16)] != null)
-					{
-						if (SONG.notes[Math.floor(curStep / 16)].altAnim)
-							altAnim = '-alt';
-					}
+					if (curSection != null && curSection.altAnim)
+						altAnim = '-alt';
 
 					if (daNote.altNote)
 						altAnim = '-alt';
@@ -2476,9 +2511,10 @@ class PlayState extends MusicBeatState
 					{
 						if (Math.abs(daNote.noteData) == spr.ID)
 						{
-							if (PreferencesMenu.getPref('opponent-note-glow'))
+							if (_prefNoteGlow)
 							{
 								spr.animation.play('confirm', true);
+								opponentStrumTimers[spr.ID] = OPPONENT_STRUM_HOLD;
 								triggerStrumWobble(spr.ID, opponentStrums, opponentWobbleTweens);
 							}
 						}
@@ -2569,10 +2605,15 @@ class PlayState extends MusicBeatState
 			else
 				spr.centerOffsets();
 			
-			if (spr.animation.curAnim.name == 'confirm' && spr.animation.curAnim.finished)
+			if (spr.animation.curAnim.name == 'confirm')
 			{
-				spr.animation.play('static');
-				spr.centerOffsets();
+				if (opponentStrumTimers[spr.ID] > 0)
+					opponentStrumTimers[spr.ID] -= elapsed;
+				else if (spr.animation.curAnim.finished)
+				{
+					spr.animation.play('static');
+					spr.centerOffsets();
+				}
 			}
 		});
 	}
@@ -2748,7 +2789,7 @@ class PlayState extends MusicBeatState
 		if (isSick)
 		{
 			// pref
-			if (PreferencesMenu.getPref('note-splashes'))
+			if (_prefNoteSplash)
 			{
 				var noteSplash:NoteSplash = grpNoteSplashes.recycle(NoteSplash);
 				noteSplash.setupNoteSplash(daNote.x, daNote.y, daNote.noteData);
@@ -3055,38 +3096,39 @@ class PlayState extends MusicBeatState
 
 	function cameraMovement()
 	{
-		if (camFollow.x != dad.getMidpoint().x + 150 && !cameraRightSide)
+		var dadMid = dad.getMidpoint();
+		if (camFollow.x != dadMid.x + 150 && !cameraRightSide)
 		{
-			camFollow.setPosition(dad.getMidpoint().x + 150, dad.getMidpoint().y - 100);
-			// camFollow.setPosition(lucky.getMidpoint().x - 120, lucky.getMidpoint().y + 210);
+			camFollow.setPosition(dadMid.x + 150, dadMid.y - 100);
 
 			switch (dad.curCharacter)
 			{
 				case 'mom':
-					camFollow.y = dad.getMidpoint().y;
+					camFollow.y = dadMid.y;
 					vocals.volume = 1;
 				case 'senpai' | 'senpai-angry':
-					camFollow.y = dad.getMidpoint().y - 430;
-					camFollow.x = dad.getMidpoint().x - 100;
+					camFollow.y = dadMid.y - 430;
+					camFollow.x = dadMid.x - 100;
 			}
 
 			if (SONG.song.toLowerCase() == 'tutorial')
 				tweenCamIn();
 		}
 
-		if (cameraRightSide && camFollow.x != boyfriend.getMidpoint().x - 100)
+		var bfMid = boyfriend.getMidpoint();
+		if (cameraRightSide && camFollow.x != bfMid.x - 100)
 		{
-			camFollow.setPosition(boyfriend.getMidpoint().x - 100, boyfriend.getMidpoint().y - 100);
+			camFollow.setPosition(bfMid.x - 100, bfMid.y - 100);
 
 			switch (curStage)
 			{
 				case 'limo':
-					camFollow.x = boyfriend.getMidpoint().x - 300;
+					camFollow.x = bfMid.x - 300;
 				case 'mall':
-					camFollow.y = boyfriend.getMidpoint().y - 200;
+					camFollow.y = bfMid.y - 200;
 				case 'school' | 'schoolEvil':
-					camFollow.x = boyfriend.getMidpoint().x - 200;
-					camFollow.y = boyfriend.getMidpoint().y - 200;
+					camFollow.x = bfMid.x - 200;
+					camFollow.y = bfMid.y - 200;
 			}
 
 			if (SONG.song.toLowerCase() == 'tutorial')
@@ -3096,7 +3138,7 @@ class PlayState extends MusicBeatState
 
 	function triggerStrumWobble(noteData:Int, strumGroup:FlxTypedGroup<FlxSprite>, wobbleTweens:Array<FlxTween>):Void
 	{
-		if (!PreferencesMenu.getPref('arrow-wobble'))
+		if (!_prefArrowWobble)
 			return;
 
 		strumGroup.forEach(function(spr:FlxSprite)
@@ -3237,7 +3279,7 @@ class PlayState extends MusicBeatState
 				}
 			}
 			// icky ghost tapping, should not be a thing!!!
-			else if (!PreferencesMenu.getPref("new-input"))
+			else if (!_prefNewInput)
 			{
 				for (shit in 0...pressArray.length)
 					if (pressArray[shit])
@@ -3312,6 +3354,8 @@ class PlayState extends MusicBeatState
 	{
 		health -= 0.04;
 		misses++;
+		totalNotes++;
+		accuracy = totalNotes > 0 ? (totalNotesHit / totalNotes) * 100 : 0;
 		killCombo();
 
 		if (!practiceMode)
@@ -3321,7 +3365,7 @@ class PlayState extends MusicBeatState
 		FlxG.sound.play(Paths.soundRandom('missnote', 1, 3), FlxG.random.float(0.1, 0.2));
 
 		// shake on miss
-		if (PreferencesMenu.getPref('screen-shake-miss'))
+		if (_prefScreenShake)
 		{
 			FlxG.camera.shake(0.005, 0.2);
 		}
@@ -3564,7 +3608,7 @@ class PlayState extends MusicBeatState
 
 		// HARDCODING FOR MILF ZOOMS!
 
-		if (PreferencesMenu.getPref('camera-zoom'))
+		if (_prefCamZoom)
 		{
 			if (curSong.toLowerCase() == 'milf' && curBeat >= 168 && curBeat < 200 && camZooming && FlxG.camera.zoom < 1.35)
 			{

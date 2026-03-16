@@ -4,6 +4,27 @@ All notable changes will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.1] - 2026-03-14 (Haxe Modern Edition)
+### Added
+- **Opponent strum hold delay** — opponent arrows stay lit on confirm for 120ms before returning to static, making hits feel more impactful (`OPPONENT_STRUM_HOLD` constant for easy tuning)
+- **Hold-to-scroll in Freeplay** — holding UP or DOWN scrolls through songs continuously with a 200ms initial delay and 80ms repeat interval
+
+### Changed
+- Framerate saved preference now applies correctly on boot — `applyFramerate` deferred to first frame of `TitleState` so `FlxGame` is fully initialized before the framerate is set
+- Opponent strum confirm animation now counts down a hold timer before transitioning to static, instead of snapping back immediately on animation finish
+
+### Fixed
+- Fixed framerate preference not applying on game launch (applied too early, before `FlxGame` existed)
+- Fixed slow asset loading at startup caused by `applyFramerate` running during the preloader at the saved FPS
+- Fixed FNFC songs causing a freeze on "Go!" — `Sound.fromFile` for the instrumental is now pre-loaded during `generateSong()` instead of being called inside `startSong()` on the beat
+- Fixed all lerps (health bar, icon size, icon position, camera zoom) being frame-rate dependent — all now use `Math.pow`-based `elapsed` scaling for consistent feel at any FPS
+- Fixed `PreferencesMenu.getPref()` being called 5–6 times per frame during gameplay — all hot prefs cached as booleans at `startCountdown()`
+- Fixed `scoreTxt.text` being reassigned every frame even when unchanged — now only updates when the string value actually changes
+- Fixed ghost tap misses not counting toward accuracy, inflating accuracy compared to late-miss path
+- Fixed `getInterpolatedPosition()` being called once per alive note per frame — replaced with `Conductor.framePosition` already computed at frame start
+- Fixed `getMidpoint()` allocating temporary `FlxPoint` objects multiple times per frame in `cameraMovement()`
+- Fixed `SONG.notes` array being re-indexed inside `forEachAlive` closure — cached as `curSection` before the loop
+
 ## [2.0.0] - 2026-03-08 (Haxe Modern Edition)
 ### Added
 - Note wobble (toggle)
