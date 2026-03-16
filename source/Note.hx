@@ -105,7 +105,7 @@ class Note extends FlxSprite
 				animation.addByPrefix('blueScroll', 'blue instance');
 				animation.addByPrefix('purpleScroll', 'purple instance');
 
-				animation.addByPrefix('purpleholdend', 'pruple end hold');
+				animation.addByPrefix('purpleholdend', 'purple end hold');
 				animation.addByPrefix('greenholdend', 'green hold end');
 				animation.addByPrefix('redholdend', 'red hold end');
 				animation.addByPrefix('blueholdend', 'blue hold end');
