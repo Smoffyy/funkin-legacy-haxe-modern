@@ -166,6 +166,7 @@ class PlayState extends MusicBeatState
 	private var _prefHealthWarn:Bool  = false;
 	private var _prefScreenShake:Bool = false;
 	private var _prefNoteSplash:Bool  = false;
+	private var _prefHideOpponent:Bool = false;
 
 	var grpNoteSplashes:FlxTypedGroup<NoteSplash>;
 
@@ -1577,6 +1578,7 @@ class PlayState extends MusicBeatState
 		_prefHealthWarn  = PreferencesMenu.getPref('health-bar-warning');
 		_prefScreenShake = PreferencesMenu.getPref('screen-shake-miss');
 		_prefNoteSplash  = PreferencesMenu.getPref('note-splashes');
+		_prefHideOpponent = PreferencesMenu.getPref('hide-opponent');
 		
 		displayHealth = health;
 
@@ -1934,8 +1936,13 @@ class PlayState extends MusicBeatState
 			{
 				babyArrow.y -= 10;
 				babyArrow.alpha = 0;
-				FlxTween.tween(babyArrow, {y: babyArrow.y + 10, alpha: 1}, 1, {ease: FlxEase.circOut, startDelay: 0.5 + (0.2 * i)});
+				if (player == 1 || !_prefHideOpponent)
+					FlxTween.tween(babyArrow, {y: babyArrow.y + 10, alpha: 1}, 1, {ease: FlxEase.circOut, startDelay: 0.5 + (0.2 * i)});
+				else
+					babyArrow.y += 10;
 			}
+			else if (player == 0 && _prefHideOpponent)
+				babyArrow.alpha = 0;
 
 			babyArrow.ID = i;
 
@@ -2432,6 +2439,9 @@ class PlayState extends MusicBeatState
 				{
 					daNote.visible = true;
 					daNote.active = true;
+
+					if (_prefHideOpponent && !daNote.mustPress)
+						daNote.alpha = 0;
 				}
 
 				var strumLineMid = strumLine.y + Note.swagWidth / 2;

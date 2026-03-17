@@ -104,6 +104,7 @@ class PreferencesMenu extends ui.OptionsState.Page
 		preferenceCheck('new-ui', false);
 		preferenceCheck('opponent-note-glow', false);
 		preferenceCheck('song-credits', true);
+		preferenceCheck('hide-opponent', false);
 
 		#if muted
 		setPref('master-volume', 0);

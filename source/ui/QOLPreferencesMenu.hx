@@ -45,6 +45,7 @@ class QOLPreferencesMenu extends ui.OptionsState.Page
 		createPrefItem('Health Bar Warning', 'health-bar-warning', true);
 		createPrefItem('Arrow Wobble', 'arrow-wobble', false);
 		createPrefItem('Song Credits Display', 'song-credits', true);
+		createPrefItem('Hide Opp Arrows', 'hide-opponent', false);
 
 		camFollow = new FlxObject(FlxG.width / 2, 0, 140, 70);
 		if (items != null)
