@@ -92,8 +92,9 @@ class PlayState extends MusicBeatState
 
 	private var strumWobbleTweens:Array<FlxTween> = [null, null, null, null];
 	private var opponentWobbleTweens:Array<FlxTween> = [null, null, null, null];
-	private var opponentStrumTimers:Array<Float> = [0, 0, 0, 0];
-	static inline final OPPONENT_STRUM_HOLD:Float = 0.12;
+	// Optional opponent custom held time
+	//private var opponentStrumTimers:Array<Float> = [0, 0, 0, 0];
+	//static inline final OPPONENT_STRUM_HOLD:Float = 0.12;
 
 	private var camZooming:Bool = false;
 	private var curSong:String = "";
@@ -2524,7 +2525,7 @@ class PlayState extends MusicBeatState
 							if (_prefNoteGlow)
 							{
 								spr.animation.play('confirm', true);
-								opponentStrumTimers[spr.ID] = OPPONENT_STRUM_HOLD;
+								//opponentStrumTimers[spr.ID] = OPPONENT_STRUM_HOLD;
 								triggerStrumWobble(spr.ID, opponentStrums, opponentWobbleTweens);
 							}
 						}
@@ -2615,15 +2616,20 @@ class PlayState extends MusicBeatState
 			else
 				spr.centerOffsets();
 			
-			if (spr.animation.curAnim.name == 'confirm')
+			//if (spr.animation.curAnim.name == 'confirm')
+			if (spr.animation.curAnim.name == 'confirm' && spr.animation.curAnim.finished)
 			{
-				if (opponentStrumTimers[spr.ID] > 0)
-					opponentStrumTimers[spr.ID] -= elapsed;
-				else if (spr.animation.curAnim.finished)
-				{
-					spr.animation.play('static');
-					spr.centerOffsets();
-				}
+
+				spr.animation.play('static');
+				spr.centerOffsets();
+
+				//if (opponentStrumTimers[spr.ID] > 0)
+				//	opponentStrumTimers[spr.ID] -= elapsed;
+				//else if (spr.animation.curAnim.finished)
+				//{
+				//	spr.animation.play('static');
+				//	spr.centerOffsets();
+				//}
 			}
 		});
 	}
