@@ -11,6 +11,8 @@ import Section.SwagSection;
 import sys.FileSystem;
 import sys.io.File;
 import openfl.media.Sound;
+import openfl.Lib;
+import openfl.events.Event;
 #end
 
 /**
@@ -78,6 +80,10 @@ class FNFCLoader
 	// Internal zip entry cache — avoids re-reading the archive on every call.
 	static var zipCache:Map<String, List<Entry>> = new Map();
 
+	#if sys
+	static var exitHookRegistered:Bool = false;
+	#end
+
 	// ══════════════════════════════════════════════════════════════════════════
 	// PUBLIC API
 	// ══════════════════════════════════════════════════════════════════════════
@@ -107,6 +113,22 @@ class FNFCLoader
 		throw "[FNFCLoader] .fnfc loading is not supported on this platform.";
 		return null;
 		#else
+
+		// On the very first load, wipe any stale fnfc-temp left by a previous crash,
+		// and register the exit hook so the folder is always cleaned on close.
+		if (!exitHookRegistered)
+		{
+			exitHookRegistered = true;
+			if (FileSystem.exists(TEMP_DIR))
+				deleteDirRecursive(TEMP_DIR);
+			try {
+				Lib.current.stage.addEventListener(Event.DEACTIVATE, function(_) {
+					if (FileSystem.exists(TEMP_DIR))
+						deleteDirRecursive(TEMP_DIR);
+				});
+			} catch (e:Dynamic) {}
+		}
+
 		var entries   = getEntries(songId);
 		var id        = getSongIdFromManifest(entries, songId);
 		var variation = resolveVariation(entries, id, difficulty);
@@ -123,12 +145,19 @@ class FNFCLoader
 		var chartKey = DIFF_TO_CHART_KEY.exists(difficulty) ? DIFF_TO_CHART_KEY[difficulty] : "normal";
 		trace('[FNFCLoader] load() → id=$id  variation=$variation  chartKey=$chartKey');
 
+		// Delete the previous song's temp audio if we're switching to a different song
+		if (isActive && activeSongId != "" && activeSongId != id)
+		{
+			var oldDir = TEMP_DIR + activeSongId + "/";
+			if (FileSystem.exists(oldDir))
+				deleteDirRecursive(oldDir);
+		}
+
 		isActive        = true;
 		activeSongId    = id;
 		activeVariation = variation;
-		
-		// Extract credits from metadata
-		activeCharter = "";
+
+		activeCharter    = "";
 		activeSongArtist = "";
 		if (metaJson != null)
 		{
@@ -147,11 +176,10 @@ class FNFCLoader
 				var ta:Float = a.t; var tb:Float = b.t;
 				if (ta < tb) return -1; if (ta > tb) return 1; return 0;
 			});
-			trace('[FNFCLoader] Stored ${activeEvents.length} chart events for runtime playback.');
 		}
 
 		return convertToSwagSong(id, metaJson, chartJson, chartKey);
-		#end // sys
+		#end
 	}
 
 	/**
@@ -176,33 +204,40 @@ class FNFCLoader
 		if (!FileSystem.exists(TEMP_DIR)) FileSystem.createDirectory(TEMP_DIR);
 		if (!FileSystem.exists(outDir))   FileSystem.createDirectory(outDir);
 
-		// ── Instrumental ──────────────────────────────────────────────────────
-		if (!extractEntry(entries, "Inst" + varSuffix + ".ogg", outDir + "Inst.ogg"))
-			extractEntry(entries, "Inst.ogg", outDir + "Inst.ogg");
+		var instPath   = outDir + "Inst.ogg";
+		var voicePath  = outDir + "Voices.ogg";
 
-		// ── Read character IDs from metadata ──────────────────────────────────
-		var metaJson = readJson(entries, id + "-metadata" + varSuffix + ".json");
-		var oppChar  = "dad";
-		var plyChar  = "bf";
-		if (metaJson != null && metaJson.playData != null && metaJson.playData.characters != null)
+		if (!FileSystem.exists(instPath))
 		{
-			var chars:Dynamic = metaJson.playData.characters;
-			if (chars.opponent != null) oppChar = Std.string(chars.opponent);
-			if (chars.player   != null) plyChar  = Std.string(chars.player);
+			if (!extractEntry(entries, "Inst" + varSuffix + ".ogg", instPath))
+				extractEntry(entries, "Inst.ogg", instPath);
 		}
 
-		// ── Player (BF) vocals → Voices.ogg ──────────────────────────────────
-		// BF's vocals go here because PlayState.vocals is the track that gets
-		// silenced (volume=0) when the player misses a note.
-		if (!extractEntry(entries, "Voices-" + plyChar + varSuffix + ".ogg", outDir + "Voices.ogg"))
-			if (!extractEntry(entries, "Voices-" + plyChar + ".ogg",                outDir + "Voices.ogg"))
-				extractEntry(entries, "Voices.ogg",                                 outDir + "Voices.ogg");
+		if (!FileSystem.exists(voicePath))
+		{
+			var metaJson = readJson(entries, id + "-metadata" + varSuffix + ".json");
+			var oppChar  = "dad";
+			var plyChar  = "bf";
+			if (metaJson != null && metaJson.playData != null && metaJson.playData.characters != null)
+			{
+				var chars:Dynamic = metaJson.playData.characters;
+				if (chars.opponent != null) oppChar = Std.string(chars.opponent);
+				if (chars.player   != null) plyChar = Std.string(chars.player);
+			}
 
-		// ── Opponent vocals → VoicesOpponent.ogg ─────────────────────────────
-		if (!extractEntry(entries, "Voices-" + oppChar + varSuffix + ".ogg", outDir + "VoicesOpponent.ogg"))
-			extractEntry(entries, "Voices-" + oppChar + ".ogg",               outDir + "VoicesOpponent.ogg");
+			if (!extractEntry(entries, "Voices-" + plyChar + varSuffix + ".ogg", voicePath))
+				if (!extractEntry(entries, "Voices-" + plyChar + ".ogg", voicePath))
+					extractEntry(entries, "Voices.ogg", voicePath);
 
-		trace('[FNFCLoader] Audio extracted for "$id" (variation="$variation") → $outDir');
+			var oppVoicePath = outDir + "VoicesOpponent.ogg";
+			if (!FileSystem.exists(oppVoicePath))
+			{
+				if (!extractEntry(entries, "Voices-" + oppChar + varSuffix + ".ogg", oppVoicePath))
+					extractEntry(entries, "Voices-" + oppChar + ".ogg", oppVoicePath);
+			}
+		}
+
+		trace('[FNFCLoader] Audio ready for "$id" (variation="$variation") → $outDir');
 		#else
 		trace("[FNFCLoader] extractAudio() requires a sys (desktop) target — skipped.");
 		#end
@@ -325,6 +360,14 @@ class FNFCLoader
 	 */
 	public static function reset():Void
 	{
+		#if sys
+		if (activeSongId != "")
+		{
+			var dir = TEMP_DIR + activeSongId + "/";
+			if (FileSystem.exists(dir))
+				deleteDirRecursive(dir);
+		}
+		#end
 		isActive         = false;
 		activeSongId     = "";
 		activeVariation  = "";
@@ -332,7 +375,7 @@ class FNFCLoader
 		activeSongArtist = "";
 		activeEvents     = [];
 		zipCache.clear();
-		trace("[FNFCLoader] Cache cleared.");
+		trace("[FNFCLoader] Reset.");
 	}
 
 	// ══════════════════════════════════════════════════════════════════════════
@@ -639,4 +682,21 @@ class FNFCLoader
 	/** Returns the .fnfc path for a given songId. */
 	public static function getFnfcPath(songId:String):String
 		return FNFC_ASSET_DIR + songId + "/" + songId + ".fnfc";
+
+	#if sys
+	static function deleteDirRecursive(path:String):Void
+	{
+		if (!FileSystem.exists(path)) return;
+		if (FileSystem.isDirectory(path))
+		{
+			for (entry in FileSystem.readDirectory(path))
+				deleteDirRecursive(path + "/" + entry);
+			try { FileSystem.deleteDirectory(path); } catch (e:Dynamic) {}
+		}
+		else
+		{
+			try { FileSystem.deleteFile(path); } catch (e:Dynamic) {}
+		}
+	}
+	#end
 }
