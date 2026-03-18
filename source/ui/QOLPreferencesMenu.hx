@@ -19,9 +19,10 @@ class QOLPreferencesMenu extends ui.OptionsState.Page
 	var menuCamera:FlxCamera;
 	var camFollow:FlxObject;
 
-	var fpsOptionIndex:Int = 0;
+	var fpsIndex:Int = 0;
 	var fpsItemIndex:Int = -1;
 	var fpsItem:TextMenuItem;
+	var wasOnFpsItem:Bool = false;
 
 	var inputHoldTimer:Float = 0;
 	static inline final INPUT_REPEAT_DELAY:Float = 0.15;
@@ -42,10 +43,10 @@ class QOLPreferencesMenu extends ui.OptionsState.Page
 		createPrefItem('Improved Interface', 'new-ui', false);
 		createPrefItem('Opponent Note Glow', 'opponent-note-glow', false);
 		createPrefItem('Screen Shake on Miss', 'screen-shake-miss', false);
-		createPrefItem('Health Bar Warning', 'health-bar-warning', true);
+		createPrefItem('Health Bar Warning', 'health-bar-warning', false);
 		createPrefItem('Arrow Wobble', 'arrow-wobble', false);
-		createPrefItem('Song Credits Display', 'song-credits', false);
 		createPrefItem('Hide Opp Arrows', 'hide-opponent', false);
+		createPrefItem('Song Credits Display', 'song-credits', false);
 
 		camFollow = new FlxObject(FlxG.width / 2, 0, 140, 70);
 		if (items != null)
@@ -64,35 +65,27 @@ class QOLPreferencesMenu extends ui.OptionsState.Page
 
 	function createFramerateItem():Void
 	{
-		var savedFps:Int = PreferencesMenu.getPref('framerate');
-		fpsOptionIndex = FPS_OPTIONS.indexOf(savedFps);
-		if (fpsOptionIndex < 0)
-			fpsOptionIndex = 0;
+		var savedFps:Int = Std.int(PreferencesMenu.getPref('framerate'));
+		var savedIndex:Int = FPS_OPTIONS.indexOf(savedFps);
+		fpsIndex = savedIndex < 0 ? 1 : savedIndex;
 
 		fpsItemIndex = items.length;
-
-		fpsItem = items.createItem(120, (120 * items.length) + 30, framerateLabel(), AtlasFont.Default, function()
-		{
-			fpsOptionIndex = (fpsOptionIndex + 1) % FPS_OPTIONS.length;
-			applyFpsOption();
-		}, false);
+		fpsItem = items.createItem(120, (120 * items.length) + 30, labelForIndex(fpsIndex), AtlasFont.Default, function() {}, true);
 
 		checkboxes.push(null);
 	}
 
-	function framerateLabel():String
+	inline function labelForIndex(index:Int):String
 	{
-		var fps:Int = FPS_OPTIONS[fpsOptionIndex];
+		var fps:Int = FPS_OPTIONS[index];
 		return 'Framerate: ' + (fps == 0 ? 'Unlimited' : fps + ' FPS');
 	}
 
-	function applyFpsOption():Void
+	function commitFps():Void
 	{
-		var fps:Int = FPS_OPTIONS[fpsOptionIndex];
+		var fps:Int = FPS_OPTIONS[fpsIndex];
 		PreferencesMenu.setPref('framerate', fps);
 		PreferencesMenu.applyFramerate(fps);
-		if (fpsItem != null)
-			fpsItem.setItem(framerateLabel());
 	}
 
 	private function createPrefItem(prefName:String, prefString:String, prefValue:Dynamic):Void
@@ -140,20 +133,31 @@ class QOLPreferencesMenu extends ui.OptionsState.Page
 
 	override function update(elapsed:Float)
 	{
+		var onFpsItem = enabled && items.selectedIndex == fpsItemIndex;
+
+		// apply framerate only when navigating away, not during switching
+		if (wasOnFpsItem && !onFpsItem)
+			commitFps();
+		wasOnFpsItem = onFpsItem;
+
 		super.update(elapsed);
 
-		if (enabled && items.selectedIndex == fpsItemIndex)
+		if (onFpsItem)
 		{
 			var left = controls.UI_LEFT_P;
 			var right = controls.UI_RIGHT_P;
 
-			inputHoldTimer += elapsed;
-			if (controls.UI_LEFT && inputHoldTimer >= INPUT_REPEAT_DELAY)
+			if (left || right)
+				inputHoldTimer = 0;
+			else
+				inputHoldTimer += elapsed;
+
+			if (!left && controls.UI_LEFT && inputHoldTimer >= INPUT_REPEAT_DELAY)
 			{
 				left = true;
 				inputHoldTimer = 0;
 			}
-			else if (controls.UI_RIGHT && inputHoldTimer >= INPUT_REPEAT_DELAY)
+			else if (!right && controls.UI_RIGHT && inputHoldTimer >= INPUT_REPEAT_DELAY)
 			{
 				right = true;
 				inputHoldTimer = 0;
@@ -164,13 +168,13 @@ class QOLPreferencesMenu extends ui.OptionsState.Page
 
 			if (left)
 			{
-				fpsOptionIndex = (fpsOptionIndex - 1 + FPS_OPTIONS.length) % FPS_OPTIONS.length;
-				applyFpsOption();
+				fpsIndex = (fpsIndex - 1 + FPS_OPTIONS.length) % FPS_OPTIONS.length;
+				fpsItem.label.text = labelForIndex(fpsIndex);
 			}
 			else if (right)
 			{
-				fpsOptionIndex = (fpsOptionIndex + 1) % FPS_OPTIONS.length;
-				applyFpsOption();
+				fpsIndex = (fpsIndex + 1) % FPS_OPTIONS.length;
+				fpsItem.label.text = labelForIndex(fpsIndex);
 			}
 		}
 		else

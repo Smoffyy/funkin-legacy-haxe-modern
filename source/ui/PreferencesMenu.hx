@@ -103,8 +103,8 @@ class PreferencesMenu extends ui.OptionsState.Page
 		preferenceCheck('arrow-wobble', false);
 		preferenceCheck('new-ui', false);
 		preferenceCheck('opponent-note-glow', false);
-		preferenceCheck('song-credits', false);
 		preferenceCheck('hide-opponent', false);
+		preferenceCheck('song-credits', false);
 
 		#if muted
 		setPref('master-volume', 0);
