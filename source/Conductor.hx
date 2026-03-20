@@ -20,7 +20,6 @@ class Conductor
 	public static var lastSongPos:Float;
 	public static var offset:Float = 0;
 
-	// Computed once per frame by PlayState, all per-note logic reads this
 	public static var framePosition:Float = 0;
 
 	public static var safeFrames:Int = 10;
@@ -32,7 +31,6 @@ class Conductor
 	private static var lastFrameTime:Float = 0;
 	private static var interpolationStarted:Bool = false;
 
-	// Cached so getPref isn't hit on every frame
 	private static var _interpolationEnabled:Bool = true;
 
 	private static var bpmMapCache:Map<String, Array<BPMChangeEvent>> = new Map<String, Array<BPMChangeEvent>>();
@@ -57,13 +55,17 @@ class Conductor
 		interpolationStarted = false;
 	}
 
-	// Call this whenever the framerate pref changes so the cache stays in sync
 	public static function refreshInterpolationPref():Void
 	{
 		var fps:Int = ui.PreferencesMenu.getPref('framerate');
 		_interpolationEnabled = (fps == 0 || fps > 60);
 	}
 
+	/**
+	 * Returns a smoothed song position for rendering and hit detection.
+	 * Interpolates between audio time samples to fill per-frame gaps at high framerates.
+	 * Mirrors the official engine's `getTimeWithDelta()` approach.
+	 */
 	public static function getInterpolatedPosition():Float
 	{
 		if (!_interpolationEnabled)

@@ -2083,7 +2083,7 @@ class PlayState extends MusicBeatState
 		perfectMode = false;
 		#end
 
-		// do this BEFORE super.update() so songPosition is accurate
+		// Update song position before super.update() so timing is accurate this frame.
 		if (startingSong)
 		{
 			if (startedCountdown)
@@ -2095,24 +2095,9 @@ class PlayState extends MusicBeatState
 		}
 		else
 		{
-			Conductor.songPosition = FlxG.sound.music.time + Conductor.offset; // 20 is THE MILLISECONDS??
-			// Conductor.songPosition += FlxG.elapsed * 1000;
-
-			if (!paused)
-			{
-				songTime += FlxG.game.ticks - previousFrameTime;
-				previousFrameTime = FlxG.game.ticks;
-
-				// Interpolation type beat
-				if (Conductor.lastSongPos != Conductor.songPosition)
-				{
-					songTime = (songTime + Conductor.songPosition) / 2;
-					Conductor.lastSongPos = Conductor.songPosition;
-					// Conductor.songPosition += FlxG.elapsed * 1000;
-					// trace('MISSED FRAME');
-				}
-			}
-			// Conductor.lastSongPos = FlxG.sound.music.time;
+			// Store the raw audio time. framePosition (set below) is the smoothed value
+			// used for all note positioning and hit detection.
+			Conductor.songPosition = FlxG.sound.music.time + Conductor.offset;
 		}
 
 		switch (curStage)
@@ -2762,7 +2747,8 @@ class PlayState extends MusicBeatState
 	// gives score and pops up rating
 	private function popUpScore(strumtime:Float, daNote:Note):Void
 	{
-		var noteDiff:Float = Math.abs(strumtime - Conductor.songPosition);
+		// Use framePosition (interpolated) so the judgment diff matches the visual note position.
+		var noteDiff:Float = Math.abs(strumtime - Conductor.framePosition);
 		// boyfriend.playAnim('hey');
 		vocals.volume = 1;
 
