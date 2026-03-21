@@ -2122,8 +2122,6 @@ class PlayState extends MusicBeatState
 				moveTank();
 		}
 
-		// framePosition is now Conductor.getTimeWithDelta() via a computed property.
-		// No manual assignment needed here.
 
 		notes.forEachAlive(function(daNote:Note)
 		{
@@ -2429,6 +2427,19 @@ class PlayState extends MusicBeatState
 
 					if (_prefHideOpponent && !daNote.mustPress)
 						daNote.alpha = 0;
+					// Don't reset alpha on grey-lingering notes (bad/shit hit, wasGoodHit=true).
+				}
+
+				// Cull grey-lingering notes once they scroll off screen.
+				if (daNote.wasGoodHit && !daNote.isSustainNote)
+				{
+					var offscreen:Bool = _prefDownscroll ? daNote.y < -daNote.height : daNote.y > FlxG.height;
+					if (offscreen)
+					{
+						daNote.kill();
+						notes.remove(daNote, true);
+						daNote.destroy();
+					}
 				}
 
 				var strumLineMid = strumLine.y + Note.swagWidth / 2;
@@ -2746,7 +2757,7 @@ class PlayState extends MusicBeatState
 	}
 
 	// gives score and pops up rating
-	private function popUpScore(strumtime:Float, daNote:Note):Void
+	private function popUpScore(strumtime:Float, daNote:Note):String
 	{
 		var noteDiff:Float = Math.abs(strumtime - Conductor.framePosition);
 		// boyfriend.playAnim('hey');
@@ -2854,6 +2865,8 @@ class PlayState extends MusicBeatState
 		});
 		if (combo >= 10 || combo == 0)
 			displayCombo();
+
+		return daRating;
 	}
 
 	function displayCombo():Void
@@ -3332,15 +3345,33 @@ class PlayState extends MusicBeatState
 			}
 			else
 			{
-				if (pressArray[spr.ID] && spr.animation.curAnim.name != 'confirm')
-					spr.animation.play('pressed');
-				if (!holdArray[spr.ID])
-					spr.animation.play('static');
+				var curAnim:String = spr.animation.curAnim == null ? 'static' : spr.animation.curAnim.name;
+				var animFinished:Bool = spr.animation.curAnim == null ? true : spr.animation.curAnim.finished;
 
 				if (pressArray[spr.ID])
+				{
 					triggerStrumWobble(spr.ID, playerStrums, strumWobbleTweens);
+					if (curAnim != 'confirm')
+						spr.animation.play('pressed');
+				}
+				else if (!holdArray[spr.ID])
+				{
+					// Only return to static once confirm has finished playing.
+					if (curAnim != 'confirm' || animFinished)
+						spr.animation.play('static');
+				}
+				else
+				{
+					// Key held - once confirm finishes move to pressed, or if on static move to pressed.
+					if (curAnim == 'confirm' && animFinished)
+						spr.animation.play('pressed');
+					else if (curAnim == 'static')
+						spr.animation.play('pressed');
+				}
 
-				if (spr.animation.curAnim.name == 'confirm' && !curStage.startsWith('school'))
+				// Re-read after state changes to apply offset correctly.
+				curAnim = spr.animation.curAnim == null ? 'static' : spr.animation.curAnim.name;
+				if (curAnim == 'confirm' && !curStage.startsWith('school'))
 				{
 					spr.centerOffsets();
 					spr.offset.x -= 13;
@@ -3418,10 +3449,13 @@ class PlayState extends MusicBeatState
 	{
 		if (!note.wasGoodHit)
 		{
+			// Determine rating so we know whether to grey-linger the note.
+			// Matches official Strumline.hitNote(note, !isComboBreak) logic.
+			var daRating:String = 'sick';
 			if (!note.isSustainNote)
 			{
 				combo += 1;
-				popUpScore(note.strumTime, note);
+				daRating = popUpScore(note.strumTime, note);
 			}
 
 			if (note.noteData >= 0)
@@ -3455,9 +3489,19 @@ class PlayState extends MusicBeatState
 
 			if (!note.isSustainNote)
 			{
-				note.kill();
-				notes.remove(note, true);
-				note.destroy();
+				// Bad/shit hits: grey the note and let it float off, matching
+				// official Strumline.hitNote(note, removeNote=false) behaviour.
+				if (daRating == 'bad' || daRating == 'shit')
+				{
+					note.alpha = 0.5;
+					note.desaturate();
+				}
+				else
+				{
+					note.kill();
+					notes.remove(note, true);
+					note.destroy();
+				}
 			}
 		}
 	}

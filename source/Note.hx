@@ -25,6 +25,8 @@ class Note extends FlxSprite
 	public var tooLate:Bool = false;
 	public var wasGoodHit:Bool = false;
 
+	// Snapshots captured before super.update() so keyShit() reads pre-update state
+	// while inputs are read post-update (where FlxActionManager has refreshed them)
 	public var canBeHitSnapshot:Bool = false;
 	public var tooLateSnapshot:Bool = false;
 	public var prevNote:Note;
@@ -58,6 +60,8 @@ class Note extends FlxSprite
 		this.prevNote = prevNote;
 		isSustainNote = sustainNote;
 
+		// X position will be set in PlayState based on whether it's player or opponent
+		// MAKE SURE ITS DEFINITELY OFF SCREEN?
 		y -= 2000;
 		this.strumTime = strumTime;
 
@@ -114,6 +118,13 @@ class Note extends FlxSprite
 				setGraphicSize(Std.int(width * 0.7));
 				updateHitbox();
 				antialiasing = true;
+
+				// colorSwap.colorToReplace = 0xFFF9393F;
+				// colorSwap.newColor = 0xFF00FF00;
+
+				// color = FlxG.random.color();
+				// color.saturation *= 4;
+				// replaceColor(0xFFC1C1C1, FlxColor.RED);
 		}
 
 		colorSwap = new ColorSwap();
@@ -135,6 +146,8 @@ class Note extends FlxSprite
 				x += swagWidth * 3;
 				animation.play('redScroll');
 		}
+
+		// trace(prevNote);
 
 		if (isSustainNote && prevNote != null)
 		{
@@ -183,6 +196,7 @@ class Note extends FlxSprite
 				prevNote.scale.y *= Conductor.stepCrochet / 100 * 1.5 * PlayState.SONG.speed;
 				prevNote.scale.y += 0.02;
 				prevNote.updateHitbox();
+				// prevNote.setGraphicSize();
 			}
 		}
 	}
@@ -190,6 +204,13 @@ class Note extends FlxSprite
 	public function updateColors():Void
 	{
 		colorSwap.update(arrowColors[noteData]);
+	}
+
+	// Matches official NoteSprite.desaturate().
+	// Greys the note on a bad/shit hit so it lingers visibly before scrolling off.
+	public function desaturate():Void
+	{
+		this.color = 0xFFAAAAAA;
 	}
 
 	override function update(elapsed:Float)
@@ -204,6 +225,8 @@ class Note extends FlxSprite
 				tooLate = false;
 				willMiss = false;
 			}
+			// willMiss this frame, tooLate next frame
+			// this means input on the very edge frame is never swallowed
 			else if (willMiss && !wasGoodHit)
 			{
 				tooLate = true;
@@ -211,13 +234,12 @@ class Note extends FlxSprite
 			}
 			else
 			{
-				// framePosition == Conductor.getTimeWithDelta(), the same smoothed position
-				// used for note rendering, so hit windows are visually accurate.
+				// framePosition is computed once per frame by PlayState, consistent across all notes
 				var songPos:Float = Conductor.framePosition;
-
 				if (strumTime > songPos - Conductor.safeZoneOffset)
 				{
-					canBeHit = (strumTime < songPos + (Conductor.safeZoneOffset * 0.5));
+					if (strumTime < songPos + (Conductor.safeZoneOffset * 0.5)) // Org 0.5
+						canBeHit = true;
 				}
 				else
 				{
