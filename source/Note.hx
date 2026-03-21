@@ -206,27 +206,21 @@ class Note extends FlxSprite
 			}
 			else if (willMiss && !wasGoodHit)
 			{
-				// willMiss was set last frame — now officially tooLate
 				tooLate = true;
 				canBeHit = false;
 			}
 			else
 			{
-				// Use framePosition so hit windows are consistent with rendering position.
-				// This matches the official engine's use of getTimeWithDelta() for input.
+				// framePosition == Conductor.getTimeWithDelta(), the same smoothed position
+				// used for note rendering, so hit windows are visually accurate.
 				var songPos:Float = Conductor.framePosition;
 
 				if (strumTime > songPos - Conductor.safeZoneOffset)
 				{
-					// Note is within the hit window (not too late)
-					if (strumTime < songPos + (Conductor.safeZoneOffset * 0.5))
-						canBeHit = true;
-					else
-						canBeHit = false; // too early
+					canBeHit = (strumTime < songPos + (Conductor.safeZoneOffset * 0.5));
 				}
 				else
 				{
-					// Past the safe zone — flag for miss next frame
 					canBeHit = true;
 					willMiss = true;
 				}

@@ -2095,9 +2095,10 @@ class PlayState extends MusicBeatState
 		}
 		else
 		{
-			// Store the raw audio time. framePosition (set below) is the smoothed value
-			// used for all note positioning and hit detection.
-			Conductor.songPosition = FlxG.sound.music.time + Conductor.offset;
+			// songPosition stays raw so beat/step timing and resync checks are accurate.
+			// updateSongPosition also advances songPositionDelta so framePosition
+			// (getTimeWithDelta) fills sub-frame gaps between audio ticks at high framerates.
+			Conductor.updateSongPosition(elapsed, FlxG.sound.music.time + Conductor.offset);
 		}
 
 		switch (curStage)
@@ -2121,8 +2122,8 @@ class PlayState extends MusicBeatState
 				moveTank();
 		}
 
-		// Compute once per frame so all note logic uses the same consistent position
-		Conductor.framePosition = Conductor.getInterpolatedPosition();
+		// framePosition is now Conductor.getTimeWithDelta() via a computed property.
+		// No manual assignment needed here.
 
 		notes.forEachAlive(function(daNote:Note)
 		{
@@ -2747,7 +2748,6 @@ class PlayState extends MusicBeatState
 	// gives score and pops up rating
 	private function popUpScore(strumtime:Float, daNote:Note):Void
 	{
-		// Use framePosition (interpolated) so the judgment diff matches the visual note position.
 		var noteDiff:Float = Math.abs(strumtime - Conductor.framePosition);
 		// boyfriend.playAnim('hey');
 		vocals.volume = 1;
