@@ -60,7 +60,6 @@ class PreferencesMenu extends ui.OptionsState.Page
 		return preferences.get(pref);
 	}
 
-	// easy shorthand?
 	public static function setPref(pref:String, value:Dynamic):Void
 	{
 		preferences.set(pref, value);
@@ -94,8 +93,8 @@ class PreferencesMenu extends ui.OptionsState.Page
 		preferenceCheck('auto-pause', false);
 		preferenceCheck('master-volume', 1);
 		preferenceCheck('note-splashes', true);
-		
-		// Quality of Life preferences (still need to be initialized)
+
+		// Quality of Life preferences
 		preferenceCheck('framerate', 60);
 		preferenceCheck('new-input', false);
 		preferenceCheck('screen-shake-miss', false);
@@ -154,9 +153,6 @@ class PreferencesMenu extends ui.OptionsState.Page
 		add(checkbox);
 	}
 
-	/**
-	 * Assumes that the preference has already been checked/set?
-	 */
 	private function prefToggle(prefName:String)
 	{
 		var daSwap:Bool = preferences.get(prefName);
@@ -177,57 +173,56 @@ class PreferencesMenu extends ui.OptionsState.Page
 		}
 	}
 
-	public static function applyFramerate(fps:Int):Void
+	/**
+	 * Sets both FlxG framerates in the correct order to avoid Flixel's internal
+	 * warning. updateFramerate must always be >= drawFramerate.
+	 * - Going UP:   set update first (new value won't be < old draw)
+	 * - Going DOWN: set draw first  (new value won't be > old update)
+	 */
+	static function setFlxFramerate(fps:Int):Void
 	{
-		// never exceed 360 in menus regardless of user setting
-		var menuFps:Int = (fps == 0) ? 360 : Std.int(Math.min(fps, 360));
-		var current:Int = FlxG.updateFramerate;
-		if (menuFps >= current)
+		if (fps >= FlxG.updateFramerate)
 		{
-			FlxG.updateFramerate = menuFps;
-			FlxG.drawFramerate = menuFps;
+			FlxG.updateFramerate = fps;
+			FlxG.drawFramerate = fps;
 		}
 		else
 		{
-			FlxG.drawFramerate = menuFps;
-			FlxG.updateFramerate = menuFps;
+			FlxG.drawFramerate = fps;
+			FlxG.updateFramerate = fps;
 		}
-		openfl.Lib.application.window.frameRate = menuFps;
+	}
+
+	/**
+	 * Applies a framerate for menu contexts. Caps at 360.
+	 * Pass fps=0 to use the 360 cap (unlimited in menus).
+	 */
+	public static function applyFramerate(fps:Int):Void
+	{
+		var target:Int = (fps == 0) ? 360 : Std.int(Math.min(fps, 360));
+		setFlxFramerate(target);
+		openfl.Lib.application.window.frameRate = target;
 		Conductor.refreshInterpolationPref();
-		if (menuFps <= 60)
+		if (target <= 60)
 			Conductor.resetInterpolation();
 	}
 
+	/**
+	 * Applies the saved 'framerate' preference for gameplay.
+	 * fps=0 means unlimited (999). Always syncs window.frameRate.
+	 */
 	public static function applyGameplayFramerate():Void
 	{
-		var fps:Int = getPref('framerate');
-		if (fps == 0)
-		{
-			FlxG.updateFramerate = 999;
-			FlxG.drawFramerate = 999;
-		}
-		else
-		{
-			if (fps >= FlxG.updateFramerate)
-			{
-				FlxG.updateFramerate = fps;
-				FlxG.drawFramerate = fps;
-			}
-			else
-			{
-				FlxG.drawFramerate = fps;
-				FlxG.updateFramerate = fps;
-			}
-			openfl.Lib.application.window.frameRate = fps;
-		}
+		var fps:Int = Std.int(getPref('framerate'));
+		var target:Int = (fps == 0) ? 999 : fps;
+		setFlxFramerate(target);
+		openfl.Lib.application.window.frameRate = target;
 		Conductor.refreshInterpolationPref();
 	}
 
 	override function update(elapsed:Float)
 	{
 		super.update(elapsed);
-
-		// menuCamera.followLerp = CoolUtil.camLerpShit(0.05);
 
 		items.forEach(function(daItem:TextMenuItem)
 		{

@@ -135,7 +135,7 @@ class QOLPreferencesMenu extends ui.OptionsState.Page
 	{
 		var onFpsItem = enabled && items.selectedIndex == fpsItemIndex;
 
-		// apply framerate only when navigating away, not during switching
+		// commit when navigating away from the fps row
 		if (wasOnFpsItem && !onFpsItem)
 			commitFps();
 		wasOnFpsItem = onFpsItem;
@@ -147,24 +147,26 @@ class QOLPreferencesMenu extends ui.OptionsState.Page
 			var left = controls.UI_LEFT_P;
 			var right = controls.UI_RIGHT_P;
 
-			if (left || right)
-				inputHoldTimer = 0;
+			// accumulate hold time only while a direction is held; reset on release
+			if (controls.UI_LEFT || controls.UI_RIGHT)
+			{
+				// reset on the initial press so the first repeat is delayed properly
+				if (left || right)
+					inputHoldTimer = 0;
+				else
+					inputHoldTimer += elapsed;
+
+				if (!left && !right && inputHoldTimer >= INPUT_REPEAT_DELAY)
+				{
+					left = controls.UI_LEFT;
+					right = controls.UI_RIGHT;
+					inputHoldTimer = 0;
+				}
+			}
 			else
-				inputHoldTimer += elapsed;
-
-			if (!left && controls.UI_LEFT && inputHoldTimer >= INPUT_REPEAT_DELAY)
 			{
-				left = true;
 				inputHoldTimer = 0;
 			}
-			else if (!right && controls.UI_RIGHT && inputHoldTimer >= INPUT_REPEAT_DELAY)
-			{
-				right = true;
-				inputHoldTimer = 0;
-			}
-
-			if (!controls.UI_LEFT && !controls.UI_RIGHT)
-				inputHoldTimer = 0;
 
 			if (left)
 			{
@@ -189,5 +191,16 @@ class QOLPreferencesMenu extends ui.OptionsState.Page
 			else
 				daItem.x = 120;
 		});
+	}
+
+	/**
+	 * Commit any pending fps change if the menu is closed while still on the fps row.
+	 * Without this, pressing Back without navigating away would silently discard the change.
+	 */
+	override function destroy()
+	{
+		if (wasOnFpsItem)
+			commitFps();
+		super.destroy();
 	}
 }
