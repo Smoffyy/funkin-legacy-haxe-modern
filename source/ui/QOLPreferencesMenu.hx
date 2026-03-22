@@ -12,7 +12,7 @@ import ui.CheckboxThingie;
 
 class QOLPreferencesMenu extends ui.OptionsState.Page
 {
-	static final FPS_OPTIONS:Array<Int> = [30, 60, 75, 120, 144, 180, 240, 300, 360, 0];
+	static final FPS_OPTIONS:Array<Int> = [30, 60, 75, 120, 144, 165, 180, 240, 0];
 
 	var items:TextMenuList;
 	var checkboxes:Array<CheckboxThingie> = [];

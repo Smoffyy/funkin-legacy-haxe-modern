@@ -194,12 +194,12 @@ class PreferencesMenu extends ui.OptionsState.Page
 	}
 
 	/**
-	 * Applies a framerate for menu contexts. Caps at 360.
-	 * Pass fps=0 to use the 360 cap (unlimited in menus).
+	 * Applies a framerate for menu contexts. Caps at 240.
+	 * Pass fps=0 to use the 240 cap (unlimited in menus).
 	 */
 	public static function applyFramerate(fps:Int):Void
 	{
-		var target:Int = (fps == 0) ? 360 : Std.int(Math.min(fps, 360));
+		var target:Int = (fps == 0) ? 240 : Std.int(Math.min(fps, 240));
 		setFlxFramerate(target);
 		openfl.Lib.application.window.frameRate = target;
 		Conductor.refreshInterpolationPref();
