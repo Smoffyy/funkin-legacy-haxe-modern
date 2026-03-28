@@ -25,22 +25,23 @@ import openfl.events.Event;
  *   manifest.json
  *   bopeebo-metadata.json           ← base variation (easy / normal / hard)
  *   bopeebo-chart.json
- *   bopeebo-metadata-erect.json     ← erect variation  →  in-game: "expert"
- *   bopeebo-chart-erect.json
- *   Inst.ogg, Inst-erect.ogg
- *   Voices-bf.ogg, Voices-dad.ogg, Voices-bf-erect.ogg, Voices-dad-erect.ogg …
+ *   bopeebo-metadata-erect.json     ← erect variation  →  in-game: "expert" + "nightmare"
+ *   bopeebo-chart-erect.json        ← contains both "erect" and "nightmare" chart keys
+ *   Inst.ogg, Inst-erect.ogg, Inst-night.ogg
+ *   Voices-bf.ogg, Voices-dad.ogg, Voices-bf-erect.ogg, Voices-dad-erect.ogg,
+ *   Voices-bf-night.ogg, Voices-dad-night.ogg …
  *
  * DIFFICULTY MAPPING  (PlayState.storyDifficulty integer):
- *   0 → easy    → base variation, chart key "easy"
- *   1 → normal  → base variation, chart key "normal"
- *   2 → hard    → base variation, chart key "hard"
- *   3 → expert  → erect variation, chart key "erect"
- *   "nightmare" is ALWAYS excluded and never loaded.
+ *   0 → easy      → base variation, chart key "easy"
+ *   1 → normal    → base variation, chart key "normal"
+ *   2 → hard      → base variation, chart key "hard"
+ *   3 → expert    → erect variation, chart key "erect"
+ *   4 → nightmare → erect variation, chart key "nightmare" (same audio as expert)
  *
  * FILES THAT NEED EDITS (see companion patch files):
  *   Song.hx      → call FNFCLoader.load() when .fnfc exists
  *   PlayState.hx → extractAudio() + Sound.fromFile for inst/voices
- *   CoolUtil.hx  → ensure difficultyString() returns "Expert" at index 3
+ *   CoolUtil.hx  → ensure difficultyString() returns "Nightmare" at index 4
  */
 class FNFCLoader
 {
@@ -49,7 +50,8 @@ class FNFCLoader
 		0 => "easy",
 		1 => "normal",
 		2 => "hard",
-		3 => "erect"   // inside the .fnfc this is "erect"; in-game we call it "expert"
+		3 => "erect",
+		4 => "nightmare"
 	];
 
 	// Temp folder for extracted audio (relative to game executable).
@@ -65,7 +67,7 @@ class FNFCLoader
 	/** The songId of the currently active FNFC song, e.g. "bopeebo". */
 	public static var activeSongId:String = "";
 
-	/** The variation used for the active load ("" = base, "erect", "pico"…). */
+	/** The variation used for the active load ("" = base, "erect", "night"…). */
 	public static var activeVariation:String = "";
 
 	/** Charter name from metadata. */
@@ -105,7 +107,7 @@ class FNFCLoader
 	 * Load a .fnfc and return a legacy-compatible SwagSong.
 	 *
 	 * @param songId     Song folder name, e.g. "bopeebo"
-	 * @param difficulty 0=easy  1=normal  2=hard  3=expert
+	 * @param difficulty 0=easy  1=normal  2=hard  3=expert  4=nightmare
 	 */
 	public static function load(songId:String, difficulty:Int):SwagSong
 	{
@@ -297,7 +299,7 @@ class FNFCLoader
 	 *
 	 * Uses per-variation filenames in the temp dir:
 	 *   fnfc-temp/{songId}/preview.ogg        ← easy / normal / hard
-	 *   fnfc-temp/{songId}/preview-erect.ogg  ← expert
+	 *   fnfc-temp/{songId}/preview-erect.ogg  ← expert + nightmare (same audio)
 	 *
 	 * This means switching difficulty in freeplay never overwrites the other
 	 * variation's file — both can sit on disk simultaneously and be replayed
@@ -320,7 +322,6 @@ class FNFCLoader
 			var variation  = resolveVariation(entries, manifestId, difficulty);
 			var varSuffix  = (variation == "") ? "" : "-" + variation;
 
-			// e.g. "preview.ogg" for base, "preview-erect.ogg" for erect
 			var previewFile = "preview" + varSuffix + ".ogg";
 
 			var outDir = TEMP_DIR + manifestId + "/";
@@ -598,13 +599,13 @@ class FNFCLoader
 	// ══════════════════════════════════════════════════════════════════════════
 
 	/**
-	 * Returns the variation string to use ("" = base, "erect", "pico"…).
-	 * difficulty=3 always maps to the erect variation.
-	 * "nightmare" is never selected.
+	 * Returns the variation string to use ("" = base, "erect"…).
+	 * difficulty=3 (expert) and difficulty=4 (nightmare) both use the erect variation —
+	 * they share the same audio, only the chart key differs.
 	 */
 	static function resolveVariation(entries:List<Entry>, id:String, difficulty:Int):String
 	{
-		if (difficulty == 3 && hasEntry(entries, id + "-metadata-erect.json"))
+		if ((difficulty == 3 || difficulty == 4) && hasEntry(entries, id + "-metadata-erect.json"))
 			return "erect";
 		return ""; // base variation covers easy / normal / hard
 	}

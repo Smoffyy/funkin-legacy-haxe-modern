@@ -279,8 +279,8 @@ class FreeplayState extends MusicBeatState
         curDifficulty += change;
 
         if (curDifficulty < 0)
-            curDifficulty = 3;
-        if (curDifficulty > 3)
+            curDifficulty = 4;
+        if (curDifficulty > 4)
             curDifficulty = 0;
 
         intendedScore = Highscore.getScore(songs[curSelected].songName, curDifficulty);
@@ -300,7 +300,7 @@ class FreeplayState extends MusicBeatState
      * Priority:
      *   1. If a .fnfc exists for this song → extract the correct variation's
      *      instrumental to fnfc-temp and play via Sound.fromFile.
-     *      Works for ALL difficulties including expert (erect).
+     *      Works for ALL difficulties including expert (erect) and nightmare (night).
      *   2. Otherwise → play from the songs asset library (requires PRELOAD_ALL).
      *
      * Runs extraction + loading on a background thread to avoid UI stutter.
