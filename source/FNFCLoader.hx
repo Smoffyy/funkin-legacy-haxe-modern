@@ -209,6 +209,34 @@ class FNFCLoader
 		var instPath   = outDir + "Inst.ogg";
 		var voicePath  = outDir + "Voices.ogg";
 
+		// Read metadata to get the correct vocal stem names (playerVocals / opponentVocals)
+		var metaJson = readJson(entries, id + "-metadata" + varSuffix + ".json");
+		var plyVocal = "bf";
+		var oppVocal = "dad";
+		var instStem = ""; // non-empty when the inst uses a named stem, e.g. "erect"
+		if (metaJson != null && metaJson.playData != null)
+		{
+			var pd:Dynamic = metaJson.playData;
+			if (pd.characters != null)
+			{
+				var chars:Dynamic = pd.characters;
+				if (chars.instrumental != null) instStem = Std.string(chars.instrumental);
+			}
+			// playerVocals[0] / opponentVocals[0] give the exact stem used in filenames
+			// e.g. "bf-dark" → Voices-bf-dark-erect.ogg
+			if (pd.characters != null && pd.characters.playerVocals != null)
+			{
+				var pv:Array<Dynamic> = cast pd.characters.playerVocals;
+				if (pv.length > 0) plyVocal = Std.string(pv[0]);
+			}
+			if (pd.characters != null && pd.characters.opponentVocals != null)
+			{
+				var ov:Array<Dynamic> = cast pd.characters.opponentVocals;
+				if (ov.length > 0) oppVocal = Std.string(ov[0]);
+			}
+		}
+
+		// Inst: when instStem matches the variation (e.g. "erect") the file is just Inst-erect.ogg
 		if (!FileSystem.exists(instPath))
 		{
 			if (!extractEntry(entries, "Inst" + varSuffix + ".ogg", instPath))
@@ -217,25 +245,16 @@ class FNFCLoader
 
 		if (!FileSystem.exists(voicePath))
 		{
-			var metaJson = readJson(entries, id + "-metadata" + varSuffix + ".json");
-			var oppChar  = "dad";
-			var plyChar  = "bf";
-			if (metaJson != null && metaJson.playData != null && metaJson.playData.characters != null)
-			{
-				var chars:Dynamic = metaJson.playData.characters;
-				if (chars.opponent != null) oppChar = Std.string(chars.opponent);
-				if (chars.player   != null) plyChar = Std.string(chars.player);
-			}
-
-			if (!extractEntry(entries, "Voices-" + plyChar + varSuffix + ".ogg", voicePath))
-				if (!extractEntry(entries, "Voices-" + plyChar + ".ogg", voicePath))
+			// Voices-{plyVocal}-{variation}.ogg  e.g. Voices-bf-dark-erect.ogg or Voices-bf-erect.ogg
+			if (!extractEntry(entries, "Voices-" + plyVocal + varSuffix + ".ogg", voicePath))
+				if (!extractEntry(entries, "Voices-" + plyVocal + ".ogg", voicePath))
 					extractEntry(entries, "Voices.ogg", voicePath);
 
 			var oppVoicePath = outDir + "VoicesOpponent.ogg";
 			if (!FileSystem.exists(oppVoicePath))
 			{
-				if (!extractEntry(entries, "Voices-" + oppChar + varSuffix + ".ogg", oppVoicePath))
-					extractEntry(entries, "Voices-" + oppChar + ".ogg", oppVoicePath);
+				if (!extractEntry(entries, "Voices-" + oppVocal + varSuffix + ".ogg", oppVoicePath))
+					extractEntry(entries, "Voices-" + oppVocal + ".ogg", oppVoicePath);
 			}
 		}
 
@@ -331,6 +350,7 @@ class FNFCLoader
 			var destPath = outDir + previewFile;
 
 			// Only extract if not already cached on disk
+			// Inst is always Inst-{variation}.ogg or Inst.ogg — no extra stem needed
 			if (!FileSystem.exists(destPath))
 			{
 				if (!extractEntry(entries, "Inst" + varSuffix + ".ogg", destPath))
