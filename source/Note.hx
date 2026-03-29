@@ -206,6 +206,13 @@ class Note extends FlxSprite
 		colorSwap.update(arrowColors[noteData]);
 	}
 
+	// Matches official NoteSprite.desaturate().
+	// Greys the note on a bad/shit hit so it lingers visibly before scrolling off.
+	public function desaturate():Void
+	{
+		this.color = 0xFFAAAAAA;
+	}
+
 	override function update(elapsed:Float)
 	{
 		super.update(elapsed);

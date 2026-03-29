@@ -4,6 +4,30 @@ All notable changes will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.1] - 2026-03-28 (Haxe Modern Edition)
+### Added
+- Nightmare difficulty (index 4) across `CoolUtil`, `Highscore`, `StoryMenuState`, `FreeplayState`, and `FNFCLoader`
+- Unified `applyFramerate` / `applyGameplayFramerate` into a single `setFlxFramerate` helper that always sets `updateFramerate` and `drawFramerate` in the correct order to avoid Flixel's internal warning
+- More settings and overhaul!
+
+### Changed
+- `FNFCLoader` now reads `playerVocals[0]` / `opponentVocals[0]` from variation metadata to resolve voice filenames instead of using `chars.player` / `chars.opponent`
+- `applyGameplayFramerate` never setting `window.frameRate` when fps = 0 (unlimited), causing a mismatch between Flixel's internal target and the OS window cap
+- FPS preference change silently discarded when pressing Back from the QOL menu without navigating away from the framerate row; fixed via `override destroy()`
+- Hold-timer in `QOLPreferencesMenu` resetting redundantly on the same frame when no direction was held
+- `_sustainClipRect` shared across all sustain notes via reference — all notes were pointing to the same `FlxRect` instance, causing incorrect clip masks and visible gaps; reverted to per-note allocation
+- Sustain notes retaining a stale `clipRect` after scrolling away from the strum line; now cleared to `null` when the clip condition is no longer met
+- Sustain piece scale formula using hardcoded approximation (`stepCrochet / 100 * 1.5 * speed + 0.02`) that drifted at non-default scroll speeds; replaced with exact derived formula `Math.ceil(stepCrochet * 0.45 * speed) / frameHeight`
+- Sub-pixel gaps between sustain pieces caused by float-to-int truncation; `Math.ceil` ensures pieces round up and overlap by ≤1px rather than gap
+
+### Fixed
+- Week 2 erect/nightmare vocals failing to extract due to non-standard naming scheme (e.g. `Voices-bf-dark-erect.ogg`, `Voices-spooky-dark-erect.ogg`)
+- Removed `new FlxRect` allocation per alive sustain note per frame; replaced with a per-note allocation only when the note is actively crossing the strum line
+- Removed `FlxMath.roundDecimal(SONG.speed, 2)` computed per note per frame; cached once at song start as `_songSpeed`
+- Hoisted `strumLineMid` and `noteSpeed` out of `forEachAlive` so they are computed once per frame instead of once per alive note
+- Fixed `getMidpoint()` pool leak in `cameraMovement`; now reuses pre-allocated `_dadMid` / `_bfMid` members instead of drawing from the `FlxPoint` pool every frame
+- Removed unconditional `notes.sort` every beat and during countdown; sort now only runs when all notes are already spawned (`unspawnNotes.length == 0`)
+
 ## [2.0.1] - 2026-03-14 (Haxe Modern Edition)
 ### Added
 - **Opponent strum hold delay** — opponent arrows stay lit on confirm for 120ms before returning to static, making hits feel more impactful (`OPPONENT_STRUM_HOLD` constant for easy tuning)

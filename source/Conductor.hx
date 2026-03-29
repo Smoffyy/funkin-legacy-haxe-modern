@@ -2,7 +2,6 @@ package;
 
 import Song.SwagSong;
 import flixel.FlxG;
-import openfl.Lib;
 
 typedef BPMChangeEvent =
 {
@@ -16,24 +15,23 @@ class Conductor
 	public static var bpm:Float = 100;
 	public static var crochet:Float = ((60 / bpm) * 1000);
 	public static var stepCrochet:Float = crochet / 4;
-	public static var songPosition:Float;
+
+	// Raw audio position. Always equals FlxG.sound.music.time + offset.
+	// Used for beat/step timing, resync checks, and vocal sync — must stay accurate.
+	public static var songPosition:Float = 0;
 	public static var lastSongPos:Float;
 	public static var offset:Float = 0;
 
-	// Computed once per frame by PlayState, all per-note logic reads this
-	public static var framePosition:Float = 0;
+	// Accumulated elapsed time since the last audio driver update.
+	// Resets to 0 whenever songPosition receives a new value from the audio driver.
+	// This fills the sub-frame gap between audio ticks at high framerates.
+	private static var songPositionDelta:Float = 0;
+	private static var prevSongPosition:Float = -999999;
 
 	public static var safeFrames:Int = 10;
 	public static var safeZoneOffset:Float = (safeFrames / 60) * 1000;
 
 	public static var bpmChangeMap:Array<BPMChangeEvent> = [];
-
-	private static var lastAudioTime:Float = 0;
-	private static var lastFrameTime:Float = 0;
-	private static var interpolationStarted:Bool = false;
-
-	// Cached so getPref isn't hit on every frame
-	private static var _interpolationEnabled:Bool = true;
 
 	private static var bpmMapCache:Map<String, Array<BPMChangeEvent>> = new Map<String, Array<BPMChangeEvent>>();
 
@@ -41,69 +39,71 @@ class Conductor
 
 	public static function reset():Void
 	{
-		lastAudioTime = 0;
-		lastFrameTime = 0;
-		lastSongPos = 0;
 		songPosition = 0;
-		framePosition = 0;
-		interpolationStarted = false;
-		refreshInterpolationPref();
+		lastSongPos = 0;
+		songPositionDelta = 0;
+		prevSongPosition = -999999;
 	}
 
 	public static function resetInterpolation():Void
 	{
-		lastAudioTime = 0;
-		lastFrameTime = 0;
-		interpolationStarted = false;
+		songPositionDelta = 0;
+		prevSongPosition = songPosition;
 	}
 
-	// Call this whenever the framerate pref changes so the cache stays in sync
-	public static function refreshInterpolationPref():Void
-	{
-		var fps:Int = ui.PreferencesMenu.getPref('framerate');
-		_interpolationEnabled = (fps == 0 || fps > 60);
-	}
+	// No longer needed — kept so existing call sites compile.
+	public static function refreshInterpolationPref():Void {}
 
-	public static function getInterpolatedPosition():Float
+	/**
+	 * Called every frame from PlayState.update() while the song is playing.
+	 * Sets songPosition to the raw audio time, then advances songPositionDelta
+	 * by elapsed time. When a new audio sample arrives (songPosition changed),
+	 * the delta resets to 0.
+	 *
+	 * This matches how the official engine's Conductor.update() works:
+	 * songPosition = authoritative audio time,
+	 * songPositionDelta = sub-frame elapsed accumulator,
+	 * getTimeWithDelta() = songPosition + songPositionDelta for smooth rendering.
+	 */
+	public static function updateSongPosition(elapsed:Float, rawMusicTime:Float):Void
 	{
-		if (!_interpolationEnabled)
-			return songPosition;
+		songPosition = rawMusicTime;
 
-		if (FlxG.sound.music != null && FlxG.sound.music.playing)
+		if (prevSongPosition != songPosition)
 		{
-			var currentMusicTime:Float = FlxG.sound.music.time;
-			var currentTimer:Float = Lib.getTimer();
-
-			if (!interpolationStarted || currentMusicTime != lastAudioTime)
-			{
-				lastAudioTime = currentMusicTime;
-				lastFrameTime = currentTimer;
-				interpolationStarted = true;
-				return currentMusicTime;
-			}
-
-			var timeSinceLastUpdate:Float = currentTimer - lastFrameTime;
-
-			if (timeSinceLastUpdate < 0 || timeSinceLastUpdate > 46)
-				timeSinceLastUpdate = 0;
-
-			var interpolatedPos:Float = lastAudioTime + timeSinceLastUpdate;
-
-			if (Math.abs(interpolatedPos - currentMusicTime) > 75)
-			{
-				lastAudioTime = currentMusicTime;
-				lastFrameTime = currentTimer;
-				return currentMusicTime;
-			}
-
-			return interpolatedPos;
+			// New audio sample arrived — reset the accumulator.
+			songPositionDelta = 0;
+			prevSongPosition = songPosition;
 		}
 		else
 		{
-			resetInterpolation();
+			// Audio driver hasn't ticked yet this frame — keep counting forward.
+			songPositionDelta += elapsed * 1000;
 		}
+	}
 
-		return songPosition;
+	/**
+	 * Returns a sub-frame-accurate position for note rendering and hit detection.
+	 * Equivalent to the official engine's Conductor.instance.getTimeWithDelta().
+	 *
+	 * Use this everywhere notes are positioned or hit windows are evaluated.
+	 * Use songPosition for beat/step timing and resync checks.
+	 */
+	public static function getTimeWithDelta():Float
+	{
+		return songPosition + songPositionDelta;
+	}
+
+	// framePosition is a computed value — reads getTimeWithDelta().
+	// All existing note rendering and hit-detection code that reads framePosition
+	// continues to work without changes.
+	public static var framePosition(get, never):Float;
+	static inline function get_framePosition():Float return getTimeWithDelta();
+
+	// Legacy alias — kept so any remaining call sites compile.
+	public static inline function getInterpolatedPosition():Float
+	{
+		return getTimeWithDelta();
 	}
 
 	public static function mapBPMChanges(song:SwagSong)

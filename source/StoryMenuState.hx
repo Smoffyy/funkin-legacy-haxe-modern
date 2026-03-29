@@ -193,6 +193,7 @@ class StoryMenuState extends MusicBeatState
 		sprDifficulty.animation.addByPrefix('normal', 'NORMAL');
 		sprDifficulty.animation.addByPrefix('hard', 'HARD');
 		sprDifficulty.animation.addByPrefix('expert', 'EXPERT');
+		sprDifficulty.animation.addByPrefix('nightmare', 'NIGHTMARE');
 		sprDifficulty.animation.play('easy');
 		changeDifficulty();
 
@@ -313,7 +314,7 @@ class StoryMenuState extends MusicBeatState
 			selectedWeek = true;
 
 			var diffic = "";
-	
+		
 			switch (curDifficulty)
 			{
 				case 0:
@@ -322,6 +323,8 @@ class StoryMenuState extends MusicBeatState
 					diffic = '-hard';
 				case 3:
 					diffic = '-expert';
+				case 4:
+					diffic = '-nightmare';
 			}
 
 			PlayState.storyDifficulty = curDifficulty;
@@ -341,8 +344,8 @@ class StoryMenuState extends MusicBeatState
 		curDifficulty += change;
 
 		if (curDifficulty < 0)
-			curDifficulty = 3;
-		if (curDifficulty > 3)
+			curDifficulty = 4;
+		if (curDifficulty > 4)
 			curDifficulty = 0;
 
 		sprDifficulty.offset.x = 0;
@@ -360,7 +363,10 @@ class StoryMenuState extends MusicBeatState
 				sprDifficulty.offset.x = 20;
 			case 3:
 				sprDifficulty.animation.play('expert');
-				sprDifficulty.offset.x = 70;
+				sprDifficulty.offset.x = 60;
+			case 4:
+				sprDifficulty.animation.play('nightmare');
+				sprDifficulty.offset.x = 65;
 		}
 
 		sprDifficulty.alpha = 0;

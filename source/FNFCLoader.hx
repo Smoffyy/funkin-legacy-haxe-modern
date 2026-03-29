@@ -11,6 +11,8 @@ import Section.SwagSection;
 import sys.FileSystem;
 import sys.io.File;
 import openfl.media.Sound;
+import openfl.Lib;
+import openfl.events.Event;
 #end
 
 /**
@@ -23,22 +25,23 @@ import openfl.media.Sound;
  *   manifest.json
  *   bopeebo-metadata.json           ← base variation (easy / normal / hard)
  *   bopeebo-chart.json
- *   bopeebo-metadata-erect.json     ← erect variation  →  in-game: "expert"
- *   bopeebo-chart-erect.json
- *   Inst.ogg, Inst-erect.ogg
- *   Voices-bf.ogg, Voices-dad.ogg, Voices-bf-erect.ogg, Voices-dad-erect.ogg …
+ *   bopeebo-metadata-erect.json     ← erect variation  →  in-game: "expert" + "nightmare"
+ *   bopeebo-chart-erect.json        ← contains both "erect" and "nightmare" chart keys
+ *   Inst.ogg, Inst-erect.ogg, Inst-night.ogg
+ *   Voices-bf.ogg, Voices-dad.ogg, Voices-bf-erect.ogg, Voices-dad-erect.ogg,
+ *   Voices-bf-night.ogg, Voices-dad-night.ogg …
  *
  * DIFFICULTY MAPPING  (PlayState.storyDifficulty integer):
- *   0 → easy    → base variation, chart key "easy"
- *   1 → normal  → base variation, chart key "normal"
- *   2 → hard    → base variation, chart key "hard"
- *   3 → expert  → erect variation, chart key "erect"
- *   "nightmare" is ALWAYS excluded and never loaded.
+ *   0 → easy      → base variation, chart key "easy"
+ *   1 → normal    → base variation, chart key "normal"
+ *   2 → hard      → base variation, chart key "hard"
+ *   3 → expert    → erect variation, chart key "erect"
+ *   4 → nightmare → erect variation, chart key "nightmare" (same audio as expert)
  *
  * FILES THAT NEED EDITS (see companion patch files):
  *   Song.hx      → call FNFCLoader.load() when .fnfc exists
  *   PlayState.hx → extractAudio() + Sound.fromFile for inst/voices
- *   CoolUtil.hx  → ensure difficultyString() returns "Expert" at index 3
+ *   CoolUtil.hx  → ensure difficultyString() returns "Nightmare" at index 4
  */
 class FNFCLoader
 {
@@ -47,7 +50,8 @@ class FNFCLoader
 		0 => "easy",
 		1 => "normal",
 		2 => "hard",
-		3 => "erect"   // inside the .fnfc this is "erect"; in-game we call it "expert"
+		3 => "erect",
+		4 => "nightmare"
 	];
 
 	// Temp folder for extracted audio (relative to game executable).
@@ -63,7 +67,7 @@ class FNFCLoader
 	/** The songId of the currently active FNFC song, e.g. "bopeebo". */
 	public static var activeSongId:String = "";
 
-	/** The variation used for the active load ("" = base, "erect", "pico"…). */
+	/** The variation used for the active load ("" = base, "erect", "night"…). */
 	public static var activeVariation:String = "";
 
 	/** Charter name from metadata. */
@@ -77,6 +81,10 @@ class FNFCLoader
 
 	// Internal zip entry cache — avoids re-reading the archive on every call.
 	static var zipCache:Map<String, List<Entry>> = new Map();
+
+	#if sys
+	static var exitHookRegistered:Bool = false;
+	#end
 
 	// ══════════════════════════════════════════════════════════════════════════
 	// PUBLIC API
@@ -99,7 +107,7 @@ class FNFCLoader
 	 * Load a .fnfc and return a legacy-compatible SwagSong.
 	 *
 	 * @param songId     Song folder name, e.g. "bopeebo"
-	 * @param difficulty 0=easy  1=normal  2=hard  3=expert
+	 * @param difficulty 0=easy  1=normal  2=hard  3=expert  4=nightmare
 	 */
 	public static function load(songId:String, difficulty:Int):SwagSong
 	{
@@ -107,6 +115,22 @@ class FNFCLoader
 		throw "[FNFCLoader] .fnfc loading is not supported on this platform.";
 		return null;
 		#else
+
+		// On the very first load, wipe any stale fnfc-temp left by a previous crash,
+		// and register the exit hook so the folder is always cleaned on close.
+		if (!exitHookRegistered)
+		{
+			exitHookRegistered = true;
+			if (FileSystem.exists(TEMP_DIR))
+				deleteDirRecursive(TEMP_DIR);
+			try {
+				Lib.current.stage.addEventListener(Event.DEACTIVATE, function(_) {
+					if (FileSystem.exists(TEMP_DIR))
+						deleteDirRecursive(TEMP_DIR);
+				});
+			} catch (e:Dynamic) {}
+		}
+
 		var entries   = getEntries(songId);
 		var id        = getSongIdFromManifest(entries, songId);
 		var variation = resolveVariation(entries, id, difficulty);
@@ -123,12 +147,19 @@ class FNFCLoader
 		var chartKey = DIFF_TO_CHART_KEY.exists(difficulty) ? DIFF_TO_CHART_KEY[difficulty] : "normal";
 		trace('[FNFCLoader] load() → id=$id  variation=$variation  chartKey=$chartKey');
 
+		// Delete the previous song's temp audio if we're switching to a different song
+		if (isActive && activeSongId != "" && activeSongId != id)
+		{
+			var oldDir = TEMP_DIR + activeSongId + "/";
+			if (FileSystem.exists(oldDir))
+				deleteDirRecursive(oldDir);
+		}
+
 		isActive        = true;
 		activeSongId    = id;
 		activeVariation = variation;
-		
-		// Extract credits from metadata
-		activeCharter = "";
+
+		activeCharter    = "";
 		activeSongArtist = "";
 		if (metaJson != null)
 		{
@@ -147,11 +178,10 @@ class FNFCLoader
 				var ta:Float = a.t; var tb:Float = b.t;
 				if (ta < tb) return -1; if (ta > tb) return 1; return 0;
 			});
-			trace('[FNFCLoader] Stored ${activeEvents.length} chart events for runtime playback.');
 		}
 
 		return convertToSwagSong(id, metaJson, chartJson, chartKey);
-		#end // sys
+		#end
 	}
 
 	/**
@@ -176,33 +206,59 @@ class FNFCLoader
 		if (!FileSystem.exists(TEMP_DIR)) FileSystem.createDirectory(TEMP_DIR);
 		if (!FileSystem.exists(outDir))   FileSystem.createDirectory(outDir);
 
-		// ── Instrumental ──────────────────────────────────────────────────────
-		if (!extractEntry(entries, "Inst" + varSuffix + ".ogg", outDir + "Inst.ogg"))
-			extractEntry(entries, "Inst.ogg", outDir + "Inst.ogg");
+		var instPath   = outDir + "Inst.ogg";
+		var voicePath  = outDir + "Voices.ogg";
 
-		// ── Read character IDs from metadata ──────────────────────────────────
+		// Read metadata to get the correct vocal stem names (playerVocals / opponentVocals)
 		var metaJson = readJson(entries, id + "-metadata" + varSuffix + ".json");
-		var oppChar  = "dad";
-		var plyChar  = "bf";
-		if (metaJson != null && metaJson.playData != null && metaJson.playData.characters != null)
+		var plyVocal = "bf";
+		var oppVocal = "dad";
+		var instStem = ""; // non-empty when the inst uses a named stem, e.g. "erect"
+		if (metaJson != null && metaJson.playData != null)
 		{
-			var chars:Dynamic = metaJson.playData.characters;
-			if (chars.opponent != null) oppChar = Std.string(chars.opponent);
-			if (chars.player   != null) plyChar  = Std.string(chars.player);
+			var pd:Dynamic = metaJson.playData;
+			if (pd.characters != null)
+			{
+				var chars:Dynamic = pd.characters;
+				if (chars.instrumental != null) instStem = Std.string(chars.instrumental);
+			}
+			// playerVocals[0] / opponentVocals[0] give the exact stem used in filenames
+			// e.g. "bf-dark" → Voices-bf-dark-erect.ogg
+			if (pd.characters != null && pd.characters.playerVocals != null)
+			{
+				var pv:Array<Dynamic> = cast pd.characters.playerVocals;
+				if (pv.length > 0) plyVocal = Std.string(pv[0]);
+			}
+			if (pd.characters != null && pd.characters.opponentVocals != null)
+			{
+				var ov:Array<Dynamic> = cast pd.characters.opponentVocals;
+				if (ov.length > 0) oppVocal = Std.string(ov[0]);
+			}
 		}
 
-		// ── Player (BF) vocals → Voices.ogg ──────────────────────────────────
-		// BF's vocals go here because PlayState.vocals is the track that gets
-		// silenced (volume=0) when the player misses a note.
-		if (!extractEntry(entries, "Voices-" + plyChar + varSuffix + ".ogg", outDir + "Voices.ogg"))
-			if (!extractEntry(entries, "Voices-" + plyChar + ".ogg",                outDir + "Voices.ogg"))
-				extractEntry(entries, "Voices.ogg",                                 outDir + "Voices.ogg");
+		// Inst: when instStem matches the variation (e.g. "erect") the file is just Inst-erect.ogg
+		if (!FileSystem.exists(instPath))
+		{
+			if (!extractEntry(entries, "Inst" + varSuffix + ".ogg", instPath))
+				extractEntry(entries, "Inst.ogg", instPath);
+		}
 
-		// ── Opponent vocals → VoicesOpponent.ogg ─────────────────────────────
-		if (!extractEntry(entries, "Voices-" + oppChar + varSuffix + ".ogg", outDir + "VoicesOpponent.ogg"))
-			extractEntry(entries, "Voices-" + oppChar + ".ogg",               outDir + "VoicesOpponent.ogg");
+		if (!FileSystem.exists(voicePath))
+		{
+			// Voices-{plyVocal}-{variation}.ogg  e.g. Voices-bf-dark-erect.ogg or Voices-bf-erect.ogg
+			if (!extractEntry(entries, "Voices-" + plyVocal + varSuffix + ".ogg", voicePath))
+				if (!extractEntry(entries, "Voices-" + plyVocal + ".ogg", voicePath))
+					extractEntry(entries, "Voices.ogg", voicePath);
 
-		trace('[FNFCLoader] Audio extracted for "$id" (variation="$variation") → $outDir');
+			var oppVoicePath = outDir + "VoicesOpponent.ogg";
+			if (!FileSystem.exists(oppVoicePath))
+			{
+				if (!extractEntry(entries, "Voices-" + oppVocal + varSuffix + ".ogg", oppVoicePath))
+					extractEntry(entries, "Voices-" + oppVocal + ".ogg", oppVoicePath);
+			}
+		}
+
+		trace('[FNFCLoader] Audio ready for "$id" (variation="$variation") → $outDir');
 		#else
 		trace("[FNFCLoader] extractAudio() requires a sys (desktop) target — skipped.");
 		#end
@@ -262,7 +318,7 @@ class FNFCLoader
 	 *
 	 * Uses per-variation filenames in the temp dir:
 	 *   fnfc-temp/{songId}/preview.ogg        ← easy / normal / hard
-	 *   fnfc-temp/{songId}/preview-erect.ogg  ← expert
+	 *   fnfc-temp/{songId}/preview-erect.ogg  ← expert + nightmare (same audio)
 	 *
 	 * This means switching difficulty in freeplay never overwrites the other
 	 * variation's file — both can sit on disk simultaneously and be replayed
@@ -285,7 +341,6 @@ class FNFCLoader
 			var variation  = resolveVariation(entries, manifestId, difficulty);
 			var varSuffix  = (variation == "") ? "" : "-" + variation;
 
-			// e.g. "preview.ogg" for base, "preview-erect.ogg" for erect
 			var previewFile = "preview" + varSuffix + ".ogg";
 
 			var outDir = TEMP_DIR + manifestId + "/";
@@ -295,6 +350,7 @@ class FNFCLoader
 			var destPath = outDir + previewFile;
 
 			// Only extract if not already cached on disk
+			// Inst is always Inst-{variation}.ogg or Inst.ogg — no extra stem needed
 			if (!FileSystem.exists(destPath))
 			{
 				if (!extractEntry(entries, "Inst" + varSuffix + ".ogg", destPath))
@@ -325,6 +381,14 @@ class FNFCLoader
 	 */
 	public static function reset():Void
 	{
+		#if sys
+		if (activeSongId != "")
+		{
+			var dir = TEMP_DIR + activeSongId + "/";
+			if (FileSystem.exists(dir))
+				deleteDirRecursive(dir);
+		}
+		#end
 		isActive         = false;
 		activeSongId     = "";
 		activeVariation  = "";
@@ -332,7 +396,7 @@ class FNFCLoader
 		activeSongArtist = "";
 		activeEvents     = [];
 		zipCache.clear();
-		trace("[FNFCLoader] Cache cleared.");
+		trace("[FNFCLoader] Reset.");
 	}
 
 	// ══════════════════════════════════════════════════════════════════════════
@@ -555,13 +619,13 @@ class FNFCLoader
 	// ══════════════════════════════════════════════════════════════════════════
 
 	/**
-	 * Returns the variation string to use ("" = base, "erect", "pico"…).
-	 * difficulty=3 always maps to the erect variation.
-	 * "nightmare" is never selected.
+	 * Returns the variation string to use ("" = base, "erect"…).
+	 * difficulty=3 (expert) and difficulty=4 (nightmare) both use the erect variation —
+	 * they share the same audio, only the chart key differs.
 	 */
 	static function resolveVariation(entries:List<Entry>, id:String, difficulty:Int):String
 	{
-		if (difficulty == 3 && hasEntry(entries, id + "-metadata-erect.json"))
+		if ((difficulty == 3 || difficulty == 4) && hasEntry(entries, id + "-metadata-erect.json"))
 			return "erect";
 		return ""; // base variation covers easy / normal / hard
 	}
@@ -639,4 +703,21 @@ class FNFCLoader
 	/** Returns the .fnfc path for a given songId. */
 	public static function getFnfcPath(songId:String):String
 		return FNFC_ASSET_DIR + songId + "/" + songId + ".fnfc";
+
+	#if sys
+	static function deleteDirRecursive(path:String):Void
+	{
+		if (!FileSystem.exists(path)) return;
+		if (FileSystem.isDirectory(path))
+		{
+			for (entry in FileSystem.readDirectory(path))
+				deleteDirRecursive(path + "/" + entry);
+			try { FileSystem.deleteDirectory(path); } catch (e:Dynamic) {}
+		}
+		else
+		{
+			try { FileSystem.deleteFile(path); } catch (e:Dynamic) {}
+		}
+	}
+	#end
 }
