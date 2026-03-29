@@ -31,6 +31,7 @@ class CreditsDisplay
 			case "NORMAL": diffColor = 0xFFFFFF00;
 			case "HARD": diffColor = 0xFFFF0000;
 			case "EXPERT": diffColor = 0xFFA858F7;
+			case "NIGHTMARE": diffColor = 0xFFA858F7;
 			default: diffColor = 0xFFFFFFFF;
 		}
 

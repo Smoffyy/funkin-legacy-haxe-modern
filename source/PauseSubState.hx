@@ -24,7 +24,7 @@ class PauseSubState extends MusicBeatSubstate
 		'Toggle Practice Mode',
 		'Exit to menu'
 	];
-	var difficultyChoices:Array<String> = ['EASY', 'NORMAL', 'HARD', 'EXPERT', 'BACK'];
+	var difficultyChoices:Array<String> = ['EASY', 'NORMAL', 'HARD', 'EXPERT', 'NIGHTMARE', 'BACK'];
 
 	var menuItems:Array<String> = [];
 	var curSelected:Int = 0;
@@ -147,7 +147,7 @@ class PauseSubState extends MusicBeatSubstate
 			{
 				case "Resume":
 					close();
-				case "EASY" | 'NORMAL' | "HARD" | "EXPERT":
+				case "EASY" | 'NORMAL' | "HARD" | "EXPERT" | "NIGHTMARE":
 					PlayState.storyDifficulty = curSelected;
 
 					PlayState.SONG = Song.loadFromJson(Highscore.formatSong(PlayState.SONG.song.toLowerCase(), curSelected),
