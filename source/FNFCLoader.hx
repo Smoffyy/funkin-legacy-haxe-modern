@@ -15,37 +15,8 @@ import openfl.Lib;
 import openfl.events.Event;
 #end
 
-/**
- * FNFCLoader
- * ==========
- * Loads Friday Night Funkin' Chart (.fnfc) files and converts them into
- * the legacy SwagSong format that PlayState understands.
- *
- * A .fnfc is a ZIP archive. For "bopeebo" the zip contains:
- *   manifest.json
- *   bopeebo-metadata.json           ← base variation (easy / normal / hard)
- *   bopeebo-chart.json
- *   bopeebo-metadata-erect.json     ← erect variation  →  in-game: "expert" + "nightmare"
- *   bopeebo-chart-erect.json        ← contains both "erect" and "nightmare" chart keys
- *   Inst.ogg, Inst-erect.ogg, Inst-night.ogg
- *   Voices-bf.ogg, Voices-dad.ogg, Voices-bf-erect.ogg, Voices-dad-erect.ogg,
- *   Voices-bf-night.ogg, Voices-dad-night.ogg …
- *
- * DIFFICULTY MAPPING  (PlayState.storyDifficulty integer):
- *   0 → easy      → base variation, chart key "easy"
- *   1 → normal    → base variation, chart key "normal"
- *   2 → hard      → base variation, chart key "hard"
- *   3 → expert    → erect variation, chart key "erect"
- *   4 → nightmare → erect variation, chart key "nightmare" (same audio as expert)
- *
- * FILES THAT NEED EDITS (see companion patch files):
- *   Song.hx      → call FNFCLoader.load() when .fnfc exists
- *   PlayState.hx → extractAudio() + Sound.fromFile for inst/voices
- *   CoolUtil.hx  → ensure difficultyString() returns "Nightmare" at index 4
- */
 class FNFCLoader
 {
-	// ── Difficulty int → FNF v2 chart JSON key ────────────────────────────────
 	static final DIFF_TO_CHART_KEY:Map<Int, String> = [
 		0 => "easy",
 		1 => "normal",
@@ -54,46 +25,30 @@ class FNFCLoader
 		4 => "nightmare"
 	];
 
-	// Temp folder for extracted audio (relative to game executable).
-	static final TEMP_DIR:String = "./fnfc-temp/";
-
-	// Where .fnfc files live at runtime (preload library strips the "preload/" prefix on export).
+	static final TEMP_DIR:String       = "./fnfc-temp/";
 	static final FNFC_ASSET_DIR:String = "assets/data/";
 
-	// ── Public state flags (read by PlayState / Song) ─────────────────────────
-	/** True while the current song was loaded from a .fnfc file. */
-	public static var isActive:Bool = false;
-
-	/** The songId of the currently active FNFC song, e.g. "bopeebo". */
-	public static var activeSongId:String = "";
-
-	/** The variation used for the active load ("" = base, "erect", "night"…). */
+	public static var isActive:Bool         = false;
+	public static var activeSongId:String   = "";
 	public static var activeVariation:String = "";
-
-	/** Charter name from metadata. */
-	public static var activeCharter:String = "";
-
-	/** Song artist from metadata. */
+	public static var activeCharter:String  = "";
 	public static var activeSongArtist:String = "";
-
-	/** All chart events sorted ascending by timestamp, for runtime playback. */
 	public static var activeEvents:Array<Dynamic> = [];
 
-	// Internal zip entry cache — avoids re-reading the archive on every call.
+	// zip entry cache — avoids re-reading the archive per call
 	static var zipCache:Map<String, List<Entry>> = new Map();
 
 	#if sys
 	static var exitHookRegistered:Bool = false;
+
+	// Pre-built entry name→index lookup for O(1) searches instead of O(n) linear scans
+	static var entryIndexCache:Map<String, Map<String, Entry>> = new Map();
 	#end
 
 	// ══════════════════════════════════════════════════════════════════════════
 	// PUBLIC API
 	// ══════════════════════════════════════════════════════════════════════════
 
-	/**
-	 * Returns true when a .fnfc file exists for the given songId.
-	 * Check this before deciding whether to use FNFCLoader or the old JSON path.
-	 */
 	public static function exists(songId:String):Bool
 	{
 		#if sys
@@ -103,12 +58,6 @@ class FNFCLoader
 		#end
 	}
 
-	/**
-	 * Load a .fnfc and return a legacy-compatible SwagSong.
-	 *
-	 * @param songId     Song folder name, e.g. "bopeebo"
-	 * @param difficulty 0=easy  1=normal  2=hard  3=expert  4=nightmare
-	 */
 	public static function load(songId:String, difficulty:Int):SwagSong
 	{
 		#if !sys
@@ -116,8 +65,6 @@ class FNFCLoader
 		return null;
 		#else
 
-		// On the very first load, wipe any stale fnfc-temp left by a previous crash,
-		// and register the exit hook so the folder is always cleaned on close.
 		if (!exitHookRegistered)
 		{
 			exitHookRegistered = true;
@@ -147,7 +94,6 @@ class FNFCLoader
 		var chartKey = DIFF_TO_CHART_KEY.exists(difficulty) ? DIFF_TO_CHART_KEY[difficulty] : "normal";
 		trace('[FNFCLoader] load() → id=$id  variation=$variation  chartKey=$chartKey');
 
-		// Delete the previous song's temp audio if we're switching to a different song
 		if (isActive && activeSongId != "" && activeSongId != id)
 		{
 			var oldDir = TEMP_DIR + activeSongId + "/";
@@ -159,15 +105,8 @@ class FNFCLoader
 		activeSongId    = id;
 		activeVariation = variation;
 
-		activeCharter    = "";
-		activeSongArtist = "";
-		if (metaJson != null)
-		{
-			if (metaJson.charter != null)
-				activeCharter = Std.string(metaJson.charter);
-			if (metaJson.artist != null)
-				activeSongArtist = Std.string(metaJson.artist);
-		}
+		activeCharter    = (metaJson != null && metaJson.charter != null) ? Std.string(metaJson.charter) : "";
+		activeSongArtist = (metaJson != null && metaJson.artist  != null) ? Std.string(metaJson.artist)  : "";
 
 		activeEvents = [];
 		if (chartJson.events != null)
@@ -184,16 +123,6 @@ class FNFCLoader
 		#end
 	}
 
-	/**
-	 * Extract instrumental and vocals from the .fnfc ZIP to TEMP_DIR on disk.
-	 *
-	 * Extracted files:
-	 *   fnfc-temp/{songId}/Inst.ogg           ← instrumental
-	 *   fnfc-temp/{songId}/Voices.ogg         ← player (BF) vocals — gets muted on miss
-	 *   fnfc-temp/{songId}/VoicesOpponent.ogg ← opponent vocals (bonus; future 2-track use)
-	 *
-	 * Call from PlayState.create() BEFORE any audio caching, only when isActive==true.
-	 */
 	public static function extractAudio(songId:String, difficulty:Int):Void
 	{
 		#if sys
@@ -206,24 +135,15 @@ class FNFCLoader
 		if (!FileSystem.exists(TEMP_DIR)) FileSystem.createDirectory(TEMP_DIR);
 		if (!FileSystem.exists(outDir))   FileSystem.createDirectory(outDir);
 
-		var instPath   = outDir + "Inst.ogg";
-		var voicePath  = outDir + "Voices.ogg";
+		var instPath  = outDir + "Inst.ogg";
+		var voicePath = outDir + "Voices.ogg";
 
-		// Read metadata to get the correct vocal stem names (playerVocals / opponentVocals)
 		var metaJson = readJson(entries, id + "-metadata" + varSuffix + ".json");
 		var plyVocal = "bf";
 		var oppVocal = "dad";
-		var instStem = ""; // non-empty when the inst uses a named stem, e.g. "erect"
 		if (metaJson != null && metaJson.playData != null)
 		{
 			var pd:Dynamic = metaJson.playData;
-			if (pd.characters != null)
-			{
-				var chars:Dynamic = pd.characters;
-				if (chars.instrumental != null) instStem = Std.string(chars.instrumental);
-			}
-			// playerVocals[0] / opponentVocals[0] give the exact stem used in filenames
-			// e.g. "bf-dark" → Voices-bf-dark-erect.ogg
 			if (pd.characters != null && pd.characters.playerVocals != null)
 			{
 				var pv:Array<Dynamic> = cast pd.characters.playerVocals;
@@ -236,7 +156,6 @@ class FNFCLoader
 			}
 		}
 
-		// Inst: when instStem matches the variation (e.g. "erect") the file is just Inst-erect.ogg
 		if (!FileSystem.exists(instPath))
 		{
 			if (!extractEntry(entries, "Inst" + varSuffix + ".ogg", instPath))
@@ -245,7 +164,6 @@ class FNFCLoader
 
 		if (!FileSystem.exists(voicePath))
 		{
-			// Voices-{plyVocal}-{variation}.ogg  e.g. Voices-bf-dark-erect.ogg or Voices-bf-erect.ogg
 			if (!extractEntry(entries, "Voices-" + plyVocal + varSuffix + ".ogg", voicePath))
 				if (!extractEntry(entries, "Voices-" + plyVocal + ".ogg", voicePath))
 					extractEntry(entries, "Voices.ogg", voicePath);
@@ -264,21 +182,15 @@ class FNFCLoader
 		#end
 	}
 
-	// ── Path/sound getters used by PlayState patches ──────────────────────────
-
-	/** Filesystem path to the extracted instrumental. */
 	public static function getTempInstPath(songId:String):String
 		return TEMP_DIR + songId + "/Inst.ogg";
 
-	/** Filesystem path to the extracted player vocals. */
 	public static function getTempVoicesPath(songId:String):String
 		return TEMP_DIR + songId + "/Voices.ogg";
 
-	/** Filesystem path to the extracted opponent vocals. */
 	public static function getTempOpponentVoicesPath(songId:String):String
 		return TEMP_DIR + songId + "/VoicesOpponent.ogg";
 
-	/** True if an opponent vocals file was successfully extracted for this song. */
 	public static function hasOpponentVoices(songId:String):Bool
 	{
 		#if sys
@@ -289,45 +201,16 @@ class FNFCLoader
 	}
 
 	#if sys
-	/**
-	 * Load the extracted instrumental as an openfl Sound object.
-	 * Use this in PlayState.startSong() when isActive == true.
-	 */
 	public static function loadInstSound(songId:String):Sound
 		return Sound.fromFile(getTempInstPath(songId));
 
-	/**
-	 * Load the extracted player (BF) vocals as an openfl Sound object.
-	 * This is the track that gets muted on miss.
-	 * Use this in PlayState.generateSong() when isActive == true.
-	 */
 	public static function loadVoicesSound(songId:String):Sound
 		return Sound.fromFile(getTempVoicesPath(songId));
 
-	/**
-	 * Load the extracted opponent (Dad) vocals as an openfl Sound object.
-	 * This track plays continuously and is never muted.
-	 * Use this in PlayState.generateSong() when isActive == true.
-	 */
 	public static function loadOpponentVoicesSound(songId:String):Sound
 		return Sound.fromFile(getTempOpponentVoicesPath(songId));
 	#end
 
-	/**
-	 * Extract the instrumental for a freeplay preview and return its filesystem path.
-	 *
-	 * Uses per-variation filenames in the temp dir:
-	 *   fnfc-temp/{songId}/preview.ogg        ← easy / normal / hard
-	 *   fnfc-temp/{songId}/preview-erect.ogg  ← expert + nightmare (same audio)
-	 *
-	 * This means switching difficulty in freeplay never overwrites the other
-	 * variation's file — both can sit on disk simultaneously and be replayed
-	 * instantly without re-extraction.
-	 *
-	 * Does NOT touch isActive / activeSongId / activeVariation.
-	 * Safe to call on a background thread.
-	 * Returns null on any failure.
-	 */
 	public static function getPreviewInstPath(songId:String, difficulty:Int):String
 	{
 		#if sys
@@ -340,7 +223,6 @@ class FNFCLoader
 			var manifestId = getSongIdFromManifest(entries, id);
 			var variation  = resolveVariation(entries, manifestId, difficulty);
 			var varSuffix  = (variation == "") ? "" : "-" + variation;
-
 			var previewFile = "preview" + varSuffix + ".ogg";
 
 			var outDir = TEMP_DIR + manifestId + "/";
@@ -348,9 +230,6 @@ class FNFCLoader
 			if (!FileSystem.exists(outDir))   FileSystem.createDirectory(outDir);
 
 			var destPath = outDir + previewFile;
-
-			// Only extract if not already cached on disk
-			// Inst is always Inst-{variation}.ogg or Inst.ogg — no extra stem needed
 			if (!FileSystem.exists(destPath))
 			{
 				if (!extractEntry(entries, "Inst" + varSuffix + ".ogg", destPath))
@@ -369,16 +248,6 @@ class FNFCLoader
 		#end
 	}
 
-	/**
-	 * Reset active state and clear the zip cache.
-	 *
-	 * Call this when genuinely navigating AWAY from a FNFC song
-	 * (exit to menu, end of week, end of freeplay song).
-	 *
-	 * Do NOT call from PlayState.destroy() — destroy() fires on
-	 * FlxG.resetState() (restart) too, which would clear isActive before
-	 * the new PlayState boots. reset() is called explicitly at real exit points.
-	 */
 	public static function reset():Void
 	{
 		#if sys
@@ -396,6 +265,9 @@ class FNFCLoader
 		activeSongArtist = "";
 		activeEvents     = [];
 		zipCache.clear();
+		#if sys
+		entryIndexCache.clear();
+		#end
 		trace("[FNFCLoader] Reset.");
 	}
 
@@ -405,7 +277,6 @@ class FNFCLoader
 
 	static function convertToSwagSong(id:String, meta:Dynamic, chart:Dynamic, diffKey:String):SwagSong
 	{
-		// ── BPM from first timeChange entry ───────────────────────────────────
 		var bpm:Float = 100;
 		if (meta.timeChanges != null)
 		{
@@ -413,14 +284,12 @@ class FNFCLoader
 			if (tcs.length > 0 && tcs[0].bpm != null)
 				bpm = tcs[0].bpm;
 		}
-		var stepCrochet:Float = (60.0 / bpm * 1000.0) / 4.0; // ms per step
+		var stepCrochet:Float = (60.0 / bpm * 1000.0) / 4.0;
 
-		// ── Scroll speed ──────────────────────────────────────────────────────
 		var speed:Float = 2.0;
 		if (chart.scrollSpeed != null && Reflect.hasField(chart.scrollSpeed, diffKey))
 			speed = Reflect.field(chart.scrollSpeed, diffKey);
 
-		// ── Raw notes for this difficulty ─────────────────────────────────────
 		var rawNotes:Array<Dynamic> = [];
 		if (chart.notes != null && Reflect.hasField(chart.notes, diffKey))
 			rawNotes = cast Reflect.field(chart.notes, diffKey);
@@ -428,7 +297,6 @@ class FNFCLoader
 		if (rawNotes.length == 0)
 			trace('[FNFCLoader] WARNING: no notes found for diffKey="$diffKey" — chart may be empty!');
 
-		// ── How many sections do we need? ─────────────────────────────────────
 		var maxTime:Float = 0;
 		for (n in rawNotes)
 		{
@@ -436,63 +304,41 @@ class FNFCLoader
 			if (endMs > maxTime) maxTime = endMs;
 		}
 
-		// ── Camera events → mustHitSection per section ────────────────────────
-		// Pass totalSections so parseCameraEvents can return a full Array<Bool>
-		// indexed directly by section number. Algorithm: for each section S,
-		// the camera state = the last FocusCamera event where t < (S+1)*sectionMs.
 		var totalSections:Int = Std.int(Math.ceil(maxTime / (16.0 * stepCrochet))) + 2;
 		var sectionFocus:Array<Bool> = parseCameraEvents(chart.events, stepCrochet, totalSections);
 
-		// ── Build section array ───────────────────────────────────────────────
-		// Anonymous objects MUST include every field from the SwagSection typedef:
-		//   sectionNotes, lengthInSteps, typeOfSection, mustHitSection,
-		//   bpm, changeBPM, altAnim
-		var sections:Array<SwagSection> = [];
+		// Pre-allocate sections array
+		var sections:Array<SwagSection> = new Array();
+		sections.resize(totalSections);
 		for (i in 0...totalSections)
 		{
-			var mustHit:Bool = sectionFocus[i];
-			var sec:SwagSection = cast {
+			sections[i] = cast {
 				sectionNotes  : ([] : Array<Dynamic>),
 				lengthInSteps : 16,
 				typeOfSection : 0,
-				mustHitSection: mustHit,
+				mustHitSection: sectionFocus[i],
 				bpm           : bpm,
 				changeBPM     : false,
 				altAnim       : false
 			};
-			sections.push(sec);
 		}
 
-		// ── Distribute FNF v2 notes into legacy sections ───────────────────────
-		//
-		// FNF v2 "d" (direction) field encoding — ABSOLUTE, not relative to section:
-		//   d 0-3 = player (BF)    notes  [left, down, up, right]
-		//   d 4-7 = opponent (Dad) notes  [left, down, up, right]
-		//
-		// Legacy PlayState sectionNotes: [time, noteData, sustainLength]
-		//   mustHitSection=TRUE  → noteData 0-3 = BF plays,  noteData 4-7 = Dad plays
-		//   mustHitSection=FALSE → noteData 0-3 = Dad plays, noteData 4-7 = BF plays
-		//   (PlayState flips gottaHitNote when noteData > 3)
-		//
-		// Conversion:
-		//   mustHitSection=TRUE  → legacyData = d  (BF already in 0-3, Dad already in 4-7)
-		//   mustHitSection=FALSE → BF note (d<4): legacyData = d+4
-		//                        → Dad note (d>=4): legacyData = d-4
-		//
+		// Precompute inverse section duration to avoid repeated division in the loop
+		var invSectionMs:Float = 1.0 / (16.0 * stepCrochet);
+		var lastSectionIdx:Int = sections.length - 1;
+
 		for (rawNote in rawNotes)
 		{
 			var t:Float       = rawNote.t;
 			var d:Int         = Std.int(rawNote.d);
 			var l:Float       = rawNote.l;
-			var isPlayer:Bool = (d < 4); // d 0-3 = BF (player), d 4-7 = Dad (opponent)
+			var isPlayer:Bool = (d < 4);
 
-			var sIdx:Int = Std.int(Math.floor(t / (16.0 * stepCrochet)));
-			if (sIdx < 0)                sIdx = 0;
-			if (sIdx >= sections.length) sIdx = sections.length - 1;
+			var sIdx:Int = Std.int(t * invSectionMs);
+			if (sIdx < 0)              sIdx = 0;
+			if (sIdx > lastSectionIdx) sIdx = lastSectionIdx;
 
 			var sec = sections[sIdx];
-			// mustHitSection=true:  BF(0-3) stays 0-3, Dad(4-7) stays 4-7  → no change
-			// mustHitSection=false: BF(0-3) → 4-7 (+4),  Dad(4-7) → 0-3 (-4)
 			var legacyData:Int = sec.mustHitSection
 				? d
 				: (isPlayer ? (d + 4) : (d - 4));
@@ -500,7 +346,6 @@ class FNFCLoader
 			sec.sectionNotes.push([t, legacyData, l]);
 		}
 
-		// ── Character IDs ─────────────────────────────────────────────────────
 		var player1 = "bf";
 		var player2 = "dad";
 		if (meta.playData != null && meta.playData.characters != null)
@@ -510,16 +355,8 @@ class FNFCLoader
 			if (chars.opponent != null) player2 = Std.string(chars.opponent);
 		}
 
-		// ── Song display name ─────────────────────────────────────────────────
-		// We use the capitalised songId (e.g. "Bopeebo") rather than the
-		// metadata's songName (e.g. "Bopeebo Erect") so that PlayState's
-		// switch/case blocks like 'case "bopeebo":' keep working for ALL
-		// variations of the same song.
 		var songDisplayName:String = id.charAt(0).toUpperCase() + id.substr(1).toLowerCase();
 
-		// ── Assemble SwagSong ─────────────────────────────────────────────────
-		// Must include every field from the SwagSong typedef:
-		//   song, notes, bpm, needsVoices, speed, player1, player2, validScore
 		var swagSong:SwagSong = cast {
 			song        : songDisplayName,
 			notes       : sections,
@@ -535,79 +372,38 @@ class FNFCLoader
 		return swagSong;
 	}
 
-	/**
-	 * Build a per-section camera focus array.
-	 *
-	 * ALGORITHM: For each section S, the mustHitSection value =
-	 * the last FocusCamera event where event.t < (S+1)*sectionMs.
-	 *
-	 * This is correct because:
-	 *  - Events placed exactly at a section boundary (t = S*sectionMs) may
-	 *    have float values of (S-epsilon), which floor() puts in section S-1.
-	 *    Using t < section_END rather than t <= section_START avoids this.
-	 *  - Events that fire mid-section correctly update that section's camera.
-	 *  - A running pointer makes this O(sections + events).
-	 *
-	 * FocusCamera "v" field formats:
-	 *   Base chart (v2.0.0):  v = Int       — 0=BF (mustHit=true), 1=Dad (mustHit=false)
-	 *   Erect chart (newer):  v = Object    — char=0=BF, char=1=Dad, char=2=GF
-	 *   char=2 (GF) is treated the same as Dad for mustHitSection purposes.
-	 */
 	static function parseCameraEvents(events:Dynamic, stepCrochet:Float, totalSections:Int):Array<Bool>
 	{
 		var sectionMs:Float = 16.0 * stepCrochet;
-
-		// Default: all sections have camera on BF (mustHitSection=true)
 		var result:Array<Bool> = [for (_ in 0...totalSections) true];
 
 		if (events == null) return result;
 
-		// Pre-filter to FocusCamera events only and sort by time ascending
 		var arr:Array<Dynamic> = cast events;
 		var focusEvents:Array<Dynamic> = arr.filter(function(e) return e.e == "FocusCamera");
 		focusEvents.sort(function(a, b) return Reflect.compare(a.t, b.t));
 
 		if (focusEvents.length == 0) return result;
 
-		// Running pointer using MIDPOINT of each section.
-		//
-		// WHY MIDPOINT and not sectionEnd or sectionStart:
-		//   BPM 123 gives section_ms = 1951.219512195122...
-		//   An event placed at the start of section 1 is stored as t=1951.2195121951
-		//   (one digit short, so slightly LESS than section_ms due to float truncation).
-		//   Using sectionEnd: t=0 AND t=1951.22 are BOTH < sectionEnd=1951.2195122,
-		//   so both are consumed for section 0. Last-wins = BF instead of Dad. WRONG.
-		//   Using midpoint (s+0.5)*sectionMs: midpoint of section 0 = 975.6ms.
-		//   t=0 <= 975.6 consumed (char=1=Dad). t=1951.22 > 975.6 stops. Section 0=Dad. CORRECT.
-		//   t=1951.22 <= midpoint of section 1 (2926.8ms) consumed (char=0=BF). CORRECT.
-		//   Midpoints are always deep inside their section, never near a boundary.
 		var ptr:Int = 0;
-		var currentChar:Int = -1; // -1 = no event seen yet
+		var currentChar:Int = -1;
 
 		for (s in 0...totalSections)
 		{
 			var midpoint:Float = (s + 0.5) * sectionMs;
 
-			// Consume all events at or before this section's midpoint
 			while (ptr < focusEvents.length)
 			{
-				var t:Float = focusEvents[ptr].t;
-				if (t > midpoint) break;
+				if (focusEvents[ptr].t > midpoint) break;
 
 				var v:Dynamic = focusEvents[ptr].v;
 				if (Std.isOfType(v, Int) || Std.isOfType(v, Float))
-				{
 					currentChar = Std.int(v);
-				}
 				else if (Reflect.hasField(v, "char"))
-				{
 					currentChar = Std.int(Reflect.field(v, "char"));
-				}
 				ptr++;
 			}
 
-			// char=0 → BF (mustHit=true), anything else → Dad/GF (mustHit=false)
-			// If no event has fired yet, default to true (camera on BF)
 			result[s] = (currentChar == -1) ? true : (currentChar == 0);
 		}
 
@@ -618,16 +414,11 @@ class FNFCLoader
 	// VARIATION RESOLUTION
 	// ══════════════════════════════════════════════════════════════════════════
 
-	/**
-	 * Returns the variation string to use ("" = base, "erect"…).
-	 * difficulty=3 (expert) and difficulty=4 (nightmare) both use the erect variation —
-	 * they share the same audio, only the chart key differs.
-	 */
 	static function resolveVariation(entries:List<Entry>, id:String, difficulty:Int):String
 	{
 		if ((difficulty == 3 || difficulty == 4) && hasEntry(entries, id + "-metadata-erect.json"))
 			return "erect";
-		return ""; // base variation covers easy / normal / hard
+		return "";
 	}
 
 	// ══════════════════════════════════════════════════════════════════════════
@@ -648,12 +439,29 @@ class FNFCLoader
 		fi.close();
 
 		zipCache.set(songId, entries);
+
+		// Build O(1) name→entry index for this archive
+		var idx:Map<String, Entry> = new Map();
+		for (e in entries)
+			idx.set(e.fileName, e);
+		entryIndexCache.set(songId, idx);
+
 		trace('[FNFCLoader] Loaded zip: $path  (${Lambda.count(entries)} entries)');
 		return entries;
 		#else
 		throw "[FNFCLoader] getEntries() is not supported on this platform.";
 		return null;
 		#end
+	}
+
+	// O(1) entry lookup via the index cache
+	static function findEntry(songId:String, fileName:String):Entry
+	{
+		#if sys
+		var idx = entryIndexCache.get(songId);
+		if (idx != null) return idx.get(fileName);
+		#end
+		return null;
 	}
 
 	static function hasEntry(entries:List<Entry>, fileName:String):Bool
@@ -680,7 +488,6 @@ class FNFCLoader
 		catch (e:Dynamic) { trace('[FNFCLoader] JSON parse error in "$fileName": $e'); return null; }
 	}
 
-	/** Extracts one zip entry to a filesystem path. Returns true on success. */
 	static function extractEntry(entries:List<Entry>, zipName:String, destPath:String):Bool
 	{
 		#if sys
@@ -700,7 +507,6 @@ class FNFCLoader
 		return (manifest != null && manifest.songId != null) ? Std.string(manifest.songId) : fallback;
 	}
 
-	/** Returns the .fnfc path for a given songId. */
 	public static function getFnfcPath(songId:String):String
 		return FNFC_ASSET_DIR + songId + "/" + songId + ".fnfc";
 

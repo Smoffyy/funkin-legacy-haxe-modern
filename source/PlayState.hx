@@ -92,6 +92,11 @@ class PlayState extends MusicBeatState
 
 	private var strumWobbleTweens:Array<FlxTween> = [null, null, null, null];
 	private var opponentWobbleTweens:Array<FlxTween> = [null, null, null, null];
+	// Direct O(1) strum sprite access — avoids forEach on every note hit/frame
+	private var _playerStrumSprites:Array<FlxSprite>   = [null, null, null, null];
+	private var _opponentStrumSprites:Array<FlxSprite> = [null, null, null, null];
+	// Cached once per song to avoid repeated startsWith in hot paths
+	private var _isSchoolStage:Bool = false;
 	// Optional opponent custom held time
 	//private var opponentStrumTimers:Array<Float> = [0, 0, 0, 0];
 	//static inline final OPPONENT_STRUM_HOLD:Float = 0.12;
@@ -1184,6 +1189,9 @@ class PlayState extends MusicBeatState
 		inCutscene = false;
 		camHUD.visible = true;
 
+		// Refresh Note's static stage/pref cache for this song
+		Note.refreshStaticCache();
+
 		// Cache frequently-read prefs for the duration of this song
 		_prefNewUI       = PreferencesMenu.getPref('new-ui');
 		_prefDownscroll  = PreferencesMenu.getPref('downscroll');
@@ -1195,6 +1203,7 @@ class PlayState extends MusicBeatState
 		_prefScreenShake = PreferencesMenu.getPref('screen-shake-miss');
 		_prefNoteSplash  = PreferencesMenu.getPref('note-splashes');
 		_prefHideOpponent = PreferencesMenu.getPref('hide-opponent');
+		_isSchoolStage    = curStage.startsWith('school');
 		
 		displayHealth = health;
 
@@ -1582,6 +1591,11 @@ class PlayState extends MusicBeatState
 				babyArrow.x += (FlxG.width / 2 - Note.swagWidth * 4) / 2;
 			}
 
+			// Populate direct-access arrays for O(1) lookup in goodNoteHit/keyShit
+			if (player == 1)
+				_playerStrumSprites[i] = babyArrow;
+			else
+				_opponentStrumSprites[i] = babyArrow;
 			strumLineNotes.add(babyArrow);
 		}
 	}
@@ -1738,13 +1752,15 @@ class PlayState extends MusicBeatState
 		}
 
 
+		super.update(elapsed);
+
+		// Snapshots taken AFTER super.update() so Note.update() has already run this frame.
+		// Reading pre-update state was causing missed notes on the edge of the hit window.
 		notes.forEachAlive(function(daNote:Note)
 		{
 			daNote.canBeHitSnapshot = daNote.canBeHit;
 			daNote.tooLateSnapshot = daNote.tooLate;
 		});
-
-		super.update(elapsed);
 
 		if (!inCutscene)
 			keyShit();
@@ -1774,7 +1790,8 @@ class PlayState extends MusicBeatState
 		// Healthbar effect (only for new UI)
 		if (_prefNewUI && _prefHealthWarn && health < 0.35)
 		{
-			var healthPulse:Float = Math.sin(FlxG.sound.music.time / 100) * 0.3 + 0.7;
+			// Use elapsed accumulator instead of music.time lookup to avoid audio API cost each frame
+			var healthPulse:Float = Math.sin(Conductor.songPosition / 100) * 0.3 + 0.7;
 			healthBar.color = FlxColor.interpolate(0xFFFF0000, 0xFFFFFFFF, healthPulse);
 		}
 		else
@@ -1851,8 +1868,8 @@ class PlayState extends MusicBeatState
 		// Icon positioning based on HUD mode
 		if (_prefNewUI)
 		{
-			// New UI: Smooth lerped positioning
-			var iconPosLerp:Float = 1 - Math.pow(0.85, elapsed * 60);
+			// New UI: Smooth lerped positioning (reuse iconLerp, invert it)
+			var iconPosLerp:Float = 1 - iconLerp;
 			iconP1.x = FlxMath.lerp(iconP1.x, targetP1X, iconPosLerp);
 			iconP2.x = FlxMath.lerp(iconP2.x, targetP2X, iconPosLerp);
 		}
@@ -1908,8 +1925,9 @@ class PlayState extends MusicBeatState
 
 		if (generatedMusic && SONG.notes[Std.int(curStep / 16)] != null)
 		{
+			var _curSectionIdx:Int = Std.int(curStep / 16);
 			if (!FNFCLoader.isActive || !fnfcUseEventCam)
-				cameraRightSide = SONG.notes[Std.int(curStep / 16)].mustHitSection;
+				cameraRightSide = SONG.notes[_curSectionIdx].mustHitSection;
 
 			cameraMovement();
 
@@ -2026,11 +2044,17 @@ class PlayState extends MusicBeatState
 		if (generatedMusic)
 		{
 			var downscroll:Bool = _prefDownscroll;
+			// Cache per-frame constants outside the closure to avoid repeated property lookups
+			var _strumY:Float     = strumLine.y;
+			var _strumMid:Float   = _strumY + Note.swagWidth / 2;
+			var _songSpeed:Float  = 0.45 * FlxMath.roundDecimal(SONG.speed, 2);
+			var _framePos:Float   = Conductor.framePosition;
+			var _screenH:Float    = FlxG.height;
 			var curSection = (generatedMusic && SONG.notes[Math.floor(curStep / 16)] != null) ? SONG.notes[Math.floor(curStep / 16)] : null;
 			notes.forEachAlive(function(daNote:Note)
 			{
 				if ((downscroll && daNote.y < -daNote.height)
-					|| (!downscroll && daNote.y > FlxG.height))
+					|| (!downscroll && daNote.y > _screenH))
 				{
 					daNote.active = false;
 					daNote.visible = false;
@@ -2042,13 +2066,12 @@ class PlayState extends MusicBeatState
 
 					if (_prefHideOpponent && !daNote.mustPress)
 						daNote.alpha = 0;
-					// Don't reset alpha on grey-lingering notes (bad/shit hit, wasGoodHit=true).
 				}
 
 				// Cull grey-lingering notes once they scroll off screen.
 				if (daNote.wasGoodHit && !daNote.isSustainNote)
 				{
-					var offscreen:Bool = _prefDownscroll ? daNote.y < -daNote.height : daNote.y > FlxG.height;
+					var offscreen:Bool = downscroll ? daNote.y < -daNote.height : daNote.y > _screenH;
 					if (offscreen)
 					{
 						daNote.kill();
@@ -2057,11 +2080,9 @@ class PlayState extends MusicBeatState
 					}
 				}
 
-				var strumLineMid = strumLine.y + Note.swagWidth / 2;
-
 				if (downscroll)
 				{
-					daNote.y = (strumLine.y + (Conductor.framePosition - daNote.strumTime) * (0.45 * FlxMath.roundDecimal(SONG.speed, 2)));
+					daNote.y = _strumY + (_framePos - daNote.strumTime) * _songSpeed;
 
 					if (daNote.isSustainNote)
 					{
@@ -2071,11 +2092,10 @@ class PlayState extends MusicBeatState
 							daNote.y += (daNote.frameHeight * daNote.scale.y) / 2;
 
 						if ((!daNote.mustPress || (daNote.wasGoodHit || (daNote.prevNote.wasGoodHit && !daNote.canBeHit)))
-							&& daNote.y - daNote.offset.y * daNote.scale.y + daNote.height >= strumLineMid)
+							&& daNote.y - daNote.offset.y * daNote.scale.y + daNote.height >= _strumMid)
 						{
 							var swagRect:FlxRect = new FlxRect(0, 0, daNote.frameWidth, daNote.frameHeight);
-
-							swagRect.height = (strumLineMid - daNote.y) / daNote.scale.y;
+							swagRect.height = (_strumMid - daNote.y) / daNote.scale.y;
 							swagRect.y = daNote.frameHeight - swagRect.height;
 							daNote.clipRect = swagRect;
 						}
@@ -2083,7 +2103,7 @@ class PlayState extends MusicBeatState
 				}
 				else
 				{
-					daNote.y = (strumLine.y - (Conductor.framePosition - daNote.strumTime) * (0.45 * FlxMath.roundDecimal(SONG.speed, 2)));
+					daNote.y = _strumY - (_framePos - daNote.strumTime) * _songSpeed;
 
 					if (daNote.isSustainNote)
 					{
@@ -2095,11 +2115,10 @@ class PlayState extends MusicBeatState
 
 					if (daNote.isSustainNote
 						&& (!daNote.mustPress || (daNote.wasGoodHit || (daNote.prevNote.wasGoodHit && !daNote.canBeHit)))
-						&& daNote.y + daNote.offset.y * daNote.scale.y <= strumLineMid)
+						&& daNote.y + daNote.offset.y * daNote.scale.y <= _strumMid)
 					{
 						var swagRect:FlxRect = new FlxRect(0, 0, daNote.width / daNote.scale.x, daNote.height / daNote.scale.y);
-
-						swagRect.y = (strumLineMid - daNote.y) / daNote.scale.y;
+						swagRect.y = (_strumMid - daNote.y) / daNote.scale.y;
 						swagRect.height -= swagRect.y;
 						daNote.clipRect = swagRect;
 					}
@@ -2130,18 +2149,14 @@ class PlayState extends MusicBeatState
 							dad.playAnim('singRIGHT' + altAnim, true);
 					}
 
-					opponentStrums.forEach(function(spr:FlxSprite)
+					// Direct O(1) lookup — no forEach needed since ID == index
+					var _oIdx:Int = Std.int(Math.abs(daNote.noteData));
+					var _oSpr:FlxSprite = _opponentStrumSprites[_oIdx];
+					if (_oSpr != null && _prefNoteGlow)
 					{
-						if (Math.abs(daNote.noteData) == spr.ID)
-						{
-							if (_prefNoteGlow)
-							{
-								spr.animation.play('confirm', true);
-								//opponentStrumTimers[spr.ID] = OPPONENT_STRUM_HOLD;
-								triggerStrumWobble(spr.ID, opponentStrums, opponentWobbleTweens);
-							}
-						}
-					});
+						_oSpr.animation.play('confirm', true);
+						triggerStrumWobble(_oIdx, _oSpr, opponentWobbleTweens);
+					}
 
 					if (health > 0.5)
 					{
@@ -2217,9 +2232,12 @@ class PlayState extends MusicBeatState
 		}
 
 		// Reset opponent strums animation back to static, finally fixed it holy
-		opponentStrums.forEach(function(spr:FlxSprite)
+		for (i in 0...4)
 		{
-			if (spr.animation.curAnim.name == 'confirm' && !curStage.startsWith('school'))
+			var spr:FlxSprite = _opponentStrumSprites[i];
+			if (spr == null) continue;
+			var animName:String = spr.animation.curAnim == null ? 'static' : spr.animation.curAnim.name;
+			if (animName == 'confirm' && !_isSchoolStage)
 			{
 				spr.centerOffsets();
 				spr.offset.x -= 13;
@@ -2227,11 +2245,10 @@ class PlayState extends MusicBeatState
 			}
 			else
 				spr.centerOffsets();
-			
-			//if (spr.animation.curAnim.name == 'confirm')
-			if (spr.animation.curAnim.name == 'confirm' && spr.animation.curAnim.finished)
-			{
 
+			//if (spr.animation.curAnim.name == 'confirm')
+			if (animName == 'confirm' && spr.animation.curAnim.finished)
+			{
 				spr.animation.play('static');
 				spr.centerOffsets();
 
@@ -2243,7 +2260,7 @@ class PlayState extends MusicBeatState
 				//	spr.centerOffsets();
 				//}
 			}
-		});
+		}
 	}
 
 	function killCombo():Void
@@ -2759,30 +2776,24 @@ class PlayState extends MusicBeatState
 		}
 	}
 
-	function triggerStrumWobble(noteData:Int, strumGroup:FlxTypedGroup<FlxSprite>, wobbleTweens:Array<FlxTween>):Void
+	function triggerStrumWobble(noteData:Int, spr:FlxSprite, wobbleTweens:Array<FlxTween>):Void
 	{
-		if (!_prefArrowWobble)
+		if (!_prefArrowWobble || spr == null)
 			return;
 
-		strumGroup.forEach(function(spr:FlxSprite)
+		if (wobbleTweens[noteData] != null)
 		{
-			if (spr.ID == noteData)
-			{
-				if (wobbleTweens[noteData] != null)
-				{
-					wobbleTweens[noteData].cancel();
-					wobbleTweens[noteData] = null;
-					spr.angle = 0;
-				}
+			wobbleTweens[noteData].cancel();
+			wobbleTweens[noteData] = null;
+			spr.angle = 0;
+		}
 
-				spr.angle = 12;
-				wobbleTweens[noteData] = FlxTween.tween(spr, {angle: 0}, 0.3, {
-					ease: FlxEase.elasticOut,
-					onComplete: function(t:FlxTween)
-					{
-						wobbleTweens[noteData] = null;
-					}
-				});
+		spr.angle = 12;
+		wobbleTweens[noteData] = FlxTween.tween(spr, {angle: 0}, 0.3, {
+			ease: FlxEase.elasticOut,
+			onComplete: function(t:FlxTween)
+			{
+				wobbleTweens[noteData] = null;
 			}
 		});
 	}
@@ -2824,7 +2835,7 @@ class PlayState extends MusicBeatState
 		}
 
 		// HOLDS, check for sustain notes
-		if (holdArray.contains(true) && /*!boyfriend.stunned && */ generatedMusic)
+		if ((holdArray[0] || holdArray[1] || holdArray[2] || holdArray[3]) && generatedMusic)
 		{
 			notes.forEachAlive(function(daNote:Note)
 			{
@@ -2834,7 +2845,7 @@ class PlayState extends MusicBeatState
 		}
 
 		// PRESSES, check for note hits
-		if (pressArray.contains(true) && /*!boyfriend.stunned && */ generatedMusic)
+		if ((pressArray[0] || pressArray[1] || pressArray[2] || pressArray[3]) && generatedMusic)
 		{
 			boyfriend.holdTimer = 0;
 
@@ -2910,7 +2921,7 @@ class PlayState extends MusicBeatState
 			}
 		}
 
-		if (boyfriend.holdTimer > Conductor.stepCrochet * 4 * 0.001 && !holdArray.contains(true))
+		if (boyfriend.holdTimer > Conductor.stepCrochet * 4 * 0.001 && !(holdArray[0] || holdArray[1] || holdArray[2] || holdArray[3]))
 		{
 			if (boyfriend.animation.curAnim.name.startsWith('sing') && !boyfriend.animation.curAnim.name.endsWith('miss'))
 			{
@@ -2918,19 +2929,21 @@ class PlayState extends MusicBeatState
 			}
 		}
 
-		playerStrums.forEach(function(spr:FlxSprite)
+		for (i in 0...4)
 		{
+			var spr:FlxSprite = _playerStrumSprites[i];
+			if (spr == null) continue;
 			if (botplayMode)
 			{
-				if (pressArray[spr.ID] || holdArray[spr.ID])
+				if (pressArray[i] || holdArray[i])
 				{
 					if (spr.animation.curAnim.name != 'confirm')
 					{
 						spr.animation.play('confirm', true);
-						triggerStrumWobble(spr.ID, playerStrums, strumWobbleTweens);
+						triggerStrumWobble(i, _playerStrumSprites[i], strumWobbleTweens);
 					}
 					spr.centerOffsets();
-					if (!curStage.startsWith('school'))
+					if (!_isSchoolStage)
 					{
 						spr.offset.x -= 13;
 						spr.offset.y -= 13;
@@ -2939,7 +2952,7 @@ class PlayState extends MusicBeatState
 				else if (spr.animation.curAnim.name == 'confirm' && !spr.animation.curAnim.finished)
 				{
 					spr.centerOffsets();
-					if (!curStage.startsWith('school'))
+					if (!_isSchoolStage)
 					{
 						spr.offset.x -= 13;
 						spr.offset.y -= 13;
@@ -2956,13 +2969,13 @@ class PlayState extends MusicBeatState
 				var curAnim:String = spr.animation.curAnim == null ? 'static' : spr.animation.curAnim.name;
 				var animFinished:Bool = spr.animation.curAnim == null ? true : spr.animation.curAnim.finished;
 
-				if (pressArray[spr.ID])
+				if (pressArray[i])
 				{
-					triggerStrumWobble(spr.ID, playerStrums, strumWobbleTweens);
+					triggerStrumWobble(i, _playerStrumSprites[i], strumWobbleTweens);
 					if (curAnim != 'confirm')
 						spr.animation.play('pressed');
 				}
-				else if (!holdArray[spr.ID])
+				else if (!holdArray[i])
 				{
 					// Only return to static once confirm has finished playing.
 					if (curAnim != 'confirm' || animFinished)
@@ -2979,7 +2992,7 @@ class PlayState extends MusicBeatState
 
 				// Re-read after state changes to apply offset correctly.
 				curAnim = spr.animation.curAnim == null ? 'static' : spr.animation.curAnim.name;
-				if (curAnim == 'confirm' && !curStage.startsWith('school'))
+				if (curAnim == 'confirm' && !_isSchoolStage)
 				{
 					spr.centerOffsets();
 					spr.offset.x -= 13;
@@ -2988,7 +3001,7 @@ class PlayState extends MusicBeatState
 				else
 					spr.centerOffsets();
 			}
-		});
+		}
 	}
 
 	function noteMiss(direction:Int = 1):Void
@@ -3062,14 +3075,13 @@ class PlayState extends MusicBeatState
 					boyfriend.playAnim('singRIGHT', true);
 			}
 
-			playerStrums.forEach(function(spr:FlxSprite)
+			// Direct O(1) lookup — no forEach needed since ID == index
+			var _pSpr:FlxSprite = _playerStrumSprites[note.noteData];
+			if (_pSpr != null)
 			{
-				if (note.noteData == spr.ID)
-				{
-					spr.animation.play('confirm', true);
-					triggerStrumWobble(spr.ID, playerStrums, strumWobbleTweens);
-				}
-			});
+				_pSpr.animation.play('confirm', true);
+				triggerStrumWobble(note.noteData, _playerStrumSprites[note.noteData], strumWobbleTweens);
+			}
 
 			note.wasGoodHit = true;
 			vocals.volume = 1;
