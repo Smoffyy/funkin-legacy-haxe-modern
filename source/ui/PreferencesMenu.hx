@@ -38,7 +38,7 @@ class PreferencesMenu extends ui.OptionsState.Page
 		createPrefItem('Camera Zooming on Beat', 'camera-zoom', true);
 		createPrefItem('FPS Counter', 'fps-counter', true);
 		createPrefItem('Auto Pause', 'auto-pause', false);
-		createPrefItem('Note Splashes', 'note-splashes', false);
+		createPrefItem('Note Splashes', 'note-splashes', true);
 
 		camFollow = new FlxObject(FlxG.width / 2, 0, 140, 70);
 		if (items != null)
@@ -110,12 +110,7 @@ class PreferencesMenu extends ui.OptionsState.Page
 		FlxG.sound.muted = true;
 		#end
 
-		if (!getPref('fps-counter'))
-			FlxG.stage.removeChild(Main.fpsCounter);
-
 		FlxG.autoPause = getPref('auto-pause');
-
-		Conductor.refreshInterpolationPref();
 	}
 
 	private function createPrefItem(prefName:String, prefString:String, prefValue:Dynamic):Void
@@ -142,8 +137,6 @@ class PreferencesMenu extends ui.OptionsState.Page
 			default:
 				trace('swag');
 		}
-
-		trace(Type.typeof(prefValue).getName());
 	}
 
 	function createCheckbox(prefString:String)
@@ -202,7 +195,6 @@ class PreferencesMenu extends ui.OptionsState.Page
 		var target:Int = (fps == 0) ? 240 : Std.int(Math.min(fps, 240));
 		setFlxFramerate(target);
 		openfl.Lib.application.window.frameRate = target;
-		Conductor.refreshInterpolationPref();
 		if (target <= 60)
 			Conductor.resetInterpolation();
 	}
@@ -217,7 +209,6 @@ class PreferencesMenu extends ui.OptionsState.Page
 		var target:Int = (fps == 0) ? 999 : fps;
 		setFlxFramerate(target);
 		openfl.Lib.application.window.frameRate = target;
-		Conductor.refreshInterpolationPref();
 	}
 
 	override function update(elapsed:Float)

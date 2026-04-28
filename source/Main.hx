@@ -91,8 +91,9 @@ class Main extends Sprite
 
 		ui.PreferencesMenu.initPrefs();
 
-		var rawFps:Int = ui.PreferencesMenu.getPref('framerate');
-		framerate = (rawFps == 0) ? 360 : Std.int(Math.min(rawFps, 360));
+		// Use a safe initial framerate for FlxGame constructor; the real value
+		// is applied via applyFramerate() immediately after.
+		framerate = 60;
 
 		addChild(new FlxGame(
 			gameWidth,
@@ -104,11 +105,18 @@ class Main extends Sprite
 			startFullscreen
 		));
 
-		openfl.Lib.application.window.frameRate = framerate;
+		// Now that FlxGame exists, apply the saved framerate through the
+		// canonical path so the cap logic lives in one place.
+		var savedFps:Int = ui.PreferencesMenu.getPref('framerate');
+		ui.PreferencesMenu.applyFramerate(savedFps);
 
 		#if !mobile
 		fpsCounter = new FPS(10, 3, 0xFFFFFF);
 		addChild(fpsCounter);
+
+		// Apply saved fps-counter visibility now that fpsCounter exists
+		if (!ui.PreferencesMenu.getPref('fps-counter'))
+			Lib.current.stage.removeChild(fpsCounter);
 		#end
 	}
 }

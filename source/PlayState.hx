@@ -79,6 +79,7 @@ class PlayState extends MusicBeatState
 
 	private var notes:FlxTypedGroup<Note>;
 	private var unspawnNotes:Array<Note> = [];
+	private var _unspawnIdx:Int = 0;
 
 	private var strumLine:FlxSprite;
 
@@ -175,6 +176,11 @@ class PlayState extends MusicBeatState
 	private var _prefHideOpponent:Bool = false;
 
 	var grpNoteSplashes:FlxTypedGroup<NoteSplash>;
+
+	// Sprite pools for rating/combo — recycle instead of create+destroy each note hit
+	private var _ratingPool:FlxTypedGroup<FlxSprite>;
+	private var _comboSprPool:FlxTypedGroup<FlxSprite>;
+	private var _comboNumPool:FlxTypedGroup<FlxSprite>;
 
 	public static var campaignScore:Int = 0;
 
@@ -881,6 +887,14 @@ class PlayState extends MusicBeatState
 
 		add(grpNoteSplashes);
 
+		// Pre-allocate pools for rating/combo sprites to avoid per-hit allocation
+		_ratingPool = new FlxTypedGroup<FlxSprite>();
+		add(_ratingPool);
+		_comboSprPool = new FlxTypedGroup<FlxSprite>();
+		add(_comboSprPool);
+		_comboNumPool = new FlxTypedGroup<FlxSprite>();
+		add(_comboNumPool);
+
 		playerStrums = new FlxTypedGroup<FlxSprite>();
 		opponentStrums = new FlxTypedGroup<FlxSprite>(); // Initialize opponent strums group
 
@@ -1447,6 +1461,7 @@ class PlayState extends MusicBeatState
 		}
 
 		unspawnNotes.sort(sortByShit);
+		_unspawnIdx = 0;
 
 		generatedMusic = true;
 	}
@@ -1755,12 +1770,21 @@ class PlayState extends MusicBeatState
 		super.update(elapsed);
 
 		// Snapshots taken AFTER super.update() so Note.update() has already run this frame.
-		// Reading pre-update state was causing missed notes on the edge of the hit window.
-		notes.forEachAlive(function(daNote:Note)
 		{
-			daNote.canBeHitSnapshot = daNote.canBeHit;
-			daNote.tooLateSnapshot = daNote.tooLate;
-		});
+			var _nm = notes.members;
+			var _nl = _nm.length;
+			var _ni = 0;
+			while (_ni < _nl)
+			{
+				var _sn = _nm[_ni];
+				if (_sn != null && _sn.alive)
+				{
+					_sn.canBeHitSnapshot = _sn.canBeHit;
+					_sn.tooLateSnapshot = _sn.tooLate;
+				}
+				_ni++;
+			}
+		}
 
 		if (!inCutscene)
 			keyShit();
@@ -2026,19 +2050,19 @@ class PlayState extends MusicBeatState
 			}
 		}
 
-		while (unspawnNotes[0] != null && unspawnNotes[0].strumTime - Conductor.getInterpolatedPosition() < 1800 / SONG.speed)
+		while (_unspawnIdx < unspawnNotes.length && unspawnNotes[_unspawnIdx].strumTime - Conductor.getInterpolatedPosition() < 1800 / SONG.speed)
 		{
 			// Don't spawn notes if position is negative (before song start)
 			// This prevents all notes from spawning at once on startup
 			if (Conductor.getInterpolatedPosition() < 0 && !startingSong)
 				break;
 				
-			var dunceNote:Note = unspawnNotes[0];
+			var dunceNote:Note = unspawnNotes[_unspawnIdx];
 			if (dunceNote.isSustainNote)
 				notes.insert(0, dunceNote);
 			else
 				notes.add(dunceNote);
-			unspawnNotes.shift();
+			_unspawnIdx++;
 		}
 
 		if (generatedMusic)
@@ -2094,10 +2118,17 @@ class PlayState extends MusicBeatState
 						if ((!daNote.mustPress || (daNote.wasGoodHit || (daNote.prevNote.wasGoodHit && !daNote.canBeHit)))
 							&& daNote.y - daNote.offset.y * daNote.scale.y + daNote.height >= _strumMid)
 						{
-							var swagRect:FlxRect = new FlxRect(0, 0, daNote.frameWidth, daNote.frameHeight);
-							swagRect.height = (_strumMid - daNote.y) / daNote.scale.y;
-							swagRect.y = daNote.frameHeight - swagRect.height;
-							daNote.clipRect = swagRect;
+							var clipH:Float = (_strumMid - daNote.y) / daNote.scale.y;
+							var cr = daNote.clipRect;
+							if (cr == null)
+							{
+								daNote.clipRect = FlxRect.get(0, daNote.frameHeight - clipH, daNote.frameWidth, clipH);
+							}
+							else
+							{
+								cr.set(0, daNote.frameHeight - clipH, daNote.frameWidth, clipH);
+								daNote.clipRect = cr;
+							}
 						}
 					}
 				}
@@ -2117,10 +2148,19 @@ class PlayState extends MusicBeatState
 						&& (!daNote.mustPress || (daNote.wasGoodHit || (daNote.prevNote.wasGoodHit && !daNote.canBeHit)))
 						&& daNote.y + daNote.offset.y * daNote.scale.y <= _strumMid)
 					{
-						var swagRect:FlxRect = new FlxRect(0, 0, daNote.width / daNote.scale.x, daNote.height / daNote.scale.y);
-						swagRect.y = (_strumMid - daNote.y) / daNote.scale.y;
-						swagRect.height -= swagRect.y;
-						daNote.clipRect = swagRect;
+						var rw:Float = daNote.width / daNote.scale.x;
+						var rh:Float = daNote.height / daNote.scale.y;
+						var ry:Float = (_strumMid - daNote.y) / daNote.scale.y;
+						var cr = daNote.clipRect;
+						if (cr == null)
+						{
+							daNote.clipRect = FlxRect.get(0, ry, rw, rh - ry);
+						}
+						else
+						{
+							cr.set(0, ry, rw, rh - ry);
+							daNote.clipRect = cr;
+						}
 					}
 				}
 
@@ -2137,7 +2177,7 @@ class PlayState extends MusicBeatState
 					if (daNote.altNote)
 						altAnim = '-alt';
 
-					switch (Math.abs(daNote.noteData))
+					switch (daNote.noteData)
 					{
 						case 0:
 							dad.playAnim('singLEFT' + altAnim, true);
@@ -2150,7 +2190,7 @@ class PlayState extends MusicBeatState
 					}
 
 					// Direct O(1) lookup — no forEach needed since ID == index
-					var _oIdx:Int = Std.int(Math.abs(daNote.noteData));
+					var _oIdx:Int = daNote.noteData;
 					var _oSpr:FlxSprite = _opponentStrumSprites[_oIdx];
 					if (_oSpr != null && _prefNoteGlow)
 					{
@@ -2397,7 +2437,10 @@ class PlayState extends MusicBeatState
 		// boyfriend.playAnim('hey');
 		vocals.volume = 1;
 
-		var rating:FlxSprite = new FlxSprite();
+		var rating:FlxSprite = _ratingPool.recycle(FlxSprite);
+		rating.alpha = 1;
+		rating.velocity.set(0, 0);
+		rating.acceleration.set(0, 0);
 		var score:Int = 350;
 
 		var daRating:String = "sick";
@@ -2450,7 +2493,7 @@ class PlayState extends MusicBeatState
 
 		var ratingPath:String = daRating;
 
-		if (curStage.startsWith('school'))
+		if (_isSchoolStage)
 			ratingPath = "weeb/pixelUI/" + ratingPath + "-pixel";
 
 		rating.loadGraphic(Paths.image(ratingPath));
@@ -2468,9 +2511,7 @@ class PlayState extends MusicBeatState
 		
 		rating.visible = hudVisible; // Respect HUD visibility toggle
 
-		add(rating);
-
-		if (curStage.startsWith('school'))
+		if (_isSchoolStage)
 		{
 			rating.setGraphicSize(Std.int(rating.width * daPixelZoom * 0.7));
 		}
@@ -2484,7 +2525,7 @@ class PlayState extends MusicBeatState
 		FlxTween.tween(rating, {alpha: 0}, 0.2, {
 			onComplete: function(tween:FlxTween)
 			{
-				rating.destroy();
+				rating.kill();
 			},
 			startDelay: Conductor.crochet * 0.001
 		});
@@ -2499,13 +2540,17 @@ class PlayState extends MusicBeatState
 		var pixelShitPart1:String = "";
 		var pixelShitPart2:String = '';
 
-		if (curStage.startsWith('school'))
+		if (_isSchoolStage)
 		{
 			pixelShitPart1 = 'weeb/pixelUI/';
 			pixelShitPart2 = '-pixel';
 		}
 
-		var comboSpr:FlxSprite = new FlxSprite().loadGraphic(Paths.image(pixelShitPart1 + 'combo' + pixelShitPart2));
+		var comboSpr:FlxSprite = _comboSprPool.recycle(FlxSprite);
+		comboSpr.alpha = 1;
+		comboSpr.velocity.set(0, 0);
+		comboSpr.acceleration.set(0, 0);
+		comboSpr.loadGraphic(Paths.image(pixelShitPart1 + 'combo' + pixelShitPart2));
 		comboSpr.y = FlxG.camera.scroll.y + FlxG.camera.height * 0.4 + 80;
 		comboSpr.x = FlxG.width * 0.55;
 		// make sure combo is visible lol!
@@ -2521,9 +2566,7 @@ class PlayState extends MusicBeatState
 		
 		comboSpr.visible = hudVisible; // Respect HUD visibility toggle
 
-		add(comboSpr);
-
-		if (curStage.startsWith('school'))
+		if (_isSchoolStage)
 		{
 			comboSpr.setGraphicSize(Std.int(comboSpr.width * daPixelZoom * 0.7));
 		}
@@ -2537,7 +2580,7 @@ class PlayState extends MusicBeatState
 		FlxTween.tween(comboSpr, {alpha: 0}, 0.2, {
 			onComplete: function(tween:FlxTween)
 			{
-				comboSpr.destroy();
+				comboSpr.kill();
 			},
 			startDelay: Conductor.crochet * 0.001
 		});
@@ -2558,10 +2601,14 @@ class PlayState extends MusicBeatState
 		var daLoop:Int = 1;
 		for (i in seperatedScore)
 		{
-			var numScore:FlxSprite = new FlxSprite().loadGraphic(Paths.image(pixelShitPart1 + 'num' + Std.int(i) + pixelShitPart2));
+			var numScore:FlxSprite = _comboNumPool.recycle(FlxSprite);
+			numScore.alpha = 1;
+			numScore.velocity.set(0, 0);
+			numScore.acceleration.set(0, 0);
+			numScore.loadGraphic(Paths.image(pixelShitPart1 + 'num' + Std.int(i) + pixelShitPart2));
 			numScore.y = comboSpr.y;
 
-			if (curStage.startsWith('school'))
+			if (_isSchoolStage)
 			{
 				numScore.setGraphicSize(Std.int(numScore.width * daPixelZoom));
 			}
@@ -2579,12 +2626,10 @@ class PlayState extends MusicBeatState
 			
 			numScore.visible = hudVisible; // Respect HUD visibility toggle
 
-			add(numScore);
-
 			FlxTween.tween(numScore, {alpha: 0}, 0.2, {
 				onComplete: function(tween:FlxTween)
 				{
-					numScore.destroy();
+					numScore.kill();
 				},
 				startDelay: Conductor.crochet * 0.002
 			});
@@ -2822,26 +2867,38 @@ class PlayState extends MusicBeatState
 
 			var songPos:Float = Conductor.framePosition;
 
-			notes.forEachAlive(function(daNote:Note)
+			var _bm = notes.members;
+			var _bl = _bm.length;
+			var _bi = 0;
+			while (_bi < _bl)
 			{
-				if (daNote.mustPress && !daNote.tooLateSnapshot && !daNote.wasGoodHit && daNote.canBeHitSnapshot)
+				var daNote = _bm[_bi];
+				if (daNote != null && daNote.alive
+					&& daNote.mustPress && !daNote.tooLateSnapshot && !daNote.wasGoodHit && daNote.canBeHitSnapshot)
 				{
 					if (daNote.isSustainNote)
 						holdArray[daNote.noteData] = true;
 					else if (daNote.strumTime <= songPos)
 						pressArray[daNote.noteData] = true;
 				}
-			});
+				_bi++;
+			}
 		}
 
 		// HOLDS, check for sustain notes
 		if ((holdArray[0] || holdArray[1] || holdArray[2] || holdArray[3]) && generatedMusic)
 		{
-			notes.forEachAlive(function(daNote:Note)
+			var _hm = notes.members;
+			var _hl = _hm.length;
+			var _hi = 0;
+			while (_hi < _hl)
 			{
-				if (daNote.isSustainNote && daNote.canBeHitSnapshot && daNote.mustPress && holdArray[daNote.noteData])
+				var daNote = _hm[_hi];
+				if (daNote != null && daNote.alive
+					&& daNote.isSustainNote && daNote.canBeHitSnapshot && daNote.mustPress && holdArray[daNote.noteData])
 					goodNoteHit(daNote);
-			});
+				_hi++;
+			}
 		}
 
 		// PRESSES, check for note hits
@@ -2854,38 +2911,46 @@ class PlayState extends MusicBeatState
 			var dumbNotes:Array<Note> = []; // notes to kill later
 			var tooLateDirections:Array<Int> = [];
 
-			notes.forEachAlive(function(daNote:Note)
+			var _pm = notes.members;
+			var _pl = _pm.length;
+			var _pi = 0;
+			while (_pi < _pl)
 			{
-				if (daNote.mustPress && !daNote.wasGoodHit && daNote.tooLateSnapshot)
-					tooLateDirections.push(daNote.noteData);
-
-				if (daNote.canBeHitSnapshot && daNote.mustPress && !daNote.tooLateSnapshot && !daNote.wasGoodHit)
+				var daNote = _pm[_pi];
+				if (daNote != null && daNote.alive)
 				{
-					if (directionList.contains(daNote.noteData))
+					if (daNote.mustPress && !daNote.wasGoodHit && daNote.tooLateSnapshot)
+						tooLateDirections.push(daNote.noteData);
+
+					if (daNote.canBeHitSnapshot && daNote.mustPress && !daNote.tooLateSnapshot && !daNote.wasGoodHit)
 					{
-						for (coolNote in possibleNotes)
+						if (directionList.contains(daNote.noteData))
 						{
-							if (coolNote.noteData != daNote.noteData) continue;
-							if (Math.abs(daNote.strumTime - coolNote.strumTime) < 10)
+							for (coolNote in possibleNotes)
 							{
-								dumbNotes.push(daNote);
-								break;
-							}
-							if (daNote.strumTime < coolNote.strumTime)
-							{
-								possibleNotes.remove(coolNote);
-								possibleNotes.push(daNote);
-								break;
+								if (coolNote.noteData != daNote.noteData) continue;
+								if (Math.abs(daNote.strumTime - coolNote.strumTime) < 10)
+								{
+									dumbNotes.push(daNote);
+									break;
+								}
+								if (daNote.strumTime < coolNote.strumTime)
+								{
+									possibleNotes.remove(coolNote);
+									possibleNotes.push(daNote);
+									break;
+								}
 							}
 						}
-					}
-					else
-					{
-						possibleNotes.push(daNote);
-						directionList.push(daNote.noteData);
+						else
+						{
+							possibleNotes.push(daNote);
+							directionList.push(daNote.noteData);
+						}
 					}
 				}
-			});
+				_pi++;
+			}
 
 			for (note in dumbNotes)
 			{

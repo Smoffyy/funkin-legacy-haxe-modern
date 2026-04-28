@@ -191,10 +191,6 @@ class Note extends FlxSprite
 		this.color = 0xFFAAAAAA;
 	}
 
-	// Cached values to skip redundant property reads in hot update loop
-	private var _safeZone:Float     = 0;
-	private var _safeZoneHalf:Float = 0;
-
 	override function update(elapsed:Float)
 	{
 		super.update(elapsed);

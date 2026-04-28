@@ -25,7 +25,9 @@ class QOLPreferencesMenu extends ui.OptionsState.Page
 	var wasOnFpsItem:Bool = false;
 
 	var inputHoldTimer:Float = 0;
-	static inline final INPUT_REPEAT_DELAY:Float = 0.15;
+	var inputHoldStarted:Bool = false;
+	static inline final INPUT_INITIAL_DELAY:Float = 0.4;
+	static inline final INPUT_REPEAT_DELAY:Float = 0.12;
 
 	public function new()
 	{
@@ -147,25 +149,33 @@ class QOLPreferencesMenu extends ui.OptionsState.Page
 			var left = controls.UI_LEFT_P;
 			var right = controls.UI_RIGHT_P;
 
-			// accumulate hold time only while a direction is held; reset on release
 			if (controls.UI_LEFT || controls.UI_RIGHT)
 			{
-				// reset on the initial press so the first repeat is delayed properly
 				if (left || right)
+				{
+					// Initial press — reset timer, mark that hold hasn't started repeating yet
 					inputHoldTimer = 0;
+					inputHoldStarted = false;
+				}
 				else
+				{
 					inputHoldTimer += elapsed;
 
-				if (!left && !right && inputHoldTimer >= INPUT_REPEAT_DELAY)
-				{
-					left = controls.UI_LEFT;
-					right = controls.UI_RIGHT;
-					inputHoldTimer = 0;
+					// First repeat uses a longer delay, subsequent repeats are faster
+					var delay:Float = inputHoldStarted ? INPUT_REPEAT_DELAY : INPUT_INITIAL_DELAY;
+					if (inputHoldTimer >= delay)
+					{
+						left = controls.UI_LEFT;
+						right = controls.UI_RIGHT;
+						inputHoldTimer = 0;
+						inputHoldStarted = true;
+					}
 				}
 			}
 			else
 			{
 				inputHoldTimer = 0;
+				inputHoldStarted = false;
 			}
 
 			if (left)
@@ -182,6 +192,7 @@ class QOLPreferencesMenu extends ui.OptionsState.Page
 		else
 		{
 			inputHoldTimer = 0;
+			inputHoldStarted = false;
 		}
 
 		items.forEach(function(daItem:TextMenuItem)
