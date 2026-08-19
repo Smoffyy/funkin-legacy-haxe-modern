@@ -8,7 +8,6 @@ import flixel.group.FlxGroup;
 import flixel.util.FlxColor;
 import ui.AtlasText.AtlasFont;
 import ui.TextMenuList.TextMenuItem;
-import ui.CheckboxThingie;
 
 class PreferencesMenu extends ui.OptionsState.Page
 {
@@ -31,14 +30,12 @@ class PreferencesMenu extends ui.OptionsState.Page
 
 		add(items = new TextMenuList());
 
-		// Base game preferences only
 		createPrefItem('naughtyness', 'censor-naughty', true);
 		createPrefItem('downscroll', 'downscroll', false);
-		createPrefItem('flashing menu', 'flashing-menu', false);
+		createPrefItem('flashing menu', 'flashing-menu', true);
 		createPrefItem('Camera Zooming on Beat', 'camera-zoom', true);
 		createPrefItem('FPS Counter', 'fps-counter', true);
 		createPrefItem('Auto Pause', 'auto-pause', false);
-		createPrefItem('Note Splashes', 'note-splashes', true);
 
 		camFollow = new FlxObject(FlxG.width / 2, 0, 140, 70);
 		if (items != null)
@@ -60,55 +57,29 @@ class PreferencesMenu extends ui.OptionsState.Page
 		return preferences.get(pref);
 	}
 
+	// easy shorthand?
 	public static function setPref(pref:String, value:Dynamic):Void
 	{
 		preferences.set(pref, value);
 	}
 
-	public static function savePrefs():Void
-	{
-		var obj:Dynamic = {};
-		for (key in preferences.keys())
-			Reflect.setField(obj, key, preferences.get(key));
-		FlxG.save.data.preferences = obj;
-		FlxG.save.flush();
-	}
-
 	public static function initPrefs():Void
 	{
-		// Load persisted prefs from disk before applying defaults
-		if (FlxG.save != null && FlxG.save.data != null && FlxG.save.data.preferences != null)
-		{
-			var saved:Dynamic = FlxG.save.data.preferences;
-			for (key in Reflect.fields(saved))
-				preferences.set(key, Reflect.field(saved, key));
-		}
-
-		// Base game preferences
 		preferenceCheck('censor-naughty', true);
 		preferenceCheck('downscroll', false);
-		preferenceCheck('flashing-menu', false);
+		preferenceCheck('flashing-menu', true);
 		preferenceCheck('camera-zoom', true);
 		preferenceCheck('fps-counter', true);
 		preferenceCheck('auto-pause', false);
 		preferenceCheck('master-volume', 1);
-		preferenceCheck('note-splashes', true);
-
-		// Quality of Life preferences
-		preferenceCheck('framerate', 60);
-		preferenceCheck('new-input', false);
-		preferenceCheck('screen-shake-miss', false);
-		preferenceCheck('health-bar-warning', false);
-		preferenceCheck('arrow-wobble', false);
-		preferenceCheck('new-ui', false);
-		preferenceCheck('opponent-note-glow', false);
-		preferenceCheck('hide-opponent', false);
-		preferenceCheck('song-credits', false);
 
 		#if muted
 		setPref('master-volume', 0);
 		FlxG.sound.muted = true;
 		#end
+
+		if (!getPref('fps-counter'))
+			FlxG.stage.removeChild(Main.fpsCounter);
 
 		FlxG.autoPause = getPref('auto-pause');
 	}
@@ -127,7 +98,7 @@ class PreferencesMenu extends ui.OptionsState.Page
 				default:
 					trace('swag');
 			}
-		}, true);
+		});
 
 		switch (Type.typeof(prefValue).getName())
 		{
@@ -137,6 +108,8 @@ class PreferencesMenu extends ui.OptionsState.Page
 			default:
 				trace('swag');
 		}
+
+		trace(Type.typeof(prefValue).getName());
 	}
 
 	function createCheckbox(prefString:String)
@@ -146,6 +119,9 @@ class PreferencesMenu extends ui.OptionsState.Page
 		add(checkbox);
 	}
 
+	/**
+	 * Assumes that the preference has already been checked/set?
+	 */
 	private function prefToggle(prefName:String)
 	{
 		var daSwap:Bool = preferences.get(prefName);
@@ -164,56 +140,15 @@ class PreferencesMenu extends ui.OptionsState.Page
 			case 'auto-pause':
 				FlxG.autoPause = getPref('auto-pause');
 		}
-	}
 
-	/**
-	 * Sets both FlxG framerates in the correct order to avoid Flixel's internal
-	 * warning. updateFramerate must always be >= drawFramerate.
-	 * - Going UP:   set update first (new value won't be < old draw)
-	 * - Going DOWN: set draw first  (new value won't be > old update)
-	 */
-	static function setFlxFramerate(fps:Int):Void
-	{
-		if (fps >= FlxG.updateFramerate)
-		{
-			FlxG.updateFramerate = fps;
-			FlxG.drawFramerate = fps;
-		}
-		else
-		{
-			FlxG.drawFramerate = fps;
-			FlxG.updateFramerate = fps;
-		}
-	}
-
-	/**
-	 * Applies a framerate for menu contexts. Caps at 240.
-	 * Pass fps=0 to use the 240 cap (unlimited in menus).
-	 */
-	public static function applyFramerate(fps:Int):Void
-	{
-		var target:Int = (fps == 0) ? 240 : Std.int(Math.min(fps, 240));
-		setFlxFramerate(target);
-		openfl.Lib.application.window.frameRate = target;
-		if (target <= 60)
-			Conductor.resetInterpolation();
-	}
-
-	/**
-	 * Applies the saved 'framerate' preference for gameplay.
-	 * fps=0 means unlimited (999). Always syncs window.frameRate.
-	 */
-	public static function applyGameplayFramerate():Void
-	{
-		var fps:Int = Std.int(getPref('framerate'));
-		var target:Int = (fps == 0) ? 999 : fps;
-		setFlxFramerate(target);
-		openfl.Lib.application.window.frameRate = target;
+		if (prefName == 'fps-counter') {}
 	}
 
 	override function update(elapsed:Float)
 	{
 		super.update(elapsed);
+
+		// menuCamera.followLerp = CoolUtil.camLerpShit(0.05);
 
 		items.forEach(function(daItem:TextMenuItem)
 		{
@@ -224,7 +159,7 @@ class PreferencesMenu extends ui.OptionsState.Page
 		});
 	}
 
-	public static function preferenceCheck(prefString:String, prefValue:Dynamic):Void
+	private static function preferenceCheck(prefString:String, prefValue:Dynamic):Void
 	{
 		if (preferences.get(prefString) == null)
 		{
@@ -235,5 +170,49 @@ class PreferencesMenu extends ui.OptionsState.Page
 		{
 			trace('found preference: ' + preferences.get(prefString));
 		}
+	}
+}
+
+class CheckboxThingie extends FlxSprite
+{
+	public var daValue(default, set):Bool;
+
+	public function new(x:Float, y:Float, daValue:Bool = false)
+	{
+		super(x, y);
+
+		frames = Paths.getSparrowAtlas('checkboxThingie');
+		animation.addByPrefix('static', 'Check Box unselected', 24, false);
+		animation.addByPrefix('checked', 'Check Box selecting animation', 24, false);
+
+		antialiasing = true;
+
+		setGraphicSize(Std.int(width * 0.7));
+		updateHitbox();
+
+		this.daValue = daValue;
+	}
+
+	override function update(elapsed:Float)
+	{
+		super.update(elapsed);
+
+		switch (animation.curAnim.name)
+		{
+			case 'static':
+				offset.set();
+			case 'checked':
+				offset.set(17, 70);
+		}
+	}
+
+	function set_daValue(value:Bool):Bool
+	{
+		if (value)
+			animation.play('checked', true);
+		else
+			animation.play('static');
+
+		return value;
 	}
 }

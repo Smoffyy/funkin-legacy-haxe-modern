@@ -91,10 +91,6 @@ class TitleState extends MusicBeatState
 
 		FlxG.save.bind('funkin', 'ninjamuffin99');
 		PreferencesMenu.initPrefs();
-		// keep asset loading fast at default 60fps
-		new flixel.util.FlxTimer().start(0.001, function(_) {
-			PreferencesMenu.applyFramerate(PreferencesMenu.getPref('framerate'));
-		});
 		PlayerSettings.init();
 		Highscore.load();
 
@@ -122,11 +118,11 @@ class TitleState extends MusicBeatState
 		}
 
 		#if FREEPLAY
-		FlxG.switchState(()->new FreeplayState());
+		FlxG.switchState(new FreeplayState());
 		#elseif ANIMATE
-		FlxG.switchState(()->new CutsceneAnimTestState());
+		FlxG.switchState(new CutsceneAnimTestState());
 		#elseif CHARTING
-		FlxG.switchState(()->new ChartingState());
+		FlxG.switchState(new ChartingState());
 		/* 
 			#elseif web
 
@@ -327,7 +323,7 @@ class TitleState extends MusicBeatState
 			initialized = true;
 
 		if (FlxG.sound.music != null)
-			FlxG.sound.music.onComplete = function() FlxG.switchState(()->new VideoState());
+			FlxG.sound.music.onComplete = function() FlxG.switchState(new VideoState());
 
 		startedIntro = true;
 		// credGroup.add(credTextShit);
@@ -354,7 +350,7 @@ class TitleState extends MusicBeatState
 	{
 		#if debug
 		if (FlxG.keys.justPressed.EIGHT)
-			FlxG.switchState(()->new CutsceneAnimTestState());
+			FlxG.switchState(new CutsceneAnimTestState());
 		#end
 
 		/* 
@@ -430,19 +426,19 @@ class TitleState extends MusicBeatState
 					if (version.trim() != onlineVersion)
 					{
 						trace('OLD VERSION!');
-						// FlxG.switchState(()->new OutdatedSubState());
+						// FlxG.switchState(new OutdatedSubState());
 					}
 					else
 					{
-						// FlxG.switchState(()->new MainMenuState());
+						// FlxG.switchState(new MainMenuState());
 					}
 
 					// REDO FOR ITCH/FINAL SHIT
-					FlxG.switchState(()->new MainMenuState());
+					FlxG.switchState(new MainMenuState());
 				});
 			}
 			#else
-			FlxG.switchState(()->new MainMenuState());
+			FlxG.switchState(new MainMenuState());
 			#end
 			// FlxG.sound.play(Paths.music('titleShoot'), 0.7);
 		}

@@ -192,8 +192,6 @@ class StoryMenuState extends MusicBeatState
 		sprDifficulty.animation.addByPrefix('easy', 'EASY');
 		sprDifficulty.animation.addByPrefix('normal', 'NORMAL');
 		sprDifficulty.animation.addByPrefix('hard', 'HARD');
-		sprDifficulty.animation.addByPrefix('expert', 'EXPERT');
-		sprDifficulty.animation.addByPrefix('nightmare', 'NIGHTMARE');
 		sprDifficulty.animation.play('easy');
 		changeDifficulty();
 
@@ -286,7 +284,7 @@ class StoryMenuState extends MusicBeatState
 		{
 			FlxG.sound.play(Paths.sound('cancelMenu'));
 			movedBack = true;
-			FlxG.switchState(()->new MainMenuState());
+			FlxG.switchState(new MainMenuState());
 		}
 
 		super.update(elapsed);
@@ -314,27 +312,23 @@ class StoryMenuState extends MusicBeatState
 			selectedWeek = true;
 
 			var diffic = "";
-		
+
 			switch (curDifficulty)
 			{
 				case 0:
 					diffic = '-easy';
 				case 2:
 					diffic = '-hard';
-				case 3:
-					diffic = '-expert';
-				case 4:
-					diffic = '-nightmare';
 			}
 
 			PlayState.storyDifficulty = curDifficulty;
 
 			PlayState.SONG = Song.loadFromJson(PlayState.storyPlaylist[0].toLowerCase() + diffic, PlayState.storyPlaylist[0].toLowerCase());
 			PlayState.storyWeek = curWeek;
-			PlayState.deathCounter = 0;
+			PlayState.campaignScore = 0;
 			new FlxTimer().start(1, function(tmr:FlxTimer)
 			{
-				LoadingState.loadAndSwitchState(()->new PlayState(), true);
+				LoadingState.loadAndSwitchState(new PlayState(), true);
 			});
 		}
 	}
@@ -344,8 +338,8 @@ class StoryMenuState extends MusicBeatState
 		curDifficulty += change;
 
 		if (curDifficulty < 0)
-			curDifficulty = 4;
-		if (curDifficulty > 4)
+			curDifficulty = 2;
+		if (curDifficulty > 2)
 			curDifficulty = 0;
 
 		sprDifficulty.offset.x = 0;
@@ -361,12 +355,6 @@ class StoryMenuState extends MusicBeatState
 			case 2:
 				sprDifficulty.animation.play('hard');
 				sprDifficulty.offset.x = 20;
-			case 3:
-				sprDifficulty.animation.play('expert');
-				sprDifficulty.offset.x = 60;
-			case 4:
-				sprDifficulty.animation.play('nightmare');
-				sprDifficulty.offset.x = 65;
 		}
 
 		sprDifficulty.alpha = 0;

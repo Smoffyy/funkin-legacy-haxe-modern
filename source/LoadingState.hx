@@ -18,7 +18,7 @@ class LoadingState extends MusicBeatState
 {
 	inline static var MIN_TIME = 1.0;
 
-	var targetFactory:Void->FlxState;
+	var target:FlxState;
 	var stopMusic = false;
 	var callbacks:MultiCallback;
 
@@ -27,10 +27,10 @@ class LoadingState extends MusicBeatState
 	var loadBar:FlxSprite;
 	var funkay:FlxSprite;
 
-	function new(targetFactory:Void->FlxState, stopMusic:Bool)
+	function new(target:FlxState, stopMusic:Bool)
 	{
 		super();
-		this.targetFactory = targetFactory;
+		this.target = target;
 		this.stopMusic = stopMusic;
 	}
 
@@ -56,37 +56,14 @@ class LoadingState extends MusicBeatState
 		{
 			callbacks = new MultiCallback(onLoad);
 			var introComplete = callbacks.add("introComplete");
-			
-			// Skip sound loading for FNFC songs — their audio lives in fnfc-temp/
-			// on disk and is loaded via Sound.fromFile in PlayState.create().
-			// Trying to Assets.loadSound(Paths.inst(...)) would fail because the
-			// file is not registered in the songs asset library.
-			if (!FNFCLoader.isActive)
-			{
-				checkLoadSong(getSongPath());
-				if (PlayState.SONG.needsVoices)
-					checkLoadSong(getVocalPath());
-			}
-				
+			checkLoadSong(getSongPath());
+			if (PlayState.SONG.needsVoices)
+				checkLoadSong(getVocalPath());
 			checkLibrary("shared");
 			if (PlayState.storyWeek > 0)
 				checkLibrary("week" + PlayState.storyWeek);
 			else
 				checkLibrary("tutorial");
-			
-			// Pre-cache stage assets based on song
-			try {
-				var stageAssets = stageFromSong(PlayState.SONG.song);
-				if (stageAssets != null)
-				{
-					AssetCacheManager.preCacheStageAssets(stageAssets);
-				}
-			} catch (e:Dynamic) {}
-			
-			// Pre-cache character assets
-			try {
-				AssetCacheManager.preCacheCharacters([PlayState.SONG.player1, PlayState.SONG.player2]);
-			} catch (e:Dynamic) {}
 
 			var fadeTime = 0.5;
 			FlxG.camera.fade(FlxG.camera.bgColor, fadeTime, true);
@@ -100,6 +77,10 @@ class LoadingState extends MusicBeatState
 		{
 			var library = Assets.getLibrary("songs");
 			var symbolPath = path.split(":").pop();
+			// @:privateAccess
+			// library.types.set(symbolPath, SOUND);
+			// @:privateAccess
+			// library.pathGroups.set(symbolPath, [library.__cacheBreak(symbolPath)]);
 			var callback = callbacks.add("song:" + path);
 			Assets.loadSound(path).onComplete(function(_)
 			{
@@ -129,7 +110,13 @@ class LoadingState extends MusicBeatState
 	{
 		super.beatHit();
 
+		// logo.animation.play('bump');
 		danceLeft = !danceLeft;
+		/* 
+			if (danceLeft)
+				gfDance.animation.play('danceRight');
+			else
+				gfDance.animation.play('danceLeft'); */
 	}
 
 	var targetShit:Float = 0;
@@ -140,11 +127,15 @@ class LoadingState extends MusicBeatState
 
 		funkay.setGraphicSize(Std.int(FlxMath.lerp(FlxG.width * 0.88, funkay.width, 0.9)));
 		funkay.updateHitbox();
+		// funkay.updateHitbox();
 
 		if (controls.ACCEPT)
 		{
 			funkay.setGraphicSize(Std.int(funkay.width + 60));
 			funkay.updateHitbox();
+			// funkay.setGraphicSize(0, Std.int(funkay.height + 50));
+			// funkay.updateHitbox();
+			// funkay.screenCenter();
 		}
 
 		if (callbacks != null)
@@ -166,42 +157,39 @@ class LoadingState extends MusicBeatState
 		if (stopMusic && FlxG.sound.music != null)
 			FlxG.sound.music.stop();
 
-		FlxG.switchState(()->targetFactory());
+		FlxG.switchState(target);
 	}
 
 	static function getSongPath()
 	{
-		return Paths.inst(PlayState.SONG.song, PlayState.storyDifficulty);
+		return Paths.inst(PlayState.SONG.song);
 	}
 
 	static function getVocalPath()
 	{
-		return Paths.voices(PlayState.SONG.song, PlayState.storyDifficulty);
+		return Paths.voices(PlayState.SONG.song);
 	}
 
-	inline static public function loadAndSwitchState(targetFactory:Void->FlxState, stopMusic = false)
+	inline static public function loadAndSwitchState(target:FlxState, stopMusic = false)
 	{
-		FlxG.switchState(getNextState(targetFactory, stopMusic));
+		FlxG.switchState(getNextState(target, stopMusic));
 	}
 
-	static function getNextState(targetFactory:Void->FlxState, stopMusic = false):Void->FlxState
+	static function getNextState(target:FlxState, stopMusic = false):FlxState
 	{
 		Paths.setCurrentLevel("week" + PlayState.storyWeek);
 		#if NO_PRELOAD_ALL
-		// FNFC songs load from fnfc-temp via Sound.fromFile — not the asset library.
-		// Treat them as already "loaded" so we go straight to PlayState.
-		var loaded = FNFCLoader.isActive
-			|| (isSoundLoaded(getSongPath())
-				&& (!PlayState.SONG.needsVoices || isSoundLoaded(getVocalPath()))
-				&& isLibraryLoaded("shared"));
+		var loaded = isSoundLoaded(getSongPath())
+			&& (!PlayState.SONG.needsVoices || isSoundLoaded(getVocalPath()))
+			&& isLibraryLoaded("shared");
 
 		if (!loaded)
-			return ()->new LoadingState(targetFactory, stopMusic);
+			return new LoadingState(target, stopMusic);
 		#end
 		if (stopMusic && FlxG.sound.music != null)
 			FlxG.sound.music.stop();
 
-		return targetFactory;
+		return target;
 	}
 
 	#if NO_PRELOAD_ALL
@@ -287,29 +275,6 @@ class LoadingState extends MusicBeatState
 		});
 
 		return promise.future;
-	}
-
-	static function stageFromSong(songName:String):String
-	{
-		switch (songName.toLowerCase())
-		{
-			case 'bopeebo' | 'fresh' | 'dadbattle':
-				return 'dad';
-			case 'spookeez' | 'monster' | 'south':
-				return 'spooky';
-			case 'pico' | 'blammed' | 'philly':
-				return 'philly';
-			case 'milf' | 'satin-panties' | 'high':
-				return 'limo';
-			case 'cocoa' | 'eggnog' | 'winter-horrorland':
-				return 'mall';
-			case 'senpai' | 'roses' | 'thorns':
-				return 'school';
-			case 'ugh' | 'guns' | 'stress':
-				return 'tank';
-			default:
-				return 'dad';
-		}
 	}
 }
 

@@ -24,7 +24,7 @@ class PauseSubState extends MusicBeatSubstate
 		'Toggle Practice Mode',
 		'Exit to menu'
 	];
-	var difficultyChoices:Array<String> = ['EASY', 'NORMAL', 'HARD', 'EXPERT', 'NIGHTMARE', 'BACK'];
+	var difficultyChoices:Array<String> = ['EASY', 'NORMAL', 'HARD', 'BACK'];
 
 	var menuItems:Array<String> = [];
 	var curSelected:Int = 0;
@@ -147,11 +147,11 @@ class PauseSubState extends MusicBeatSubstate
 			{
 				case "Resume":
 					close();
-				case "EASY" | 'NORMAL' | "HARD" | "EXPERT" | "NIGHTMARE":
-					PlayState.storyDifficulty = curSelected;
-
+				case "EASY" | 'NORMAL' | "HARD":
 					PlayState.SONG = Song.loadFromJson(Highscore.formatSong(PlayState.SONG.song.toLowerCase(), curSelected),
 						PlayState.SONG.song.toLowerCase());
+
+					PlayState.storyDifficulty = curSelected;
 
 					FlxG.resetState();
 
@@ -166,21 +166,14 @@ class PauseSubState extends MusicBeatSubstate
 					menuItems = pauseOG;
 					regenMenu();
 				case "Restart Song":
-					// Must re-load the song so FNFCLoader.isActive is restored before
-					// PlayState.create() runs. FNFCLoader.reset() was called in destroy(),
-					// so without this reload isActive=false and audio falls back to JSON paths.
-					PlayState.SONG = Song.loadFromJson(
-						Highscore.formatSong(PlayState.SONG.song.toLowerCase(), PlayState.storyDifficulty),
-						PlayState.SONG.song.toLowerCase());
 					FlxG.resetState();
 				case "Exit to menu":
 					PlayState.seenCutscene = false;
 					PlayState.deathCounter = 0;
-					FNFCLoader.reset();
 					if (PlayState.isStoryMode)
-						FlxG.switchState(()->new StoryMenuState());
+						FlxG.switchState(new StoryMenuState());
 					else
-						FlxG.switchState(()->new FreeplayState());
+						FlxG.switchState(new FreeplayState());
 			}
 		}
 

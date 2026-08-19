@@ -5,8 +5,6 @@ import flixel.FlxSprite;
 import flixel.FlxSubState;
 import flixel.addons.transition.FlxTransitionableState;
 import flixel.group.FlxGroup;
-import flixel.text.FlxText;
-import flixel.util.FlxColor;
 import flixel.util.FlxSignal;
 
 // typedef OptionsState = OptionsMenu_old;
@@ -32,14 +30,12 @@ class OptionsState extends MusicBeatState
 
 		var options = addPage(Options, new OptionsMenu(false));
 		var preferences = addPage(Preferences, new PreferencesMenu());
-		var qolPreferences = addPage(QOLPreferences, new QOLPreferencesMenu());
 		var controls = addPage(Controls, new ControlsMenu());
 		// var colors = addPage(Colors, new ColorsMenu());
 
 		#if cpp
 		var mods = addPage(Mods, new ModMenu());
 		#end
-		var changelog = addPage(Changelog, new ChangelogPage());
 
 		if (options.hasMultipleOptions())
 		{
@@ -47,12 +43,10 @@ class OptionsState extends MusicBeatState
 			controls.onExit.add(switchPage.bind(Options));
 			// colors.onExit.add(switchPage.bind(Options));
 			preferences.onExit.add(switchPage.bind(Options));
-			qolPreferences.onExit.add(switchPage.bind(Options));
 
 			#if cpp
 			mods.onExit.add(switchPage.bind(Options));
 			#end
-			changelog.onExit.add(switchPage.bind(Options));
 		}
 		else
 		{
@@ -61,7 +55,8 @@ class OptionsState extends MusicBeatState
 			setPage(Controls);
 		}
 
-		currentPage.enabled = true;
+		// disable for intro transition
+		currentPage.enabled = false;
 		super.create();
 	}
 
@@ -101,8 +96,8 @@ class OptionsState extends MusicBeatState
 	function exitToMainMenu()
 	{
 		currentPage.enabled = false;
-		PreferencesMenu.savePrefs();
-		FlxG.switchState(()->new MainMenuState());
+		// Todo animate?
+		FlxG.switchState(new MainMenuState());
 	}
 }
 
@@ -183,13 +178,11 @@ class OptionsMenu extends Page
 
 		add(items = new TextMenuList());
 		createItem('preferences', function() switchPage(Preferences));
-		createItem('quality of life prefs', function() switchPage(QOLPreferences));
 		createItem("controls", function() switchPage(Controls));
 		// createItem('colors', function() switchPage(Colors));
 		#if cpp
 		createItem('mods', function() switchPage(Mods));
 		#end
-		createItem('changelog', function() switchPage(Changelog));
 
 		#if CAN_OPEN_LINKS
 		if (showDonate)
@@ -291,73 +284,4 @@ enum PageName
 	Colors;
 	Mods;
 	Preferences;
-	QOLPreferences;
-	Changelog;
-}
-
-class ChangelogPage extends Page
-{
-	var scrollText:FlxText;
-	var bg:FlxSprite;
-	var scrollY:Float = 0;
-	var maxScroll:Float = 0;
-	static inline final SCROLL_SPEED:Float = 500;
-	static inline final PADDING:Float = 30;
-
-	public function new()
-	{
-		super();
-
-		bg = new FlxSprite().makeGraphic(FlxG.width, FlxG.height, 0xEE000000);
-		bg.scrollFactor.set();
-		add(bg);
-
-		var title:FlxText = new FlxText(0, 14, FlxG.width, "CHANGELOG", 28);
-		title.scrollFactor.set();
-		title.setFormat("VCR OSD Mono", 28, 0xFFFFD700, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
-		add(title);
-
-		var hint:FlxText = new FlxText(0, FlxG.height - 28, FlxG.width, "UP / DOWN to scroll    BACK to return", 14);
-		hint.scrollFactor.set();
-		hint.setFormat("VCR OSD Mono", 14, 0xFFAAAAAA, CENTER);
-		add(hint);
-
-		var body:String = readChangelog();
-
-		scrollText = new FlxText(PADDING, 70, FlxG.width - PADDING * 2, body, 14);
-		scrollText.setFormat("VCR OSD Mono", 14, FlxColor.WHITE, LEFT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
-		scrollText.scrollFactor.set();
-		add(scrollText);
-
-		maxScroll = Math.max(0, scrollText.height - (FlxG.height - 100));
-	}
-
-	function readChangelog():String
-	{
-		#if sys
-		var paths:Array<String> = ["changelog.txt", "../changelog.txt"];
-		for (p in paths)
-		{
-			if (sys.FileSystem.exists(p))
-				return sys.io.File.getContent(p);
-		}
-		return "changelog.txt not found.\nMake sure it is in the same folder as the game executable.";
-		#else
-		return "Changelog is only available on desktop builds.";
-		#end
-	}
-
-	override function update(elapsed:Float)
-	{
-		super.update(elapsed);
-
-		if (!enabled) return;
-
-		if (controls.UI_DOWN)
-			scrollY = Math.min(scrollY + SCROLL_SPEED * elapsed, maxScroll);
-		if (controls.UI_UP)
-			scrollY = Math.max(scrollY - SCROLL_SPEED * elapsed, 0);
-
-		scrollText.y = 70 - scrollY;
-	}
 }

@@ -191,7 +191,7 @@ class FlxSymbol extends FlxSprite
 			_matrix.concat(_skewMatrix);
 		}
 
-		_point.add(origin);
+		_point.addPoint(origin);
 		if (isPixelPerfectRender(camera))
 			_point.floor();
 

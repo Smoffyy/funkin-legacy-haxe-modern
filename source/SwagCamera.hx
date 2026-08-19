@@ -19,7 +19,7 @@ class SwagCamera extends FlxCamera
 		if (deadzone == null)
 		{
 			target.getMidpoint(_point);
-			_point.add(targetOffset);
+			_point.addPoint(targetOffset);
 			focusOn(_point);
 		}
 		else
