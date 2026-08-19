@@ -18,7 +18,7 @@ class LoadingState extends MusicBeatState
 {
 	inline static var MIN_TIME = 1.0;
 
-	var target:FlxState;
+	var target:()->FlxState;
 	var stopMusic = false;
 	var callbacks:MultiCallback;
 
@@ -27,7 +27,7 @@ class LoadingState extends MusicBeatState
 	var loadBar:FlxSprite;
 	var funkay:FlxSprite;
 
-	function new(target:FlxState, stopMusic:Bool)
+	function new(target:()->FlxState, stopMusic:Bool)
 	{
 		super();
 		this.target = target;
@@ -170,12 +170,12 @@ class LoadingState extends MusicBeatState
 		return Paths.voices(PlayState.SONG.song);
 	}
 
-	inline static public function loadAndSwitchState(target:FlxState, stopMusic = false)
+	inline static public function loadAndSwitchState(target:()->FlxState, stopMusic = false)
 	{
 		FlxG.switchState(getNextState(target, stopMusic));
 	}
 
-	static function getNextState(target:FlxState, stopMusic = false):FlxState
+	static function getNextState(target:()->FlxState, stopMusic = false):()->FlxState
 	{
 		Paths.setCurrentLevel("week" + PlayState.storyWeek);
 		#if NO_PRELOAD_ALL
@@ -184,7 +184,7 @@ class LoadingState extends MusicBeatState
 			&& isLibraryLoaded("shared");
 
 		if (!loaded)
-			return new LoadingState(target, stopMusic);
+			return () -> new LoadingState(target, stopMusic);
 		#end
 		if (stopMusic && FlxG.sound.music != null)
 			FlxG.sound.music.stop();

@@ -5,6 +5,8 @@ import flixel.FlxG;
 import flixel.FlxObject;
 import flixel.FlxSprite;
 import flixel.group.FlxGroup;
+import flixel.math.FlxMath;
+import flixel.text.FlxText;
 import flixel.util.FlxColor;
 import ui.AtlasText.AtlasFont;
 import ui.TextMenuList.TextMenuItem;
@@ -13,11 +15,19 @@ class PreferencesMenu extends ui.OptionsState.Page
 {
 	public static var preferences:Map<String, Dynamic> = new Map();
 
+	static inline var MIN_FRAMERATE:Int = 60;
+	static inline var MAX_FRAMERATE:Int = 999;
+	static inline var DEFAULT_FRAMERATE:Int = 60;
+
 	var items:TextMenuList;
 
 	var checkboxes:Array<CheckboxThingie> = [];
 	var menuCamera:FlxCamera;
 	var camFollow:FlxObject;
+
+	var frameItem:TextMenuItem;
+	var frameValueText:FlxText;
+	var frameHoldTime:Float = 0;
 
 	public function new()
 	{
@@ -36,6 +46,7 @@ class PreferencesMenu extends ui.OptionsState.Page
 		createPrefItem('Camera Zooming on Beat', 'camera-zoom', true);
 		createPrefItem('FPS Counter', 'fps-counter', true);
 		createPrefItem('Auto Pause', 'auto-pause', false);
+		createFramerateItem();
 
 		camFollow = new FlxObject(FlxG.width / 2, 0, 140, 70);
 		if (items != null)
@@ -72,6 +83,7 @@ class PreferencesMenu extends ui.OptionsState.Page
 		preferenceCheck('fps-counter', true);
 		preferenceCheck('auto-pause', false);
 		preferenceCheck('master-volume', 1);
+		preferenceCheck('framerate', DEFAULT_FRAMERATE);
 
 		#if muted
 		setPref('master-volume', 0);
@@ -82,6 +94,30 @@ class PreferencesMenu extends ui.OptionsState.Page
 			FlxG.stage.removeChild(Main.fpsCounter);
 
 		FlxG.autoPause = getPref('auto-pause');
+
+		applyFramerate(getPref('framerate'));
+	}
+
+	/**
+	 * Applies the framerate to both the update and draw loops, so gameplay logic
+	 * (note scrolling, sustains, Conductor timing) advances in lockstep with what's drawn,
+	 * instead of judder from update/draw running at different rates.
+	 *
+	 * Also disables flixel's fixed timestep. With it on, `FlxG.elapsed` is a fixed
+	 * `1 / updateFramerate` per update call, and if the actual machine can't sustain
+	 * that many update calls a second (a GC hitch on a note hit, an uncapped framerate
+	 * the hardware can't hit, etc), flixel's catch-up accumulator gets clamped and never
+	 * recovers the lost time - so the whole game (notes, tweens, transitions) permanently
+	 * slows to whatever the real update rate ends up being. Variable timestep just uses
+	 * real measured elapsed time each frame, so it can't get stuck like that.
+	 */
+	public static function applyFramerate(fps:Int):Void
+	{
+		fps = Std.int(FlxMath.bound(fps, MIN_FRAMERATE, MAX_FRAMERATE));
+		setPref('framerate', fps);
+		FlxG.fixedTimestep = false;
+		FlxG.updateFramerate = fps;
+		FlxG.drawFramerate = fps;
 	}
 
 	private function createPrefItem(prefName:String, prefString:String, prefValue:Dynamic):Void
@@ -110,6 +146,26 @@ class PreferencesMenu extends ui.OptionsState.Page
 		}
 
 		trace(Type.typeof(prefValue).getName());
+	}
+
+	private function createFramerateItem():Void
+	{
+		frameItem = items.createItem(120, (120 * items.length) + 30, 'framerate', AtlasFont.Bold, function() {});
+
+		// The bold atlas font used for the other menu labels has no digit glyphs,
+		// so the number is drawn with a normal FlxText instead.
+		frameValueText = new FlxText(0, 0, 0, '', 32);
+		frameValueText.setFormat(Paths.font('vcr.ttf'), 32, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
+		add(frameValueText);
+
+		updateFramerateText();
+	}
+
+	private function updateFramerateText():Void
+	{
+		frameValueText.text = Std.string(getPref('framerate'));
+		frameValueText.x = frameItem.x + frameItem.width + 16;
+		frameValueText.y = frameItem.y + (frameItem.height - frameValueText.height) * 0.5;
 	}
 
 	function createCheckbox(prefString:String)
@@ -157,6 +213,44 @@ class PreferencesMenu extends ui.OptionsState.Page
 			else
 				daItem.x = 120;
 		});
+
+		if (items.selectedItem == frameItem)
+			updateFramerateInput(elapsed);
+		else
+			frameHoldTime = 0;
+
+		updateFramerateText();
+	}
+
+	private function updateFramerateInput(elapsed:Float):Void
+	{
+		if (controls.UI_LEFT_P)
+		{
+			frameHoldTime = 0;
+			changeFramerate(-1);
+		}
+		else if (controls.UI_RIGHT_P)
+		{
+			frameHoldTime = 0;
+			changeFramerate(1);
+		}
+		else if (controls.UI_LEFT || controls.UI_RIGHT)
+		{
+			frameHoldTime += elapsed;
+
+			if (frameHoldTime > 0.4)
+			{
+				frameHoldTime -= 0.04;
+				changeFramerate(controls.UI_LEFT ? -1 : 1);
+			}
+		}
+		else
+			frameHoldTime = 0;
+	}
+
+	private function changeFramerate(delta:Int):Void
+	{
+		applyFramerate(getPref('framerate') + delta);
 	}
 
 	private static function preferenceCheck(prefString:String, prefValue:Dynamic):Void

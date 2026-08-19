@@ -108,7 +108,7 @@ class NGio
 		
 		#if NG_VERBOSE NG.core.verbose = true; #end
 		// Set the encryption cipher/format to RC4/Base64. AES128 and Hex are not implemented yet
-		NG.core.initEncryption(APIStuff.EncKey); // Found in you NG project view
+		NG.core.setupEncryption(APIStuff.EncKey); // Found in you NG project view
 
 		if (NG.core.attemptingLogin)
 		{
@@ -175,7 +175,7 @@ class NGio
 		NG.core.requestMedals(function (_) onNGMedalFetch());
 
 		// Load Scoreboards hten call onNGBoardsFetch()
-		NG.core.requestScoreBoards(function (_) onNGBoardsFetch());
+		NG.core.scoreBoards.loadList(function (_) onNGBoardsFetch());
 
 		ngDataLoaded.dispatch();
 	}

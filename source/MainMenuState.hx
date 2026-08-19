@@ -91,8 +91,8 @@ class MainMenuState extends MusicBeatState
 		});
 
 		menuItems.enabled = false; // disable for intro
-		menuItems.createItem('story mode', function() startExitState(new StoryMenuState()));
-		menuItems.createItem('freeplay', function() startExitState(new FreeplayState()));
+		menuItems.createItem('story mode', function() startExitState(() -> new StoryMenuState()));
+		menuItems.createItem('freeplay', function() startExitState(() -> new FreeplayState()));
 		// addMenuItem('options', function () startExitState(new OptionMenu()));
 		#if CAN_OPEN_LINKS
 		var hasPopupBlocker = #if web true #else false #end;
@@ -102,7 +102,7 @@ class MainMenuState extends MusicBeatState
 		else
 			menuItems.createItem('donate', selectDonate, hasPopupBlocker);
 		#end
-		menuItems.createItem('options', function() startExitState(new OptionsState()));
+		menuItems.createItem('options', function() startExitState(() -> new OptionsState()));
 		// #if newgrounds
 		// 	if (NGio.isLoggedIn)
 		// 		menuItems.createItem("logout", selectLogout);
@@ -229,7 +229,7 @@ class MainMenuState extends MusicBeatState
 		openSubState(prompt);
 	}
 
-	function startExitState(state:FlxState)
+	function startExitState(state:()->FlxState)
 	{
 		menuItems.enabled = false; // disable for exit
 		var duration = 0.4;
@@ -263,7 +263,7 @@ class MainMenuState extends MusicBeatState
 		if (controls.BACK && menuItems.enabled && !menuItems.busy)
 		{
 			FlxG.sound.play(Paths.sound('cancelMenu'));
-			FlxG.switchState(new TitleState());
+			FlxG.switchState(() -> new TitleState());
 		}
 
 		super.update(elapsed);
