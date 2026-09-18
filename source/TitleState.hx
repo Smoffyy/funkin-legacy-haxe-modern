@@ -54,7 +54,6 @@ class TitleState extends MusicBeatState
 	var credGroup:FlxGroup;
 	var credTextShit:Alphabet;
 	var textGroup:FlxGroup;
-	var ngSpr:FlxSprite;
 
 	var curWacky:Array<String> = [];
 	var wackyImage:FlxSprite;
@@ -94,9 +93,9 @@ class TitleState extends MusicBeatState
 		PlayerSettings.init();
 		Highscore.load();
 
-		#if newgrounds
-		NGio.init();
-		#end
+		// Unpacks any `.fnfc` bundles once, so the rest of the game can treat modern and
+		// legacy songs the same way without touching a zip again.
+		funkin.modern.ModernSongRegistry.init();
 
 		if (FlxG.save.data.weekUnlocked != null)
 		{
@@ -305,14 +304,6 @@ class TitleState extends MusicBeatState
 
 		credTextShit.visible = false;
 
-		ngSpr = new FlxSprite(0, FlxG.height * 0.52).loadGraphic(Paths.image('newgrounds_logo'));
-		add(ngSpr);
-		ngSpr.visible = false;
-		ngSpr.setGraphicSize(Std.int(ngSpr.width * 0.8));
-		ngSpr.updateHitbox();
-		ngSpr.screenCenter(X);
-		ngSpr.antialiasing = true;
-
 		FlxTween.tween(credTextShit, {y: credTextShit.y + 20}, 2.9, {ease: FlxEase.quadInOut, type: PINGPONG});
 
 		FlxG.mouse.visible = false;
@@ -399,12 +390,6 @@ class TitleState extends MusicBeatState
 			if (FlxG.sound.music != null)
 				FlxG.sound.music.onComplete = null;
 			// netStream.play(Paths.file('music/kickstarterTrailer.mp4'));
-			NGio.unlockMedal(60960);
-
-			// If it's Friday according to da clock
-			if (Date.now().getDay() == 5)
-				NGio.unlockMedal(61034);
-
 			titleText.animation.play('press');
 
 			FlxG.camera.flash(FlxColor.WHITE, 1);
@@ -413,33 +398,7 @@ class TitleState extends MusicBeatState
 			transitioning = true;
 			// FlxG.sound.music.stop();
 
-			#if newgrounds
-			if (!OutdatedSubState.leftState)
-			{
-				NGio.checkVersion(function(version)
-				{
-					// Check if version is outdated
-
-					var localVersion:String = "v" + Application.current.meta.get('version');
-					var onlineVersion = version.split(" ")[0].trim();
-
-					if (version.trim() != onlineVersion)
-					{
-						trace('OLD VERSION!');
-						// FlxG.switchState(new OutdatedSubState());
-					}
-					else
-					{
-						// FlxG.switchState(new MainMenuState());
-					}
-
-					// REDO FOR ITCH/FINAL SHIT
-					FlxG.switchState(() -> new MainMenuState());
-				});
-			}
-			#else
 			FlxG.switchState(() -> new MainMenuState());
-			#end
 			// FlxG.sound.play(Paths.music('titleShoot'), 0.7);
 		}
 
@@ -544,39 +503,18 @@ class TitleState extends MusicBeatState
 						// credTextShit.text = 'In association \nwith';
 						// credTextShit.screenCenter();
 						case 5:
-							createCoolText(['In association', 'with']);
+							createCoolText([curWacky[0]]);
 						case 7:
-							addMoreText('newgrounds');
-							ngSpr.visible = true;
-						// credTextShit.text += '\nNewgrounds';
+							addMoreText(curWacky[1]);
 						case 8:
 							deleteCoolText();
-							ngSpr.visible = false;
-						// credTextShit.visible = false;
-
-						// credTextShit.text = 'Shoutouts Tom Fulp';
-						// credTextShit.screenCenter();
 						case 9:
-							createCoolText([curWacky[0]]);
-						// credTextShit.visible = true;
-						case 11:
-							addMoreText(curWacky[1]);
-						// credTextShit.text += '\nlmao';
-						case 12:
-							deleteCoolText();
-						// credTextShit.visible = false;
-						// credTextShit.text = "Friday";
-						// credTextShit.screenCenter();
-						case 13:
 							addMoreText('Friday');
-						// credTextShit.visible = true;
-						case 14:
+						case 10:
 							addMoreText('Night');
-						// credTextShit.text += '\nNight';
-						case 15:
-							addMoreText('Funkin'); // credTextShit.text += '\nFunkin';
-
-						case 16:
+						case 11:
+							addMoreText('Funkin');
+						case 12:
 							skipIntro();
 					}
 				}
@@ -591,7 +529,6 @@ class TitleState extends MusicBeatState
 	{
 		if (!skippedIntro)
 		{
-			remove(ngSpr);
 
 			FlxG.camera.flash(FlxColor.WHITE, 4);
 			remove(credGroup);

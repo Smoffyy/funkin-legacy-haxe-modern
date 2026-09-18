@@ -15,11 +15,25 @@ using StringTools;
 
 class CoolUtil
 {
-	public static var difficultyArray:Array<String> = ['EASY', "NORMAL", "HARD"];
+	public static var defaultDifficulties:Array<String> = ['EASY', 'NORMAL', 'HARD'];
 
-	public static function difficultyString():String
+	/**
+	 * Difficulties of the song currently being browsed or played. Modern songs carry one
+	 * entry per (variation, difficulty) pair, so this is no longer always three long.
+	 */
+	public static var difficultyArray:Array<String> = defaultDifficulties.copy();
+
+	public static function setDifficulties(difficulties:Array<String>):Void
 	{
-		return difficultyArray[PlayState.storyDifficulty];
+		difficultyArray = (difficulties == null || difficulties.length == 0) ? defaultDifficulties.copy() : difficulties;
+	}
+
+	public static function difficultyString(?index:Int):String
+	{
+		if (index == null)
+			index = PlayState.storyDifficulty;
+
+		return (index >= 0 && index < difficultyArray.length) ? difficultyArray[index] : defaultDifficulties[1];
 	}
 
 	public static function coolTextFile(path:String):Array<String>

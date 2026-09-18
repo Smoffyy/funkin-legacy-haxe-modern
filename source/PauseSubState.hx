@@ -12,6 +12,8 @@ import flixel.text.FlxText;
 import flixel.tweens.FlxEase;
 import flixel.tweens.FlxTween;
 import flixel.util.FlxColor;
+import funkin.data.SongCache;
+import ui.PreferencesMenu;
 
 class PauseSubState extends MusicBeatSubstate
 {
@@ -21,10 +23,10 @@ class PauseSubState extends MusicBeatSubstate
 		'Resume',
 		'Restart Song',
 		'Change Difficulty',
+		'Options',
 		'Toggle Practice Mode',
 		'Exit to menu'
 	];
-	var difficultyChoices:Array<String> = ['EASY', 'NORMAL', 'HARD', 'BACK'];
 
 	var menuItems:Array<String> = [];
 	var curSelected:Int = 0;
@@ -32,6 +34,18 @@ class PauseSubState extends MusicBeatSubstate
 	var pauseMusic:FlxSound;
 
 	var practiceText:FlxText;
+
+	/**
+	 * The preferences page, shown in place of the pause menu so settings can be changed
+	 * without dropping out of the song.
+	 */
+	var preferences:PreferencesMenu;
+
+	/**
+	 * The page asks to close from inside its own update, so the teardown waits for the
+	 * next frame rather than destroying a group that is currently being iterated.
+	 */
+	var closingPreferences:Bool = false;
 
 	public function new(x:Float, y:Float)
 	{
@@ -96,8 +110,6 @@ class PauseSubState extends MusicBeatSubstate
 		add(grpMenuShit);
 
 		regenMenu();
-
-		// cameras = [FlxG.cameras.list[FlxG.cameras.list.length - 1]];
 	}
 
 	private function regenMenu():Void
@@ -119,12 +131,45 @@ class PauseSubState extends MusicBeatSubstate
 		changeSelection();
 	}
 
+	/**
+	 * Swaps the pause menu out for the preferences page. Everything on it applies to the
+	 * running song straight away, so nothing has to be restarted to take effect.
+	 */
+	function openPreferences():Void
+	{
+		grpMenuShit.visible = false;
+
+		preferences = new PreferencesMenu();
+		preferences.onExit.add(function() closingPreferences = true);
+		add(preferences);
+	}
+
+	function closePreferences():Void
+	{
+		closingPreferences = false;
+
+		if (preferences == null)
+			return;
+
+		remove(preferences, true);
+		preferences.destroy();
+		preferences = null;
+
+		grpMenuShit.visible = true;
+	}
+
 	override function update(elapsed:Float)
 	{
 		if (pauseMusic.volume < 0.5)
 			pauseMusic.volume += 0.01 * elapsed;
 
+		if (closingPreferences)
+			closePreferences();
+
 		super.update(elapsed);
+
+		if (preferences != null)
+			return;
 
 		var upP = controls.UI_UP_P;
 		var downP = controls.UI_DOWN_P;
@@ -147,26 +192,25 @@ class PauseSubState extends MusicBeatSubstate
 			{
 				case "Resume":
 					close();
-				case "EASY" | 'NORMAL' | "HARD":
-					PlayState.SONG = Song.loadFromJson(Highscore.formatSong(PlayState.SONG.song.toLowerCase(), curSelected),
-						PlayState.SONG.song.toLowerCase());
 
-					PlayState.storyDifficulty = curSelected;
-
-					FlxG.resetState();
+				case 'Options':
+					openPreferences();
 
 				case 'Toggle Practice Mode':
 					PlayState.practiceMode = !PlayState.practiceMode;
 					practiceText.visible = PlayState.practiceMode;
 
 				case 'Change Difficulty':
-					menuItems = difficultyChoices;
+					menuItems = CoolUtil.difficultyArray.concat(['BACK']);
 					regenMenu();
+
 				case 'BACK':
 					menuItems = pauseOG;
 					regenMenu();
+
 				case "Restart Song":
 					FlxG.resetState();
+
 				case "Exit to menu":
 					PlayState.seenCutscene = false;
 					PlayState.deathCounter = 0;
@@ -174,18 +218,23 @@ class PauseSubState extends MusicBeatSubstate
 						FlxG.switchState(() -> new StoryMenuState());
 					else
 						FlxG.switchState(() -> new FreeplayState());
-			}
-		}
 
-		if (FlxG.keys.justPressed.J)
-		{
-			// for reference later!
-			// PlayerSettings.player1.controls.replaceBinding(Control.LEFT, Keys, FlxKey.J, null);
+				default:
+					// Anything else in the list is a difficulty, and its index is the difficulty.
+					var chart = SongCache.load(Song.idOf(PlayState.SONG), curSelected);
+					if (chart != null)
+					{
+						PlayState.SONG = chart;
+						PlayState.storyDifficulty = curSelected;
+						FlxG.resetState();
+					}
+			}
 		}
 	}
 
 	override function destroy()
 	{
+		closePreferences();
 		pauseMusic.destroy();
 
 		super.destroy();
@@ -210,12 +259,10 @@ class PauseSubState extends MusicBeatSubstate
 			bullShit++;
 
 			item.alpha = 0.6;
-			// item.setGraphicSize(Std.int(item.width * 0.8));
 
 			if (item.targetY == 0)
 			{
 				item.alpha = 1;
-				// item.setGraphicSize(Std.int(item.width));
 			}
 		}
 	}

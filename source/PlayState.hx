@@ -1,6 +1,7 @@
 package;
 
 import Section.SwagSection;
+import Song.SwagEvent;
 import Song.SwagSong;
 import WiggleEffect.WiggleEffectType;
 import flixel.FlxBasic;
@@ -45,6 +46,11 @@ import openfl.filters.ShaderFilter;
 import shaderslmfao.BuildingShaders.BuildingShader;
 import shaderslmfao.BuildingShaders;
 import shaderslmfao.ColorSwap;
+import funkin.audio.AudioCache;
+import funkin.data.SongCache;
+import funkin.audio.VocalGroup;
+import funkin.modern.ModernChartConverter;
+import funkin.modern.ModernCompat;
 import ui.PreferencesMenu;
 
 using StringTools;
@@ -66,7 +72,7 @@ class PlayState extends MusicBeatState
 
 	var halloweenLevel:Bool = false;
 
-	private var vocals:FlxSound;
+	private var vocals:VocalGroup;
 	private var vocalsFinished:Bool = false;
 
 	private var dad:Character;
@@ -84,6 +90,7 @@ class PlayState extends MusicBeatState
 
 	private var strumLineNotes:FlxTypedGroup<FlxSprite>;
 	private var playerStrums:FlxTypedGroup<FlxSprite>;
+	private var opponentStrums:FlxTypedGroup<FlxSprite>;
 
 	private var camZooming:Bool = false;
 	private var curSong:String = "";
@@ -160,13 +167,65 @@ class PlayState extends MusicBeatState
 	var camPos:FlxPoint;
 	var lightFadeShader:BuildingShaders;
 
+	/**
+	 * True when SONG came out of a `.fnfc` bundle. Legacy songs drive a lot of behaviour off
+	 * their hardcoded name, and that behaviour is replaced by chart events for modern songs.
+	 */
+	var isModern:Bool = false;
+
+	var songEvents:Array<SwagEvent> = [];
+	var nextEventIndex:Int = 0;
+
+	/**
+	 * Live scroll speed. Starts at the chart's speed and can be retargeted by ScrollSpeed events.
+	 */
+	public static var songSpeed:Float = 1;
+
+	static inline var DEFAULT_BOP_INTENSITY:Float = 0.015;
+
+	var cameraBopIntensity:Float = DEFAULT_BOP_INTENSITY;
+	var cameraBopRate:Int = 4;
+
+	/**
+	 * Zoom the stage was built at. `ZoomCamera` events in "stage" mode are relative to it.
+	 */
+	var stageCamZoom:Float = 1.05;
+
+	/**
+	 * Character the camera is pinned to by a FocusCamera event (0 bf, 1 dad, 2 gf), or -1
+	 * to let the section's `mustHitSection` drive it like a legacy chart.
+	 */
+	var focusedCharacter:Int = -1;
+
+	var focusOffsetX:Float = 0;
+	var focusOffsetY:Float = 0;
+	var zoomTween:FlxTween;
+	var scrollSpeedTween:FlxTween;
+
 	override public function create()
 	{
 		if (FlxG.sound.music != null)
 			FlxG.sound.music.stop();
 
-		FlxG.sound.cache(Paths.inst(PlayState.SONG.song));
-		FlxG.sound.cache(Paths.voices(PlayState.SONG.song));
+		if (SONG == null)
+			SONG = Song.loadFromJson('tutorial');
+
+		isModern = Song.isModern(SONG);
+		songEvents = (SONG.events == null) ? [] : SONG.events;
+		nextEventIndex = 0;
+		songSpeed = SONG.speed;
+
+		if (isModern)
+		{
+			AudioCache.resolve(SONG.instPath);
+			for (path in SONG.vocalPaths)
+				AudioCache.resolve(path);
+		}
+		else
+		{
+			FlxG.sound.cache(Paths.inst(PlayState.SONG.song));
+			FlxG.sound.cache(Paths.voices(PlayState.SONG.song));
+		}
 
 		// var gameCam:FlxCamera = FlxG.camera;
 		camGame = new SwagCamera();
@@ -179,48 +238,58 @@ class PlayState extends MusicBeatState
 		persistentUpdate = true;
 		persistentDraw = true;
 
-		if (SONG == null)
-			SONG = Song.loadFromJson('tutorial');
-
 		Conductor.mapBPMChanges(SONG);
 		Conductor.changeBPM(SONG.bpm);
 
+		// Keeps the pause menu's difficulty list matching whatever the song actually offers.
+		CoolUtil.setDifficulties(SongCache.difficultiesFor(Song.idOf(SONG)));
+
 		foregroundSprites = new FlxTypedGroup<BGSprite>();
 
-		switch (SONG.song.toLowerCase())
+		// A modern song names its stage, a legacy one is identified by its title. Either way
+		// the stage decides which week library the backdrop art has to be read out of.
+		var stageId:String = isModern ? SONG.stage : legacyStage(SONG.song.toLowerCase());
+
+		if (isModern)
+			Paths.setCurrentLevel(ModernCompat.libraryForStage(stageId));
+
+		if (!isModern)
 		{
-			case 'tutorial':
-				dialogue = ["Hey you're pretty cute.", 'Use the arrow keys to keep up \nwith me singing.'];
-			case 'bopeebo':
-				dialogue = [
-					'HEY!',
-					"You think you can just sing\nwith my daughter like that?",
-					"If you want to date her...",
-					"You're going to have to go \nthrough ME first!"
-				];
-			case 'fresh':
-				dialogue = ["Not too shabby boy.", ""];
-			case 'dadbattle':
-				dialogue = [
-					"gah you think you're hot stuff?",
-					"If you can beat me here...",
-					"Only then I will even CONSIDER letting you\ndate my daughter!"
-				];
-			case 'senpai':
-				dialogue = CoolUtil.coolTextFile(Paths.txt('senpai/senpaiDialogue'));
-			case 'roses':
-				dialogue = CoolUtil.coolTextFile(Paths.txt('roses/rosesDialogue'));
-			case 'thorns':
-				dialogue = CoolUtil.coolTextFile(Paths.txt('thorns/thornsDialogue'));
+			switch (SONG.song.toLowerCase())
+			{
+				case 'tutorial':
+					dialogue = ["Hey you're pretty cute.", 'Use the arrow keys to keep up \nwith me singing.'];
+				case 'bopeebo':
+					dialogue = [
+						'HEY!',
+						"You think you can just sing\nwith my daughter like that?",
+						"If you want to date her...",
+						"You're going to have to go \nthrough ME first!"
+					];
+				case 'fresh':
+					dialogue = ["Not too shabby boy.", ""];
+				case 'dadbattle':
+					dialogue = [
+						"gah you think you're hot stuff?",
+						"If you can beat me here...",
+						"Only then I will even CONSIDER letting you\ndate my daughter!"
+					];
+				case 'senpai':
+					dialogue = CoolUtil.coolTextFile(Paths.txt('senpai/senpaiDialogue'));
+				case 'roses':
+					dialogue = CoolUtil.coolTextFile(Paths.txt('roses/rosesDialogue'));
+				case 'thorns':
+					dialogue = CoolUtil.coolTextFile(Paths.txt('thorns/thornsDialogue'));
+			}
 		}
 
 		#if discord_rpc
 		initDiscord();
 		#end
 
-		switch (SONG.song.toLowerCase())
+		switch (stageId)
 		{
-			case 'spookeez' | 'monster' | 'south':
+			case 'spooky':
 				curStage = "spooky";
 				halloweenLevel = true;
 
@@ -235,7 +304,7 @@ class PlayState extends MusicBeatState
 				add(halloweenBG);
 
 				isHalloween = true;
-			case 'pico' | 'blammed' | 'philly':
+			case 'philly':
 				curStage = 'philly';
 
 				var bg:FlxSprite = new FlxSprite(-100).loadGraphic(Paths.image('philly/sky'));
@@ -278,7 +347,7 @@ class PlayState extends MusicBeatState
 
 				var street:FlxSprite = new FlxSprite(-40, streetBehind.y).loadGraphic(Paths.image('philly/street'));
 				add(street);
-			case "milf" | 'satin-panties' | 'high':
+			case 'limo':
 				curStage = 'limo';
 				defaultCamZoom = 0.90;
 
@@ -318,7 +387,7 @@ class PlayState extends MusicBeatState
 
 				fastCar = new FlxSprite(-300, 160).loadGraphic(Paths.image('limo/fastCarLol'));
 			// add(limo);
-			case "cocoa" | 'eggnog':
+			case 'mall':
 				curStage = 'mall';
 
 				defaultCamZoom = 0.80;
@@ -372,7 +441,7 @@ class PlayState extends MusicBeatState
 				santa.animation.addByPrefix('idle', 'santa idle in fear', 24, false);
 				santa.antialiasing = true;
 				add(santa);
-			case 'winter-horrorland':
+			case 'mallEvil':
 				curStage = 'mallEvil';
 				var bg:FlxSprite = new FlxSprite(-400, -500).loadGraphic(Paths.image('christmas/evilBG'));
 				bg.antialiasing = true;
@@ -390,7 +459,7 @@ class PlayState extends MusicBeatState
 				var evilSnow:FlxSprite = new FlxSprite(-200, 700).loadGraphic(Paths.image("christmas/evilSnow"));
 				evilSnow.antialiasing = true;
 				add(evilSnow);
-			case 'senpai' | 'roses':
+			case 'school':
 				curStage = 'school';
 
 				// defaultCamZoom = 0.9;
@@ -455,7 +524,7 @@ class PlayState extends MusicBeatState
 				bgGirls.setGraphicSize(Std.int(bgGirls.width * daPixelZoom));
 				bgGirls.updateHitbox();
 				add(bgGirls);
-			case 'thorns':
+			case 'schoolEvil':
 				curStage = 'schoolEvil';
 
 				var waveEffectBG = new FlxWaveEffect(FlxWaveMode.ALL, 2, -1, 3, 2);
@@ -516,7 +585,7 @@ class PlayState extends MusicBeatState
 				add(waveSpriteFG);
 			 */
 
-			case 'guns' | 'stress' | 'ugh':
+			case 'tank':
 				defaultCamZoom = 0.90;
 				curStage = 'tank';
 
@@ -614,21 +683,27 @@ class PlayState extends MusicBeatState
 				add(stageCurtains);
 		}
 
-		var gfVersion:String = 'gf';
+		stageCamZoom = defaultCamZoom;
 
-		switch (curStage)
+		var gfVersion:String = (SONG.gfVersion == null) ? 'gf' : SONG.gfVersion;
+
+		// Only pick the stage's girlfriend when the chart didn't ask for a specific one.
+		if (gfVersion == 'gf')
 		{
-			case 'limo':
-				gfVersion = 'gf-car';
-			case 'mall' | 'mallEvil':
-				gfVersion = 'gf-christmas';
-			case 'school' | 'schoolEvil':
-				gfVersion = 'gf-pixel';
-			case 'tank':
-				gfVersion = 'gf-tankmen';
+			switch (curStage)
+			{
+				case 'limo':
+					gfVersion = 'gf-car';
+				case 'mall' | 'mallEvil':
+					gfVersion = 'gf-christmas';
+				case 'school' | 'schoolEvil':
+					gfVersion = 'gf-pixel';
+				case 'tank':
+					gfVersion = 'gf-tankmen';
+			}
 		}
 
-		if (SONG.song.toLowerCase() == 'stress')
+		if (!isModern && SONG.song.toLowerCase() == 'stress')
 			gfVersion = 'pico-speaker';
 
 		gf = new Character(400, 130, gfVersion);
@@ -792,6 +867,7 @@ class PlayState extends MusicBeatState
 		add(grpNoteSplashes);
 
 		playerStrums = new FlxTypedGroup<FlxSprite>();
+		opponentStrums = new FlxTypedGroup<FlxSprite>();
 
 		generateSong();
 
@@ -863,6 +939,11 @@ class PlayState extends MusicBeatState
 		// cameras = [FlxG.cameras.list[1]];
 		startingSong = true;
 
+		// Modern charts move the camera with ZoomCamera/SetCameraBop events, which only take
+		// effect while the zoom lerp is running.
+		if (isModern)
+			camZooming = true;
+
 		if (isStoryMode && !seenCutscene)
 		{
 			seenCutscene = true;
@@ -928,6 +1009,26 @@ class PlayState extends MusicBeatState
 		} 
 
 		super.create();
+	}
+
+	/**
+	 * Stage a legacy song plays on. Mirrors the song list the stage switch used to match
+	 * against directly, so modern and legacy songs can share one stage builder.
+	 */
+	static function legacyStage(songName:String):String
+	{
+		return switch (songName)
+		{
+			case 'spookeez' | 'monster' | 'south': 'spooky';
+			case 'pico' | 'blammed' | 'philly': 'philly';
+			case 'milf' | 'satin-panties' | 'high': 'limo';
+			case 'cocoa' | 'eggnog': 'mall';
+			case 'winter-horrorland': 'mallEvil';
+			case 'senpai' | 'roses': 'school';
+			case 'thorns': 'schoolEvil';
+			case 'guns' | 'stress' | 'ugh': 'tank';
+			default: 'stage';
+		}
 	}
 
 	function ughIntro()
@@ -1553,7 +1654,19 @@ class PlayState extends MusicBeatState
 		previousFrameTime = FlxG.game.ticks;
 
 		if (!paused)
-			FlxG.sound.playMusic(Paths.inst(SONG.song), 1, false);
+		{
+			if (isModern)
+				FlxG.sound.playMusic(AudioCache.resolve(SONG.instPath), 1, false);
+			else
+				FlxG.sound.playMusic(Paths.inst(SONG.song), 1, false);
+		}
+		// Start the clock from the audio itself, so the countdown's sub-frame overshoot past
+		// zero doesn't become a permanent offset between the notes and the receptors.
+		if (FlxG.sound.music != null)
+			Conductor.songPosition = FlxG.sound.music.time + Conductor.offset;
+
+		lastAudioTime = -1;
+
 		FlxG.sound.music.onComplete = endSong;
 		vocals.play();
 
@@ -1575,16 +1688,25 @@ class PlayState extends MusicBeatState
 
 		curSong = songData.song;
 
-		if (SONG.needsVoices)
-			vocals = new FlxSound().loadEmbedded(Paths.voices(SONG.song));
-		else
-			vocals = new FlxSound();
-
+		vocals = new VocalGroup();
 		vocals.onComplete = function()
 		{
 			vocalsFinished = true;
 		};
-		FlxG.sound.list.add(vocals);
+
+		if (SONG.needsVoices)
+		{
+			// Modern bundles ship one vocal track per character, legacy songs a single mix.
+			if (isModern)
+			{
+				for (path in SONG.vocalPaths)
+					vocals.add(AudioCache.loadSound(path));
+			}
+			else
+			{
+				vocals.add(new FlxSound().loadEmbedded(Paths.voices(SONG.song)));
+			}
+		}
 
 		notes = new FlxTypedGroup<Note>();
 		add(notes);
@@ -1615,6 +1737,7 @@ class PlayState extends MusicBeatState
 				var swagNote:Note = new Note(daStrumTime, daNoteData, oldNote);
 				swagNote.sustainLength = songNotes[2];
 				swagNote.altNote = songNotes[3];
+				swagNote.noteKind = (songNotes.length > 4 && songNotes[4] != null) ? songNotes[4] : '';
 				swagNote.scrollFactor.set(0, 0);
 
 				var susLength:Float = swagNote.sustainLength;
@@ -1627,6 +1750,7 @@ class PlayState extends MusicBeatState
 					oldNote = unspawnNotes[Std.int(unspawnNotes.length - 1)];
 
 					var sustainNote:Note = new Note(daStrumTime + (Conductor.stepCrochet * susNote) + Conductor.stepCrochet, daNoteData, oldNote, true);
+					sustainNote.noteKind = swagNote.noteKind;
 					sustainNote.scrollFactor.set();
 					unspawnNotes.push(sustainNote);
 
@@ -1761,6 +1885,8 @@ class PlayState extends MusicBeatState
 
 			if (player == 1)
 				playerStrums.add(babyArrow);
+			else
+				opponentStrums.add(babyArrow);
 
 			babyArrow.animation.play('static');
 			babyArrow.x += 50;
@@ -1768,6 +1894,25 @@ class PlayState extends MusicBeatState
 
 			strumLineNotes.add(babyArrow);
 		}
+	}
+
+	/**
+	 * Moves the strumline, health bar and score readout for the current scroll direction.
+	 * Called on creation and again whenever the preference is changed from the pause menu.
+	 */
+	public function applyScrollDirection():Void
+	{
+		var downscroll:Bool = PreferencesMenu.getPref('downscroll');
+
+		strumLine.y = downscroll ? FlxG.height - 150 : 50;
+		strumLineNotes.forEach(function(arrow:FlxSprite) arrow.y = strumLine.y);
+
+		healthBarBG.y = downscroll ? FlxG.height * 0.1 : FlxG.height * 0.9;
+		healthBar.y = healthBarBG.y + 4;
+		scoreTxt.y = healthBarBG.y + 30;
+
+		iconP1.y = healthBar.y - (iconP1.height / 2);
+		iconP2.y = healthBar.y - (iconP2.height / 2);
 	}
 
 	function tweenCamIn():Void
@@ -1845,6 +1990,7 @@ class PlayState extends MusicBeatState
 		vocals.pause();
 		FlxG.sound.music.play();
 		Conductor.songPosition = FlxG.sound.music.time + Conductor.offset;
+		lastAudioTime = -1;
 
 		if (vocalsFinished)
 			return;
@@ -1852,6 +1998,15 @@ class PlayState extends MusicBeatState
 		vocals.time = Conductor.songPosition;
 		vocals.play();
 	}
+
+	static inline var SYNC_SNAP_MS:Float = 45;
+	static inline var SYNC_CORRECTION:Float = 0.25;
+
+	/**
+	 * Last position the audio backend published, so a correction is only applied when it
+	 * actually reports something new rather than on every frame of the same stale value.
+	 */
+	var lastAudioTime:Float = -1;
 
 	private var paused:Bool = false;
 	var startedCountdown:Bool = false;
@@ -1878,15 +2033,31 @@ class PlayState extends MusicBeatState
 		}
 		else
 		{
-			// FlxG.sound.music.time only updates at the audio backend's own polling
-			// rate, which is much coarser than high draw/update framerates. Reading it
-			// directly every frame makes notes visually step instead of scroll smoothly.
-			// Advance songPosition ourselves each frame, and only hard-snap to the real
-			// audio clock once it's drifted far enough to matter.
-			var audioTime:Float = FlxG.sound.music.time + Conductor.offset;
+			// FlxG.sound.music.time only updates at the audio backend's own polling rate,
+			// which is much coarser than high draw/update framerates. Reading it directly
+			// every frame makes notes visually step instead of scroll smoothly, so run the
+			// clock forward ourselves and correct it whenever a fresh sample arrives.
+			//
+			// The correction deliberately has no dead zone. A note sits
+			// `error * 0.45 * songSpeed` pixels from its receptor, so tolerating even a few
+			// ms of standing error is invisible on a slow chart and a wide, obvious gap on a
+			// fast one. Corrections are fractional so they stay imperceptible, and only a
+			// real desync (a seek, a stall, resuming from pause) snaps outright.
 			Conductor.songPosition += FlxG.elapsed * 1000;
-			if (Math.abs(audioTime - Conductor.songPosition) > 20)
-				Conductor.songPosition = audioTime;
+
+			var audioTime:Float = FlxG.sound.music.time + Conductor.offset;
+
+			if (audioTime != lastAudioTime)
+			{
+				lastAudioTime = audioTime;
+
+				var drift:Float = audioTime - Conductor.songPosition;
+
+				if (Math.abs(drift) > SYNC_SNAP_MS)
+					Conductor.songPosition = audioTime;
+				else
+					Conductor.songPosition += drift * SYNC_CORRECTION;
+			}
 
 			if (!paused)
 			{
@@ -2020,7 +2191,13 @@ class PlayState extends MusicBeatState
 			changeSection(-1);
 		#end
 
-		if (generatedMusic && SONG.notes[Std.int(curStep / 16)] != null)
+		processSongEvents();
+
+		if (focusedCharacter >= 0)
+		{
+			updateEventCamera();
+		}
+		else if (generatedMusic && SONG.notes[Std.int(curStep / 16)] != null)
 		{
 			cameraRightSide = SONG.notes[Std.int(curStep / 16)].mustHitSection;
 
@@ -2036,7 +2213,7 @@ class PlayState extends MusicBeatState
 		FlxG.watch.addQuick("beatShit", curBeat);
 		FlxG.watch.addQuick("stepShit", curStep);
 
-		if (curSong == 'Fresh')
+		if (!isModern && curSong == 'Fresh')
 		{
 			switch (curBeat)
 			{
@@ -2055,7 +2232,7 @@ class PlayState extends MusicBeatState
 			}
 		}
 
-		if (curSong == 'Bopeebo')
+		if (!isModern && curSong == 'Bopeebo')
 		{
 			switch (curBeat)
 			{
@@ -2110,7 +2287,7 @@ class PlayState extends MusicBeatState
 			}
 		}
 
-		while (unspawnNotes[0] != null && unspawnNotes[0].strumTime - Conductor.songPosition < 1800 / SONG.speed)
+		while (unspawnNotes[0] != null && unspawnNotes[0].strumTime - Conductor.songPosition < 1800 / songSpeed)
 		{
 			var dunceNote:Note = unspawnNotes[0];
 			notes.add(dunceNote);
@@ -2135,11 +2312,14 @@ class PlayState extends MusicBeatState
 					daNote.active = true;
 				}
 
+				if (daNote.isSustainNote && daNote.sustainScaleSpeed != songSpeed)
+					daNote.refreshSustainScale(songSpeed);
+
 				var strumLineMid = strumLine.y + Note.swagWidth / 2;
 
 				if (PreferencesMenu.getPref('downscroll'))
 				{
-					daNote.y = (strumLine.y + (Conductor.songPosition - daNote.strumTime) * (0.45 * FlxMath.roundDecimal(SONG.speed, 2)));
+					daNote.y = (strumLine.y + (Conductor.songPosition - daNote.strumTime) * (0.45 * FlxMath.roundDecimal(songSpeed, 2)));
 
 					if (daNote.isSustainNote)
 					{
@@ -2162,11 +2342,24 @@ class PlayState extends MusicBeatState
 				}
 				else
 				{
-					daNote.y = (strumLine.y - (Conductor.songPosition - daNote.strumTime) * (0.45 * FlxMath.roundDecimal(SONG.speed, 2)));
+					daNote.y = (strumLine.y - (Conductor.songPosition - daNote.strumTime) * (0.45 * FlxMath.roundDecimal(songSpeed, 2)));
 
+					// A hold piece's strumTime is the END of the slice it covers, so drawing it
+					// at that time puts the whole chain one slice below the note head. While a
+					// slice is shorter than the head it hides behind it, but a slice grows with
+					// scroll speed and shrinks with BPM, so past that it opens a visible gap
+					// between the arrow and its hold.
+					if (daNote.isSustainNote)
+						daNote.y -= daNote.sustainPixels(songSpeed);
+
+					// The gate is `prevNote.wasGoodHit` with no extra conditions because a piece's
+					// top reaches the receptor at exactly the moment the piece before it is hit,
+					// so anything else leaves a window where the trail is above the receptor and
+					// still unclipped. `y` is the sprite's real top once setGraphicSize and
+					// updateHitbox have run, so it compares directly against the receptor.
 					if (daNote.isSustainNote
-						&& (!daNote.mustPress || (daNote.wasGoodHit || (daNote.prevNote.wasGoodHit && !daNote.canBeHit)))
-						&& daNote.y + daNote.offset.y * daNote.scale.y <= strumLineMid)
+						&& (!daNote.mustPress || daNote.wasGoodHit || daNote.prevNote.wasGoodHit)
+						&& daNote.y <= strumLineMid)
 					{
 						var swagRect:FlxRect = new FlxRect(0, 0, daNote.width / daNote.scale.x, daNote.height / daNote.scale.y);
 
@@ -2192,19 +2385,32 @@ class PlayState extends MusicBeatState
 					if (daNote.altNote)
 						altAnim = '-alt';
 
-					switch (Math.abs(daNote.noteData))
+					// `noanim` notes are charted to be heard but not acted out.
+					if (daNote.noteKind != 'noanim')
 					{
-						case 0:
-							dad.playAnim('singLEFT' + altAnim, true);
-						case 1:
-							dad.playAnim('singDOWN' + altAnim, true);
-						case 2:
-							dad.playAnim('singUP' + altAnim, true);
-						case 3:
-							dad.playAnim('singRIGHT' + altAnim, true);
+						switch (Math.abs(daNote.noteData))
+						{
+							case 0:
+								dad.playAnim('singLEFT' + altAnim, dad.animation.curAnim.name != 'singLEFT' + altAnim);
+							case 1:
+								dad.playAnim('singDOWN' + altAnim, dad.animation.curAnim.name != 'singDOWN' + altAnim);
+							case 2:
+								dad.playAnim('singUP' + altAnim, dad.animation.curAnim.name != 'singUP' + altAnim);
+							case 3:
+								dad.playAnim('singRIGHT' + altAnim, dad.animation.curAnim.name != 'singRIGHT' + altAnim);
+						}
 					}
 
 					dad.holdTimer = 0;
+
+					if (PreferencesMenu.getPref('opponent-strums'))
+					{
+						opponentStrums.forEach(function(spr:FlxSprite)
+						{
+							if (spr.ID == Math.abs(daNote.noteData))
+								spr.animation.play('confirm', true);
+						});
+					}
 
 					if (SONG.needsVoices)
 						vocals.volume = 1;
@@ -2255,8 +2461,40 @@ class PlayState extends MusicBeatState
 			});
 		}
 
+		opponentStrums.forEach(function(spr:FlxSprite)
+		{
+			if (spr.animation.curAnim.name == 'confirm' && spr.animation.curAnim.finished)
+				spr.animation.play('static');
+
+			if (spr.animation.curAnim.name == 'confirm' && !curStage.startsWith('school'))
+			{
+				spr.centerOffsets();
+				spr.offset.x -= 13;
+				spr.offset.y -= 13;
+			}
+			else
+				spr.centerOffsets();
+		});
+
 		if (!inCutscene)
 			keyShit();
+	}
+
+	override function destroy():Void
+	{
+		if (zoomTween != null)
+			zoomTween.cancel();
+
+		if (scrollSpeedTween != null)
+			scrollSpeedTween.cancel();
+
+		if (vocals != null)
+		{
+			vocals.destroy();
+			vocals = null;
+		}
+
+		super.destroy();
 	}
 
 	function killCombo():Void
@@ -2328,26 +2566,16 @@ class PlayState extends MusicBeatState
 				StoryMenuState.weekUnlocked[Std.int(Math.min(storyWeek + 1, StoryMenuState.weekUnlocked.length - 1))] = true;
 
 				if (SONG.validScore)
-				{
-					NGio.unlockMedal(60961);
 					Highscore.saveWeekScore(storyWeek, campaignScore, storyDifficulty);
-				}
 
 				FlxG.save.data.weekUnlocked = StoryMenuState.weekUnlocked;
 				FlxG.save.flush();
 			}
 			else
 			{
-				var difficulty:String = "";
+				trace('LOADING NEXT SONG ' + storyPlaylist[0]);
 
-				if (storyDifficulty == 0)
-					difficulty = '-easy';
-
-				if (storyDifficulty == 2)
-					difficulty = '-hard';
-
-				trace('LOADING NEXT SONG');
-				trace(storyPlaylist[0].toLowerCase() + difficulty);
+				var nextSong = SongCache.load(storyPlaylist[0], storyDifficulty);
 
 				FlxTransitionableState.skipNextTransIn = true;
 				FlxTransitionableState.skipNextTransOut = true;
@@ -2367,7 +2595,7 @@ class PlayState extends MusicBeatState
 					FlxG.sound.play(Paths.sound('Lights_Shut_off'), function()
 					{
 						// no camFollow so it centers on horror tree
-						SONG = Song.loadFromJson(storyPlaylist[0].toLowerCase() + difficulty, storyPlaylist[0]);
+						SONG = nextSong;
 						LoadingState.loadAndSwitchState(() -> new PlayState());
 					});
 				}
@@ -2375,7 +2603,7 @@ class PlayState extends MusicBeatState
 				{
 					prevCamFollow = camFollow;
 
-					SONG = Song.loadFromJson(storyPlaylist[0].toLowerCase() + difficulty, storyPlaylist[0]);
+					SONG = nextSong;
 					LoadingState.loadAndSwitchState(() -> new PlayState());
 				}
 			}
@@ -2581,6 +2809,157 @@ class PlayState extends MusicBeatState
 
 	var cameraRightSide:Bool = false;
 
+	/**
+	 * Fires every chart event whose time has passed. Events are pre-sorted, so this only
+	 * ever walks forward.
+	 */
+	function processSongEvents():Void
+	{
+		while (nextEventIndex < songEvents.length && songEvents[nextEventIndex].time <= Conductor.songPosition)
+		{
+			handleSongEvent(songEvents[nextEventIndex]);
+			nextEventIndex++;
+		}
+	}
+
+	function handleSongEvent(event:SwagEvent):Void
+	{
+		switch (event.kind)
+		{
+			case 'FocusCamera':
+				focusedCharacter = ModernChartConverter.focusTarget(event.value);
+				focusOffsetX = eventFloat(event.value, 'x', 0);
+				focusOffsetY = eventFloat(event.value, 'y', 0);
+
+			case 'ZoomCamera':
+				var zoom = eventFloat(event.value, 'zoom', 1);
+				if (eventString(event.value, 'mode', 'direct') == 'stage')
+					zoom *= stageCamZoom;
+
+				tweenCameraZoom(zoom, eventDuration(event.value), eventEase(event.value));
+
+			case 'SetCameraBop':
+				cameraBopIntensity = DEFAULT_BOP_INTENSITY * eventFloat(event.value, 'intensity', 1);
+				cameraBopRate = Std.int(eventFloat(event.value, 'rate', 4));
+				if (cameraBopRate < 1)
+					cameraBopRate = 1;
+
+			case 'PlayAnimation':
+				var character = switch (ModernCompat.animationTarget(eventString(event.value, 'target', 'bf')))
+				{
+					case 'dad': dad;
+					case 'gf': gf;
+					default: cast(boyfriend, Character);
+				};
+
+				var anim = eventString(event.value, 'anim', null);
+				if (character != null && anim != null && character.animation.getByName(anim) != null)
+					character.playAnim(anim, eventBool(event.value, 'force', false));
+
+			case 'ScrollSpeed':
+				var scroll = eventFloat(event.value, 'scroll', 1);
+				if (!eventBool(event.value, 'absolute', true))
+					scroll *= SONG.speed;
+
+				tweenScrollSpeed(scroll, eventDuration(event.value), eventEase(event.value));
+		}
+	}
+
+	function tweenCameraZoom(target:Float, duration:Float, ease:Float->Float):Void
+	{
+		if (zoomTween != null)
+			zoomTween.cancel();
+
+		if (duration <= 0 || ease == null)
+		{
+			defaultCamZoom = target;
+			return;
+		}
+
+		zoomTween = FlxTween.num(defaultCamZoom, target, duration, {ease: ease}, function(value:Float) defaultCamZoom = value);
+	}
+
+	function tweenScrollSpeed(target:Float, duration:Float, ease:Float->Float):Void
+	{
+		if (scrollSpeedTween != null)
+			scrollSpeedTween.cancel();
+
+		if (duration <= 0 || ease == null)
+		{
+			songSpeed = target;
+			return;
+		}
+
+		scrollSpeedTween = FlxTween.num(songSpeed, target, duration, {ease: ease}, function(value:Float) songSpeed = value);
+	}
+
+	/**
+	 * Pins the camera to whichever character the last FocusCamera event named. The camera's
+	 * own follow lerp does the smoothing, exactly like the section based path below.
+	 */
+	function updateEventCamera():Void
+	{
+		var target:Character = switch (focusedCharacter)
+		{
+			case 0: cast(boyfriend, Character);
+			case 2: gf;
+			default: dad;
+		};
+
+		if (target == null || !target.exists)
+			return;
+
+		var midpoint = target.getMidpoint();
+		var offsetX = (focusedCharacter == 0) ? -100 : 150;
+
+		camFollow.setPosition(midpoint.x + offsetX + focusOffsetX, midpoint.y - 100 + focusOffsetY);
+		midpoint.put();
+	}
+
+	/**
+	 * Modern events measure durations in steps, the engine tweens in seconds.
+	 */
+	inline function eventDuration(value:Dynamic):Float
+	{
+		return eventFloat(value, 'duration', 0) * Conductor.stepCrochet / 1000;
+	}
+
+	inline function eventEase(value:Dynamic):Float->Float
+	{
+		return ModernCompat.ease(eventString(value, 'ease', 'CLASSIC'), eventString(value, 'easeDir', null));
+	}
+
+	static function eventFloat(value:Dynamic, field:String, fallback:Float):Float
+	{
+		if (value == null || !Reflect.isObject(value))
+			return fallback;
+
+		var raw = Reflect.field(value, field);
+		if (raw == null)
+			return fallback;
+
+		var result:Float = raw;
+		return result;
+	}
+
+	static function eventString(value:Dynamic, field:String, fallback:String):String
+	{
+		if (value == null || !Reflect.isObject(value))
+			return fallback;
+
+		var raw = Reflect.field(value, field);
+		return raw == null ? fallback : Std.string(raw);
+	}
+
+	static function eventBool(value:Dynamic, field:String, fallback:Bool):Bool
+	{
+		if (value == null || !Reflect.isObject(value))
+			return fallback;
+
+		var raw = Reflect.field(value, field);
+		return raw == null ? fallback : raw == true;
+	}
+
 	function cameraMovement()
 	{
 		if (camFollow.x != dad.getMidpoint().x + 150 && !cameraRightSide)
@@ -2706,7 +3085,7 @@ class PlayState extends MusicBeatState
 			{
 				for (shit in 0...pressArray.length)
 				{ // if a direction is hit that shouldn't be
-					if (pressArray[shit] && !directionList.contains(shit))
+					if (pressArray[shit] && !directionList.contains(shit) && !PreferencesMenu.getPref('ghost-tapping'))
 						noteMiss(shit);
 				}
 				for (coolNote in possibleNotes)
@@ -2718,7 +3097,7 @@ class PlayState extends MusicBeatState
 			else
 			{
 				for (shit in 0...pressArray.length)
-					if (pressArray[shit])
+					if (pressArray[shit] && !PreferencesMenu.getPref('ghost-tapping'))
 						noteMiss(shit);
 			}
 		}
@@ -2818,16 +3197,19 @@ class PlayState extends MusicBeatState
 			else
 				health += 0.004;
 
-			switch (note.noteData)
+			if (note.noteKind != 'noanim')
 			{
-				case 0:
-					boyfriend.playAnim('singLEFT', true);
-				case 1:
-					boyfriend.playAnim('singDOWN', true);
-				case 2:
-					boyfriend.playAnim('singUP', true);
-				case 3:
-					boyfriend.playAnim('singRIGHT', true);
+				switch (note.noteData)
+				{
+					case 0:
+						boyfriend.playAnim('singLEFT', boyfriend.animation.curAnim.name != 'singLEFT');
+					case 1:
+						boyfriend.playAnim('singDOWN', boyfriend.animation.curAnim.name != 'singDOWN');
+					case 2:
+						boyfriend.playAnim('singUP', boyfriend.animation.curAnim.name != 'singUP');
+					case 3:
+						boyfriend.playAnim('singRIGHT', boyfriend.animation.curAnim.name != 'singRIGHT');
+				}
 			}
 
 			playerStrums.forEach(function(spr:FlxSprite)
@@ -3000,16 +3382,16 @@ class PlayState extends MusicBeatState
 
 		if (PreferencesMenu.getPref('camera-zoom'))
 		{
-			if (curSong.toLowerCase() == 'milf' && curBeat >= 168 && curBeat < 200 && camZooming && FlxG.camera.zoom < 1.35)
+			if (!isModern && curSong.toLowerCase() == 'milf' && curBeat >= 168 && curBeat < 200 && camZooming && FlxG.camera.zoom < 1.35)
 			{
 				FlxG.camera.zoom += 0.015;
 				camHUD.zoom += 0.03;
 			}
 
-			if (camZooming && FlxG.camera.zoom < 1.35 && curBeat % 4 == 0)
+			if (camZooming && FlxG.camera.zoom < 1.35 && curBeat % cameraBopRate == 0)
 			{
-				FlxG.camera.zoom += 0.015;
-				camHUD.zoom += 0.03;
+				FlxG.camera.zoom += cameraBopIntensity;
+				camHUD.zoom += cameraBopIntensity * 2;
 			}
 		}
 
@@ -3035,12 +3417,12 @@ class PlayState extends MusicBeatState
 				dad.dance();
 		}
 
-		if (curBeat % 8 == 7 && curSong == 'Bopeebo')
+		if (!isModern && curBeat % 8 == 7 && curSong == 'Bopeebo')
 		{
 			boyfriend.playAnim('hey', true);
 		}
 
-		if (curBeat % 16 == 15 && SONG.song == 'Tutorial' && dad.curCharacter == 'gf' && curBeat > 16 && curBeat < 48)
+		if (!isModern && curBeat % 16 == 15 && SONG.song == 'Tutorial' && dad.curCharacter == 'gf' && curBeat > 16 && curBeat < 48)
 		{
 			boyfriend.playAnim('hey', true);
 			dad.playAnim('cheer', true);

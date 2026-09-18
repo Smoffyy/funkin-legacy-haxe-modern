@@ -3,16 +3,16 @@ package;
 #if discord_rpc
 import Discord.DiscordClient;
 #end
-import flash.text.TextField;
 import flixel.FlxG;
 import flixel.FlxSprite;
-import flixel.addons.display.FlxGridOverlay;
 import flixel.group.FlxGroup.FlxTypedGroup;
-import flixel.math.FlxMath;
 import flixel.text.FlxText;
-import flixel.tweens.FlxTween;
 import flixel.util.FlxColor;
-import lime.utils.Assets;
+import funkin.audio.AudioCache;
+import funkin.audio.MusicPreview;
+import funkin.data.SongCache;
+import funkin.modern.ModernCompat;
+import funkin.modern.ModernSongRegistry;
 
 using StringTools;
 
@@ -20,7 +20,6 @@ class FreeplayState extends MusicBeatState
 {
 	var songs:Array<SongMetadata> = [];
 
-	// var selector:FlxText;
 	var curSelected:Int = 0;
 	var curDifficulty:Int = 1;
 
@@ -46,6 +45,14 @@ class FreeplayState extends MusicBeatState
 	private var iconArray:Array<HealthIcon> = [];
 	var bg:FlxSprite;
 	var scoreBG:FlxSprite;
+
+	var preview:MusicPreview;
+
+	/**
+	 * Set as soon as the state starts leaving, so a preview that finishes loading on the
+	 * way out can't start playing over the next state's music.
+	 */
+	var exiting:Bool = false;
 
 	override function create()
 	{
@@ -95,9 +102,7 @@ class FreeplayState extends MusicBeatState
 		if (StoryMenuState.weekUnlocked[7] || isDebug)
 			addWeek(['Ugh', 'Guns', 'Stress'], 7, ['tankman']);
 
-		// LOAD MUSIC
-
-		// LOAD CHARACTERS
+		addModernSongs();
 
 		bg = new FlxSprite().loadGraphic(Paths.image('menuDesat'));
 		add(bg);
@@ -118,16 +123,10 @@ class FreeplayState extends MusicBeatState
 			// using a FlxGroup is too much fuss!
 			iconArray.push(icon);
 			add(icon);
-
-			// songText.x += 40;
-			// DONT PUT X IN THE FIRST PARAMETER OF new ALPHABET() !!
-			// songText.screenCenter(X);
 		}
 
 		scoreText = new FlxText(FlxG.width * 0.7, 5, 0, "", 32);
-		// scoreText.autoSize = false;
 		scoreText.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, RIGHT);
-		// scoreText.alignment = RIGHT;
 
 		scoreBG = new FlxSprite(scoreText.x - 6, 0).makeGraphic(1, 66, 0x99000000);
 		scoreBG.antialiasing = false;
@@ -139,37 +138,44 @@ class FreeplayState extends MusicBeatState
 
 		add(scoreText);
 
+		preview = new MusicPreview();
+
+		// Warm every chart in the background while the menu is up. Entering a song,
+		// restarting it or switching difficulty then never touches the disk again.
+		SongCache.queuePreload([for (song in songs) song.songId]);
+
 		changeSelection();
-		changeDiff();
-
-		// FlxG.sound.playMusic(Paths.music('title'), 0);
-		// FlxG.sound.music.fadeIn(2, 0, 0.8);
-		// selector = new FlxText();
-
-		// selector.size = 40;
-		// selector.text = ">";
-		// add(selector);
-
-		var swag:Alphabet = new Alphabet(1, 0, "swag");
-
-		// JUST DOIN THIS SHIT FOR TESTING!!!
-		/* 
-			var md:String = Markdown.markdownToHtml(Assets.getText('CHANGELOG.md'));
-
-			var texFel:TextField = new TextField();
-			texFel.width = FlxG.width;
-			texFel.height = FlxG.height;
-			// texFel.
-			texFel.htmlText = md;
-
-			FlxG.stage.addChild(texFel);
-
-			// scoreText.textField.htmlText = md;
-
-			trace(md);
-		 */
 
 		super.create();
+	}
+
+	/**
+	 * Adds any `.fnfc` song that isn't already in a week. Songs that share an id with a
+	 * legacy entry are left alone here; they still load from their bundle at play time.
+	 */
+	function addModernSongs():Void
+	{
+		for (id in ModernSongRegistry.ids())
+		{
+			var known = false;
+			for (song in songs)
+			{
+				if (song.songId == id)
+				{
+					known = true;
+					break;
+				}
+			}
+
+			if (known)
+				continue;
+
+			var modern = ModernSongRegistry.get(id);
+			var variation = modern.get(modern.variationOrder[0]);
+			var opponent = variation.metadata.playData.characters == null ? null : variation.metadata.playData.characters.opponent;
+
+			songs.push(new SongMetadata(modern.songName, 0, ModernCompat.icon(opponent)));
+		}
 	}
 
 	public function addSong(songName:String, weekNum:Int, songCharacter:String)
@@ -196,13 +202,18 @@ class FreeplayState extends MusicBeatState
 	{
 		super.update(elapsed);
 
-		if (FlxG.sound.music != null)
-		{
-			if (FlxG.sound.music.volume < 0.7)
-			{
-				FlxG.sound.music.volume += 0.5 * FlxG.elapsed;
-			}
-		}
+		preview.update(elapsed);
+		SongCache.stepPreload();
+
+		#if PRELOAD_ALL
+		// The menu music keeps running underneath at zero volume so returning to the main
+		// menu picks it up mid-track instead of restarting it.
+		if (FlxG.sound.music != null && !exiting)
+			FlxG.sound.music.volume = Math.max(0, FlxG.sound.music.volume - 2 * elapsed);
+		#else
+		if (FlxG.sound.music != null && FlxG.sound.music.volume < 0.7)
+			FlxG.sound.music.volume += 0.5 * elapsed;
+		#end
 
 		lerpScore = CoolUtil.coolLerp(lerpScore, intendedScore, 0.4);
 		bg.color = FlxColor.interpolate(bg.color, coolColors[songs[curSelected].week % coolColors.length], CoolUtil.camLerpShit(0.045));
@@ -210,6 +221,9 @@ class FreeplayState extends MusicBeatState
 		scoreText.text = "PERSONAL BEST:" + Math.round(lerpScore);
 
 		positionHighscore();
+
+		if (exiting)
+			return;
 
 		var upP = controls.UI_UP_P;
 		var downP = controls.UI_DOWN_P;
@@ -230,45 +244,80 @@ class FreeplayState extends MusicBeatState
 
 		if (controls.BACK)
 		{
+			exiting = true;
+			preview.stop();
 			FlxG.sound.play(Paths.sound('cancelMenu'));
 			FlxG.switchState(() -> new MainMenuState());
+			return;
 		}
 
 		if (accepted)
-		{
-			var poop:String = Highscore.formatSong(songs[curSelected].songName.toLowerCase(), curDifficulty);
-			PlayState.SONG = Song.loadFromJson(poop, songs[curSelected].songName.toLowerCase());
-			PlayState.isStoryMode = false;
-			PlayState.storyDifficulty = curDifficulty;
+			startSong();
+	}
 
-			PlayState.storyWeek = songs[curSelected].week;
-			trace('CUR WEEK' + PlayState.storyWeek);
-			LoadingState.loadAndSwitchState(() -> new PlayState());
+	function startSong():Void
+	{
+		var selected = songs[curSelected];
+		var chart = SongCache.load(selected.songId, curDifficulty);
+
+		if (chart == null)
+		{
+			// Nothing playable for this difficulty, so stay put instead of crashing on entry.
+			FlxG.sound.play(Paths.sound('cancelMenu'));
+			return;
 		}
+
+		exiting = true;
+		preview.stop(false);
+
+		PlayState.SONG = chart;
+		PlayState.isStoryMode = false;
+		PlayState.storyDifficulty = curDifficulty;
+		PlayState.storyWeek = selected.week;
+
+		LoadingState.loadAndSwitchState(() -> new PlayState());
+	}
+
+	override function destroy()
+	{
+		if (preview != null)
+			preview.destroy();
+
+		super.destroy();
 	}
 
 	function changeDiff(change:Int = 0)
 	{
+		var difficulties = CoolUtil.difficultyArray;
+
 		curDifficulty += change;
 
 		if (curDifficulty < 0)
-			curDifficulty = 2;
-		if (curDifficulty > 2)
+			curDifficulty = difficulties.length - 1;
+		if (curDifficulty >= difficulties.length)
 			curDifficulty = 0;
 
+		refreshDifficulty();
+
+		#if PRELOAD_ALL
+		// Still the same song, so carry the playhead over. Difficulties that share an
+		// instrumental resolve to the same track and are left playing untouched.
+		refreshPreview(true);
+		#end
+	}
+
+	function refreshDifficulty():Void
+	{
 		intendedScore = Highscore.getScore(songs[curSelected].songName, curDifficulty);
 
 		PlayState.storyDifficulty = curDifficulty;
 
-		diffText.text = "< " + CoolUtil.difficultyString() + " >";
+		diffText.text = "< " + CoolUtil.difficultyString(curDifficulty) + " >";
 		positionHighscore();
 	}
 
 	function changeSelection(change:Int = 0)
 	{
-		NGio.logEvent('Fresh');
-
-		// NGio.logEvent('Fresh');
 		FlxG.sound.play(Paths.sound('scrollMenu'), 0.4);
 
 		curSelected += change;
@@ -278,13 +327,17 @@ class FreeplayState extends MusicBeatState
 		if (curSelected >= songs.length)
 			curSelected = 0;
 
-		// selector.y = (70 * curSelected) + 30;
-
-		intendedScore = Highscore.getScore(songs[curSelected].songName, curDifficulty);
-		// lerpScore = 0;
+		// Each song brings its own difficulty list, so clamp the cursor into the new range
+		// before anything reads it.
+		CoolUtil.setDifficulties(SongCache.difficultiesFor(songs[curSelected].songId));
+		if (curDifficulty >= CoolUtil.difficultyArray.length)
+			curDifficulty = CoolUtil.difficultyArray.length - 1;
+		refreshDifficulty();
 
 		#if PRELOAD_ALL
-		FlxG.sound.playMusic(Paths.inst(songs[curSelected].songName), 0);
+		// A different song starts from the top.
+		refreshPreview(false);
+		prefetchNeighbours();
 		#end
 
 		var bullShit:Int = 0;
@@ -302,15 +355,31 @@ class FreeplayState extends MusicBeatState
 			bullShit++;
 
 			item.alpha = 0.6;
-			// item.setGraphicSize(Std.int(item.width * 0.8));
 
 			if (item.targetY == 0)
-			{
 				item.alpha = 1;
-				// item.setGraphicSize(Std.int(item.width));
-			}
 		}
 	}
+
+	#if PRELOAD_ALL
+	function refreshPreview(keepPosition:Bool):Void
+	{
+		preview.request(songs[curSelected].instrumental(curDifficulty), keepPosition);
+	}
+
+	/**
+	 * Opens the songs on either side of the cursor in the background, so the next scroll
+	 * already has its track ready. This must never block: it runs on every keypress.
+	 */
+	function prefetchNeighbours():Void
+	{
+		for (offset in [-1, 1])
+		{
+			var index = (curSelected + offset + songs.length) % songs.length;
+			AudioCache.loadAsync(songs[index].instrumental(curDifficulty));
+		}
+	}
+	#end
 
 	function positionHighscore()
 	{
@@ -326,13 +395,42 @@ class FreeplayState extends MusicBeatState
 class SongMetadata
 {
 	public var songName:String = "";
+	public var songId:String = "";
 	public var week:Int = 0;
 	public var songCharacter:String = "";
 
 	public function new(song:String, week:Int, songCharacter:String)
 	{
 		this.songName = song;
+		this.songId = song.toLowerCase();
 		this.week = week;
 		this.songCharacter = songCharacter;
+	}
+
+	/**
+	 * Where this song's instrumental lives: inside its bundle for modern songs, in the
+	 * `songs` asset library for everything else.
+	 *
+	 * Takes the difficulty because a modern song's variations each have their own
+	 * instrumental, so ERECT has to preview the erect mix rather than the base one.
+	 */
+	public function instrumental(difficulty:Int = 0):String
+	{
+		var modern = ModernSongRegistry.get(songId);
+		if (modern != null)
+		{
+			var difficulties = modern.listDifficulties();
+
+			if (difficulties.length > 0)
+			{
+				var index = difficulty < 0 ? 0 : (difficulty >= difficulties.length ? difficulties.length - 1 : difficulty);
+				var path = ModernSongRegistry.instrumentalPath(modern, difficulties[index].variation);
+
+				if (path != null)
+					return path;
+			}
+		}
+
+		return Paths.inst(songId);
 	}
 }

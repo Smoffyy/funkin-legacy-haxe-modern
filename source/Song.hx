@@ -7,6 +7,13 @@ import lime.utils.Assets;
 
 using StringTools;
 
+typedef SwagEvent =
+{
+	var time:Float;
+	var kind:String;
+	var value:Dynamic;
+}
+
 typedef SwagSong =
 {
 	var song:String;
@@ -18,6 +25,20 @@ typedef SwagSong =
 	var player1:String;
 	var player2:String;
 	var validScore:Bool;
+
+	/**
+	 * Everything below is only populated for songs loaded out of a `.fnfc` bundle.
+	 * Legacy charts leave them null and the engine keeps its original behaviour.
+	 */
+	@:optional var gfVersion:String;
+
+	@:optional var stage:String;
+	@:optional var events:Array<SwagEvent>;
+	@:optional var modernId:String;
+	@:optional var variation:String;
+	@:optional var difficultyId:String;
+	@:optional var instPath:String;
+	@:optional var vocalPaths:Array<String>;
 }
 
 class Song
@@ -48,22 +69,6 @@ class Song
 			// LOL GOING THROUGH THE BULLSHIT TO CLEAN IDK WHATS STRANGE
 		}
 
-		// FIX THE CASTING ON WINDOWS/NATIVE
-		// Windows???
-		// trace(songData);
-
-		// trace('LOADED FROM JSON: ' + songData.notes);
-		/* 
-			for (i in 0...songData.notes.length)
-			{
-				trace('LOADED FROM JSON: ' + songData.notes[i].sectionNotes);
-				// songData.notes[i].sectionNotes = songData.notes[i].sectionNotes
-			}
-
-				daNotes = songData.notes;
-				daSong = songData.song;
-				daBpm = songData.bpm; */
-
 		return parseJSONshit(rawJson);
 	}
 
@@ -72,5 +77,19 @@ class Song
 		var swagShit:SwagSong = cast Json.parse(rawJson).song;
 		swagShit.validScore = true;
 		return swagShit;
+	}
+
+	public static inline function isModern(song:SwagSong):Bool
+	{
+		return song != null && song.modernId != null;
+	}
+
+	/**
+	 * Lookup id for a song, which is the bundle id for modern songs and the lowercased
+	 * title for legacy ones.
+	 */
+	public static inline function idOf(song:SwagSong):String
+	{
+		return song == null ? null : (song.modernId != null ? song.modernId : song.song.toLowerCase());
 	}
 }

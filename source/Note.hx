@@ -31,6 +31,23 @@ class Note extends FlxSprite
 	public var altNote:Bool = false;
 	public var invisNote:Bool = false;
 
+	/**
+	 * Modern charts tag notes with a kind. `noanim` means the character holds their pose
+	 * instead of playing a sing animation when the note is hit.
+	 */
+	public var noteKind:String = '';
+
+	/**
+	 * Scroll speed the hold piece was last sized for, so a ScrollSpeed event can retile it.
+	 */
+	public var sustainScaleSpeed:Float = -1;
+
+	/**
+	 * How much of the hold this piece covers, in ms. Captured when the chart is generated so
+	 * the piece keeps tiling correctly through a BPM change.
+	 */
+	public var stepLength:Float = 0;
+
 	public var sustainLength:Float = 0;
 	public var isSustainNote:Bool = false;
 
@@ -54,6 +71,9 @@ class Note extends FlxSprite
 
 		this.prevNote = prevNote;
 		isSustainNote = sustainNote;
+
+		if (isSustainNote)
+			stepLength = Conductor.stepCrochet;
 
 		x += 50;
 		// MAKE SURE ITS DEFINITELY OFF SCREEN?
@@ -187,11 +207,36 @@ class Note extends FlxSprite
 						prevNote.animation.play('redhold');
 				}
 
-				prevNote.scale.y *= Conductor.stepCrochet / 100 * 1.5 * PlayState.SONG.speed;
-				prevNote.updateHitbox();
-				// prevNote.setGraphicSize();
+				// Scale the hold piece so its rendered height exactly matches the pixel
+				// distance to the next segment (one step of scroll), so segments tile
+				// seamlessly at any chart speed instead of drifting apart from each other.
+				prevNote.refreshSustainScale(PlayState.songSpeed);
 			}
 		}
+	}
+
+	/**
+	 * Resizes the hold piece so its rendered height matches one step of scroll at `speed`.
+	 * End caps keep their own size, only the tiling body stretches.
+	 */
+	public function refreshSustainScale(speed:Float):Void
+	{
+		sustainScaleSpeed = speed;
+
+		if (!isSustainNote || animation.curAnim == null || animation.curAnim.name.endsWith('end'))
+			return;
+
+		scale.y = sustainPixels(speed) / frameHeight;
+		updateHitbox();
+	}
+
+	/**
+	 * Height in pixels of one hold piece at `speed`, which is also the distance the chart
+	 * scrolls during the slice of time the piece represents.
+	 */
+	public inline function sustainPixels(speed:Float):Float
+	{
+		return stepLength * 0.45 * FlxMath.roundDecimal(speed, 2);
 	}
 
 	public function updateColors():Void

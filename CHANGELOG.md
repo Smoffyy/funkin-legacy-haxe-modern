@@ -4,6 +4,45 @@ All notable changes will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.2] - 2026-09-17 (Haxe Modern Edition)
+### Removed
+- Newgrounds / NG.io integration: `NGio`, `NgPrompt`, `APIStuff`, `OutdatedSubState`, the login and logout menu items, medals, online score posting and the version check, plus the `newgrounds` haxelib. The title intro's "in association with newgrounds" segment went with it, and the following credits moved up so the sequence keeps its timing
+
+### Changed
+- Freeplay loads previews on a background thread, so scrolling the song list no longer stalls on opening a track
+
+### Fixed
+- Held sustain trails showing above the receptors, from the clip gate waiting on the hold piece leaving its hit window rather than on the piece before it being hit
+
+## [3.1.1] - 2026-09-17 (Haxe Modern Edition)
+### Changed
+- Freeplay previews the instrumental of the selected difficulty's variation, and switching between variations of a song crossfades from the same playhead instead of restarting
+
+### Fixed
+- Gap between an arrow and the start of its hold, which widened with scroll speed and was worse on slower songs: hold pieces were drawn at the end of the slice of time they cover rather than the start, putting the whole chain one step below the note head
+- Notes sitting short of the receptors, by a gap that widened with scroll speed: the song clock only re-synced to the audio once it had drifted past 20ms, so a standing error of up to that much survived and showed up as `error * 0.45 * speed` pixels of offset. Corrections are now continuous, and the clock starts from the audio rather than from the countdown's overshoot
+
+## [3.1.0] - 2026-09-17 (Haxe Modern Edition)
+### Added
+- `.fnfc` bundle support: drop a folder with a `.fnfc` into `assets/modern-data` and that song loads from it, everything else keeps loading the legacy way
+- Full modern chart feature set: variations, per-variation difficulties, per-character vocal tracks, `noanim` notes, and the `FocusCamera` / `ZoomCamera` / `SetCameraBop` / `PlayAnimation` / `ScrollSpeed` events
+- Fallbacks for modern stages, characters and icons so a song referencing content this build doesn't ship still plays (erect/dark variants use their plain counterpart)
+- Options page in the pause menu, applied live without restarting the song
+- `SongCache` parses every chart once and warms the whole library in the background from freeplay
+- `AGENTS.md`
+
+### Changed
+- Freeplay previews crossfade instead of cutting, and are debounced so skipping through songs doesn't reload on every step
+- Menu music now ducks under the preview instead of stopping, so returning to the main menu resumes it
+- Stage selection is driven by a stage id rather than the song title, so modern and legacy songs share one stage builder
+- Difficulty list is per song rather than always EASY/NORMAL/HARD
+- Story mode and the pause menu load charts through `SongCache`
+
+### Fixed
+- Note splash frame rate drifting slower over a song, from the random offset compounding on recycled splashes
+- Freeplay preview continuing to play in the main menu when leaving quickly
+- Hold pieces not resizing when a `ScrollSpeed` event changes the scroll speed mid-song
+
 ## [3.0.1] - 2026-03-28 (Haxe Modern Edition)
 ### Added
 - Nightmare difficulty (index 4) across `CoolUtil`, `Highscore`, `StoryMenuState`, `FreeplayState`, and `FNFCLoader`

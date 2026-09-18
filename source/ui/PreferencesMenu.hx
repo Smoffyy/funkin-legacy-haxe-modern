@@ -15,9 +15,9 @@ class PreferencesMenu extends ui.OptionsState.Page
 {
 	public static var preferences:Map<String, Dynamic> = new Map();
 
-	static inline var MIN_FRAMERATE:Int = 60;
-	static inline var MAX_FRAMERATE:Int = 999;
 	static inline var DEFAULT_FRAMERATE:Int = 60;
+	static inline var UNLIMITED_FRAMERATE:Int = 999;
+	static var FRAMERATE_PRESETS:Array<Int> = [60, 75, 120, 144, 165, 180, 240, 360, UNLIMITED_FRAMERATE];
 
 	var items:TextMenuList;
 
@@ -27,7 +27,6 @@ class PreferencesMenu extends ui.OptionsState.Page
 
 	var frameItem:TextMenuItem;
 	var frameValueText:FlxText;
-	var frameHoldTime:Float = 0;
 
 	public function new()
 	{
@@ -46,6 +45,8 @@ class PreferencesMenu extends ui.OptionsState.Page
 		createPrefItem('Camera Zooming on Beat', 'camera-zoom', true);
 		createPrefItem('FPS Counter', 'fps-counter', true);
 		createPrefItem('Auto Pause', 'auto-pause', false);
+		createPrefItem('Opponent Strums', 'opponent-strums', false);
+		createPrefItem('Ghost Taps', 'ghost-tapping', false);
 		createFramerateItem();
 
 		camFollow = new FlxObject(FlxG.width / 2, 0, 140, 70);
@@ -72,16 +73,53 @@ class PreferencesMenu extends ui.OptionsState.Page
 	public static function setPref(pref:String, value:Dynamic):Void
 	{
 		preferences.set(pref, value);
+		savePrefs();
+	}
+
+	// Stored as a plain anonymous object (not a Haxe Map) since that's what
+	// FlxSave's serializer reliably round-trips on this target.
+	static function savePrefs():Void
+	{
+		if (FlxG.save.data == null)
+			return;
+
+		var stored:Dynamic = {};
+		for (key in preferences.keys())
+			Reflect.setField(stored, key, preferences.get(key));
+
+		FlxG.save.data.preferences = stored;
+		FlxG.save.flush();
+	}
+
+	static function loadPrefs():Void
+	{
+		if (FlxG.save.data == null || FlxG.save.data.preferences == null)
+			return;
+
+		try
+		{
+			for (key in Reflect.fields(FlxG.save.data.preferences))
+				preferences.set(key, Reflect.field(FlxG.save.data.preferences, key));
+		}
+		catch (e:Dynamic)
+		{
+			// Corrupt or old-format save data, fall back to defaults instead of crashing.
+			preferences = new Map();
+		}
 	}
 
 	public static function initPrefs():Void
 	{
+		loadPrefs();
+
 		preferenceCheck('censor-naughty', true);
 		preferenceCheck('downscroll', false);
 		preferenceCheck('flashing-menu', true);
 		preferenceCheck('camera-zoom', true);
 		preferenceCheck('fps-counter', true);
 		preferenceCheck('auto-pause', false);
+		preferenceCheck('opponent-strums', false);
+		preferenceCheck('ghost-tapping', false);
 		preferenceCheck('master-volume', 1);
 		preferenceCheck('framerate', DEFAULT_FRAMERATE);
 
@@ -113,11 +151,21 @@ class PreferencesMenu extends ui.OptionsState.Page
 	 */
 	public static function applyFramerate(fps:Int):Void
 	{
-		fps = Std.int(FlxMath.bound(fps, MIN_FRAMERATE, MAX_FRAMERATE));
 		setPref('framerate', fps);
 		FlxG.fixedTimestep = false;
-		FlxG.updateFramerate = fps;
-		FlxG.drawFramerate = fps;
+
+		// Set whichever one won't momentarily dip below the other, since flixel warns
+		// (and the accumulator temporarily misbehaves) if updateFramerate < drawFramerate.
+		if (fps >= FlxG.drawFramerate)
+		{
+			FlxG.updateFramerate = fps;
+			FlxG.drawFramerate = fps;
+		}
+		else
+		{
+			FlxG.drawFramerate = fps;
+			FlxG.updateFramerate = fps;
+		}
 	}
 
 	private function createPrefItem(prefName:String, prefString:String, prefValue:Dynamic):Void
@@ -163,7 +211,8 @@ class PreferencesMenu extends ui.OptionsState.Page
 
 	private function updateFramerateText():Void
 	{
-		frameValueText.text = Std.string(getPref('framerate'));
+		var fps:Int = getPref('framerate');
+		frameValueText.text = (fps >= UNLIMITED_FRAMERATE) ? 'unlimited' : Std.string(fps);
 		frameValueText.x = frameItem.x + frameItem.width + 16;
 		frameValueText.y = frameItem.y + (frameItem.height - frameValueText.height) * 0.5;
 	}
@@ -182,7 +231,7 @@ class PreferencesMenu extends ui.OptionsState.Page
 	{
 		var daSwap:Bool = preferences.get(prefName);
 		daSwap = !daSwap;
-		preferences.set(prefName, daSwap);
+		setPref(prefName, daSwap);
 		checkboxes[items.selectedIndex].daValue = daSwap;
 		trace('toggled? ' + preferences.get(prefName));
 
@@ -195,9 +244,24 @@ class PreferencesMenu extends ui.OptionsState.Page
 					FlxG.stage.removeChild(Main.fpsCounter);
 			case 'auto-pause':
 				FlxG.autoPause = getPref('auto-pause');
+			case 'downscroll':
+				// The playfield is already built, so move it instead of making the player restart.
+				if (Std.isOfType(FlxG.state, PlayState))
+					cast(FlxG.state, PlayState).applyScrollDirection();
+		}
+	}
+
+	override function destroy():Void
+	{
+		// This page owns its camera, and it is shown from the pause menu as well as from
+		// the options state, so it has to clean up after itself either way.
+		if (menuCamera != null)
+		{
+			FlxG.cameras.remove(menuCamera);
+			menuCamera = null;
 		}
 
-		if (prefName == 'fps-counter') {}
+		super.destroy();
 	}
 
 	override function update(elapsed:Float)
@@ -215,42 +279,24 @@ class PreferencesMenu extends ui.OptionsState.Page
 		});
 
 		if (items.selectedItem == frameItem)
-			updateFramerateInput(elapsed);
-		else
-			frameHoldTime = 0;
+		{
+			if (controls.UI_LEFT_P)
+				changeFramerate(-1);
+			else if (controls.UI_RIGHT_P)
+				changeFramerate(1);
+		}
 
 		updateFramerateText();
 	}
 
-	private function updateFramerateInput(elapsed:Float):Void
-	{
-		if (controls.UI_LEFT_P)
-		{
-			frameHoldTime = 0;
-			changeFramerate(-1);
-		}
-		else if (controls.UI_RIGHT_P)
-		{
-			frameHoldTime = 0;
-			changeFramerate(1);
-		}
-		else if (controls.UI_LEFT || controls.UI_RIGHT)
-		{
-			frameHoldTime += elapsed;
-
-			if (frameHoldTime > 0.4)
-			{
-				frameHoldTime -= 0.04;
-				changeFramerate(controls.UI_LEFT ? -1 : 1);
-			}
-		}
-		else
-			frameHoldTime = 0;
-	}
-
 	private function changeFramerate(delta:Int):Void
 	{
-		applyFramerate(getPref('framerate') + delta);
+		var index:Int = FRAMERATE_PRESETS.indexOf(getPref('framerate'));
+		if (index == -1)
+			index = 0;
+
+		index = Std.int(FlxMath.bound(index + delta, 0, FRAMERATE_PRESETS.length - 1));
+		applyFramerate(FRAMERATE_PRESETS[index]);
 	}
 
 	private static function preferenceCheck(prefString:String, prefValue:Dynamic):Void

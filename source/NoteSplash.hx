@@ -6,6 +6,8 @@ import haxe.io.Path;
 
 class NoteSplash extends FlxSprite
 {
+	static inline var BASE_FRAMERATE:Int = 24;
+
 	public function new(x:Float, y:Float, noteData:Int = 0):Void
 	{
 		super(x, y);
@@ -32,7 +34,13 @@ class NoteSplash extends FlxSprite
 		alpha = 0.6;
 
 		animation.play('note' + noteData + '-' + FlxG.random.int(0, 1), true);
-		animation.curAnim.frameRate += FlxG.random.int(-2, 2);
+
+		// Splashes are recycled, and each sprite reuses the same animation objects. Offsetting
+		// the frame rate from its current value therefore compounded every time a splash was
+		// reused, so it drifted further from 24fps the longer the song ran. Set it outright.
+		if (animation.curAnim != null)
+			animation.curAnim.frameRate = BASE_FRAMERATE + FlxG.random.int(-2, 2);
+
 		updateHitbox();
 
 		offset.set(width * 0.3, height * 0.3);
@@ -40,7 +48,7 @@ class NoteSplash extends FlxSprite
 
 	override function update(elapsed:Float)
 	{
-		if (animation.curAnim.finished)
+		if (animation.curAnim != null && animation.curAnim.finished)
 			kill();
 
 		super.update(elapsed);

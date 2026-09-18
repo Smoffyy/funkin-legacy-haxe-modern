@@ -42,6 +42,11 @@ class HealthIcon extends FlxSprite
 		if (newChar != 'bf-pixel' && newChar != 'bf-old')
 			newChar = newChar.split('-')[0].trim();
 
+		// Modern songs can name a character this build has no icon for, so fall back to the
+		// placeholder rather than failing to load a graphic.
+		if (!openfl.utils.Assets.exists(Paths.image('icons/icon-' + newChar), IMAGE))
+			newChar = 'face';
+
 		if (newChar != char)
 		{
 			if (animation.getByName(newChar) == null)
