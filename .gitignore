@@ -6,3 +6,7 @@ export/
 
 # Test scripts
 PsychConverterTest.hx
+
+# Modern song bundles
+fnfc/*
+!fnfc/readme.txt

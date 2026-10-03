@@ -23,7 +23,7 @@ using StringTools;
  */
 class ModernSongRegistry
 {
-	public static inline var ROOT:String = 'assets/modern-data';
+	public static inline var FOLDER:String = 'fnfc';
 
 	static inline var CACHE_FOLDER:String = 'modern-cache';
 	static inline var STAMP_FILE:String = '.fnfc-stamp';
@@ -48,7 +48,7 @@ class ModernSongRegistry
 		catch (e:Dynamic)
 		{
 			// A malformed bundle must never take the game down, just fall back to legacy.
-			trace('[modern] failed to scan ' + ROOT + ': ' + e);
+			trace('[modern] failed to scan ' + FOLDER + ': ' + e);
 			songs = new Map();
 			songIds = [];
 		}
@@ -85,18 +85,33 @@ class ModernSongRegistry
 		songs = new Map();
 		songIds = [];
 
-		if (!FileSystem.exists(ROOT) || !FileSystem.isDirectory(ROOT))
+		var root = rootPath();
+		if (!FileSystem.exists(root) || !FileSystem.isDirectory(root))
 			return;
 
-		for (folder in FileSystem.readDirectory(ROOT))
+		var seen:Map<String, Bool> = new Map();
+
+		for (entry in FileSystem.readDirectory(root))
 		{
-			var folderPath = Path.join([ROOT, folder]);
-			if (folder.startsWith('.') || !FileSystem.isDirectory(folderPath))
+			var entryPath = Path.join([root, entry]);
+			if (entry.startsWith('.'))
 				continue;
 
-			var bundle = findBundle(folderPath);
-			if (bundle == null)
+			var folder:String = entry;
+			var bundle:String = null;
+
+			if (FileSystem.isDirectory(entryPath))
+				bundle = findBundle(entryPath);
+			else if (entry.toLowerCase().endsWith('.fnfc'))
+			{
+				folder = Path.withoutExtension(entry);
+				bundle = entryPath;
+			}
+
+			if (bundle == null || seen.exists(folder.toLowerCase()))
 				continue;
+
+			seen.set(folder.toLowerCase(), true);
 
 			try
 			{
@@ -114,6 +129,12 @@ class ModernSongRegistry
 		}
 
 		songIds.sort(function(a, b) return a < b ? -1 : (a > b ? 1 : 0));
+	}
+
+	static function rootPath():String
+	{
+		var beside = Path.join([Path.directory(Sys.programPath()), FOLDER]);
+		return FileSystem.exists(beside) ? beside : FOLDER;
 	}
 
 	static function findBundle(folderPath:String):String

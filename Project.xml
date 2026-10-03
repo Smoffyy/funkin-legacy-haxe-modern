@@ -98,7 +98,7 @@
 	
 	<!-- Modern `.fnfc` song bundles. Copied next to the executable rather than embedded, so
 	     songs can be dropped in or removed without a rebuild. -->
-	<assets path="assets/modern-data" rename="assets/modern-data" embed="false" />
+	<assets path="fnfc" rename="fnfc" embed="false" />
 
 	<!-- <assets path='example_mods' rename='mods' embed='false'/> -->
 

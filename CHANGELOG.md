@@ -4,6 +4,13 @@ All notable changes will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.3] - 2026-10-03 (Haxe Modern Edition)
+### Removed
+- Framerate option from the preferences menu. The game always runs uncapped now, and the saved `framerate` preference is ignored
+
+### Fixed
+- Hold trails poking out above the arrow on fast charts: pieces are now anchored to the centre of the note head, which is also where the receptor clip happens, so the trail starts hidden behind the head and keeps its full length at any scroll speed
+
 ## [3.1.2] - 2026-09-17 (Haxe Modern Edition)
 ### Removed
 - Newgrounds / NG.io integration: `NGio`, `NgPrompt`, `APIStuff`, `OutdatedSubState`, the login and logout menu items, medals, online score posting and the version check, plus the `newgrounds` haxelib. The title intro's "in association with newgrounds" segment went with it, and the following credits moved up so the sequence keeps its timing

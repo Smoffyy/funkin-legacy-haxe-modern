@@ -1,0 +1,1 @@
+Drop modern .fnfc song bundles in this folder, either loose (bopeebo.fnfc) or inside their own folder (bopeebo/bopeebo.fnfc). The game finds this folder next to Funkin.exe.

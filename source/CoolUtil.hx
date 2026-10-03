@@ -28,6 +28,40 @@ class CoolUtil
 		difficultyArray = (difficulties == null || difficulties.length == 0) ? defaultDifficulties.copy() : difficulties;
 	}
 
+	static var difficultyOrder:Array<String> = ['EASY', 'NORMAL', 'HARD', 'ERECT', 'NIGHTMARE'];
+
+	static function difficultyRank(name:String):Int
+	{
+		var rank = difficultyOrder.indexOf(name.split(' (')[0]);
+		return rank == -1 ? difficultyOrder.length : rank;
+	}
+
+	public static function closestDifficulty(names:Array<String>, wanted:String):Int
+	{
+		var exact = names.indexOf(wanted);
+		if (exact != -1 || names.length == 0)
+			return exact == -1 ? 0 : exact;
+
+		var wantedRank = difficultyRank(wanted);
+		var below = -1;
+		var above = -1;
+
+		for (i in 0...names.length)
+		{
+			var rank = difficultyRank(names[i]);
+
+			if (rank <= wantedRank)
+			{
+				if (below == -1 || rank > difficultyRank(names[below]))
+					below = i;
+			}
+			else if (above == -1 || rank < difficultyRank(names[above]))
+				above = i;
+		}
+
+		return below != -1 ? below : above;
+	}
+
 	public static function difficultyString(?index:Int):String
 	{
 		if (index == null)

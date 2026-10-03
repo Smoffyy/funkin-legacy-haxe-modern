@@ -21,6 +21,8 @@ class FreeplayState extends MusicBeatState
 	var songs:Array<SongMetadata> = [];
 
 	var curSelected:Int = 0;
+	static var preferredDifficulty:String = 'NORMAL';
+
 	var curDifficulty:Int = 1;
 
 	var scoreText:FlxText;
@@ -297,6 +299,8 @@ class FreeplayState extends MusicBeatState
 		if (curDifficulty >= difficulties.length)
 			curDifficulty = 0;
 
+		preferredDifficulty = difficulties[curDifficulty];
+
 		refreshDifficulty();
 
 		#if PRELOAD_ALL
@@ -330,8 +334,7 @@ class FreeplayState extends MusicBeatState
 		// Each song brings its own difficulty list, so clamp the cursor into the new range
 		// before anything reads it.
 		CoolUtil.setDifficulties(SongCache.difficultiesFor(songs[curSelected].songId));
-		if (curDifficulty >= CoolUtil.difficultyArray.length)
-			curDifficulty = CoolUtil.difficultyArray.length - 1;
+		curDifficulty = CoolUtil.closestDifficulty(CoolUtil.difficultyArray, preferredDifficulty);
 		refreshDifficulty();
 
 		#if PRELOAD_ALL

@@ -5,9 +5,6 @@ import flixel.FlxG;
 import flixel.FlxObject;
 import flixel.FlxSprite;
 import flixel.group.FlxGroup;
-import flixel.math.FlxMath;
-import flixel.text.FlxText;
-import flixel.util.FlxColor;
 import ui.AtlasText.AtlasFont;
 import ui.TextMenuList.TextMenuItem;
 
@@ -15,18 +12,13 @@ class PreferencesMenu extends ui.OptionsState.Page
 {
 	public static var preferences:Map<String, Dynamic> = new Map();
 
-	static inline var DEFAULT_FRAMERATE:Int = 60;
 	static inline var UNLIMITED_FRAMERATE:Int = 999;
-	static var FRAMERATE_PRESETS:Array<Int> = [60, 75, 120, 144, 165, 180, 240, 360, UNLIMITED_FRAMERATE];
 
 	var items:TextMenuList;
 
 	var checkboxes:Array<CheckboxThingie> = [];
 	var menuCamera:FlxCamera;
 	var camFollow:FlxObject;
-
-	var frameItem:TextMenuItem;
-	var frameValueText:FlxText;
 
 	public function new()
 	{
@@ -47,7 +39,6 @@ class PreferencesMenu extends ui.OptionsState.Page
 		createPrefItem('Auto Pause', 'auto-pause', false);
 		createPrefItem('Opponent Strums', 'opponent-strums', false);
 		createPrefItem('Ghost Taps', 'ghost-tapping', false);
-		createFramerateItem();
 
 		camFollow = new FlxObject(FlxG.width / 2, 0, 140, 70);
 		if (items != null)
@@ -111,6 +102,7 @@ class PreferencesMenu extends ui.OptionsState.Page
 	public static function initPrefs():Void
 	{
 		loadPrefs();
+		preferences.remove('framerate');
 
 		preferenceCheck('censor-naughty', true);
 		preferenceCheck('downscroll', false);
@@ -121,7 +113,6 @@ class PreferencesMenu extends ui.OptionsState.Page
 		preferenceCheck('opponent-strums', false);
 		preferenceCheck('ghost-tapping', false);
 		preferenceCheck('master-volume', 1);
-		preferenceCheck('framerate', DEFAULT_FRAMERATE);
 
 		#if muted
 		setPref('master-volume', 0);
@@ -133,11 +124,11 @@ class PreferencesMenu extends ui.OptionsState.Page
 
 		FlxG.autoPause = getPref('auto-pause');
 
-		applyFramerate(getPref('framerate'));
+		applyFramerate();
 	}
 
 	/**
-	 * Applies the framerate to both the update and draw loops, so gameplay logic
+	 * Runs the update and draw loops at the same, effectively uncapped rate, so gameplay logic
 	 * (note scrolling, sustains, Conductor timing) advances in lockstep with what's drawn,
 	 * instead of judder from update/draw running at different rates.
 	 *
@@ -149,23 +140,11 @@ class PreferencesMenu extends ui.OptionsState.Page
 	 * slows to whatever the real update rate ends up being. Variable timestep just uses
 	 * real measured elapsed time each frame, so it can't get stuck like that.
 	 */
-	public static function applyFramerate(fps:Int):Void
+	public static function applyFramerate():Void
 	{
-		setPref('framerate', fps);
 		FlxG.fixedTimestep = false;
-
-		// Set whichever one won't momentarily dip below the other, since flixel warns
-		// (and the accumulator temporarily misbehaves) if updateFramerate < drawFramerate.
-		if (fps >= FlxG.drawFramerate)
-		{
-			FlxG.updateFramerate = fps;
-			FlxG.drawFramerate = fps;
-		}
-		else
-		{
-			FlxG.drawFramerate = fps;
-			FlxG.updateFramerate = fps;
-		}
+		FlxG.updateFramerate = UNLIMITED_FRAMERATE;
+		FlxG.drawFramerate = UNLIMITED_FRAMERATE;
 	}
 
 	private function createPrefItem(prefName:String, prefString:String, prefValue:Dynamic):Void
@@ -194,27 +173,6 @@ class PreferencesMenu extends ui.OptionsState.Page
 		}
 
 		trace(Type.typeof(prefValue).getName());
-	}
-
-	private function createFramerateItem():Void
-	{
-		frameItem = items.createItem(120, (120 * items.length) + 30, 'framerate', AtlasFont.Bold, function() {});
-
-		// The bold atlas font used for the other menu labels has no digit glyphs,
-		// so the number is drawn with a normal FlxText instead.
-		frameValueText = new FlxText(0, 0, 0, '', 32);
-		frameValueText.setFormat(Paths.font('vcr.ttf'), 32, FlxColor.WHITE, LEFT, OUTLINE, FlxColor.BLACK);
-		add(frameValueText);
-
-		updateFramerateText();
-	}
-
-	private function updateFramerateText():Void
-	{
-		var fps:Int = getPref('framerate');
-		frameValueText.text = (fps >= UNLIMITED_FRAMERATE) ? 'unlimited' : Std.string(fps);
-		frameValueText.x = frameItem.x + frameItem.width + 16;
-		frameValueText.y = frameItem.y + (frameItem.height - frameValueText.height) * 0.5;
 	}
 
 	function createCheckbox(prefString:String)
@@ -277,26 +235,6 @@ class PreferencesMenu extends ui.OptionsState.Page
 			else
 				daItem.x = 120;
 		});
-
-		if (items.selectedItem == frameItem)
-		{
-			if (controls.UI_LEFT_P)
-				changeFramerate(-1);
-			else if (controls.UI_RIGHT_P)
-				changeFramerate(1);
-		}
-
-		updateFramerateText();
-	}
-
-	private function changeFramerate(delta:Int):Void
-	{
-		var index:Int = FRAMERATE_PRESETS.indexOf(getPref('framerate'));
-		if (index == -1)
-			index = 0;
-
-		index = Std.int(FlxMath.bound(index + delta, 0, FRAMERATE_PRESETS.length - 1));
-		applyFramerate(FRAMERATE_PRESETS[index]);
 	}
 
 	private static function preferenceCheck(prefString:String, prefValue:Dynamic):Void

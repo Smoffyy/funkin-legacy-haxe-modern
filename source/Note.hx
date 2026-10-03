@@ -48,6 +48,10 @@ class Note extends FlxSprite
 	 */
 	public var stepLength:Float = 0;
 
+	public var capHeight:Float = 0;
+
+	public var isCap(get, never):Bool;
+
 	public var sustainLength:Float = 0;
 	public var isSustainNote:Bool = false;
 
@@ -61,6 +65,8 @@ class Note extends FlxSprite
 	public static var RED_NOTE:Int = 3;
 
 	public static var arrowColors:Array<Float> = [1, 1, 1, 1];
+
+	static var swaps:Array<ColorSwap> = [];
 
 	public function new(strumTime:Float, noteData:Int, ?prevNote:Note, ?sustainNote:Bool = false)
 	{
@@ -142,7 +148,10 @@ class Note extends FlxSprite
 				// replaceColor(0xFFC1C1C1, FlxColor.RED);
 		}
 
-		colorSwap = new ColorSwap();
+		if (swaps[noteData] == null)
+			swaps[noteData] = new ColorSwap();
+
+		colorSwap = swaps[noteData];
 		shader = colorSwap.shader;
 		updateColors();
 
@@ -223,25 +232,31 @@ class Note extends FlxSprite
 	{
 		sustainScaleSpeed = speed;
 
-		if (!isSustainNote || animation.curAnim == null || animation.curAnim.name.endsWith('end'))
+		if (!isSustainNote || animation.curAnim == null || isCap)
 			return;
 
-		scale.y = sustainPixels(speed) / frameHeight;
+		scale.y = Math.max(sustainPixels(speed) - capHeight, 1) / frameHeight;
 		updateHitbox();
 	}
 
 	/**
-	 * Height in pixels of one hold piece at `speed`, which is also the distance the chart
-	 * scrolls during the slice of time the piece represents.
+	 * Pixels of scroll the piece's slot of time covers at `speed`. The end cap has a fixed
+	 * size, and the piece before it gives up `capHeight` of its slot so the cap's bottom edge
+	 * lands exactly on the end of the charted hold.
 	 */
-	public inline function sustainPixels(speed:Float):Float
+	public function sustainPixels(speed:Float):Float
 	{
-		return stepLength * 0.45 * FlxMath.roundDecimal(speed, 2);
+		return isCap ? height : stepLength * 0.45 * FlxMath.roundDecimal(speed, 2);
+	}
+
+	function get_isCap():Bool
+	{
+		return isSustainNote && animation.curAnim != null && animation.curAnim.name.endsWith('end');
 	}
 
 	public function updateColors():Void
 	{
-		colorSwap.update(arrowColors[noteData]);
+		colorSwap.shader.uTime.value[0] = arrowColors[noteData];
 	}
 
 	override function update(elapsed:Float)

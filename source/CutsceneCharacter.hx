@@ -54,7 +54,7 @@ class CutsceneCharacter extends FlxTypedGroup<FlxSprite>
 		cutScene.animation.play('weed');
 		cutScene.antialiasing = true;
 
-		cutScene.animation.finishCallback = function(anim:String)
+		cutScene.animation.onFinish.add(function(anim:String)
 		{
 			cutScene.kill();
 			cutScene.destroy();
@@ -64,7 +64,7 @@ class CutsceneCharacter extends FlxTypedGroup<FlxSprite>
 				createCutscene(daNum + 1);
 			else
 				ended();
-		};
+		});
 
 		add(cutScene);
 	}
